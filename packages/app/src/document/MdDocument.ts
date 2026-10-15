@@ -77,10 +77,17 @@ export class MdDocument {
   /**
    * 未编辑时返回 null —— 调用方必须据此跳过写盘，
    * 这正是「零编辑保存 = 不写盘」这条铁律的实现方式。
+   *
+   * 编辑后保存时按打开时记录的元信息还原包装（architecture.md §3.3）：
+   * - EOL：`init.eol === 'crlf'` 时把未被 `\r` 前置的 `\n` 转为 `\r\n`；
+   *   `'lf'` 时保持字节不动（不把既有 `\r\n` 强转回 `\n`）。
+   * - BOM：`init.hasBom` 时在内容前补回 U+FEFF。
    */
   bytesForSave(): string | null {
     if (!this.dirty) return null
-    return encodeUtf8Base64(this.currentText)
+    const text =
+      this.init.eol === 'crlf' ? this.currentText.replace(/(?<!\r)\n/g, '\r\n') : this.currentText
+    return encodeUtf8Base64(this.init.hasBom ? `\uFEFF${text}` : text)
   }
 
   markSaved(credential: WriteCredential | null = null): void {

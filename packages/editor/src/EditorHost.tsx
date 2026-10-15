@@ -23,15 +23,25 @@ export interface EditorHostProps {
 function EditorHostInner(props: EditorHostProps) {
   const { docId, initialMarkdown, onMarkdownChange, onReady } = props
   const handleRef = useRef<EditorHandle | null>(null)
+  const initialMarkdownRef = useRef(initialMarkdown)
+  const onMarkdownChangeRef = useRef(onMarkdownChange)
 
+  useEffect(() => {
+    initialMarkdownRef.current = initialMarkdown
+    onMarkdownChangeRef.current = onMarkdownChange
+  }, [initialMarkdown, onMarkdownChange])
+
+  // 同步器只创建一次：App 传入的 inline 回调会随父组件重渲染重建，
+  // 若直接依赖 props，重渲染会 dispose 掉尚在 300ms 防抖窗口内的 pending flush，
+  // 导致排队中的写入被静默丢弃（Ctrl+S 写不出任何内容）。
   const sync = useMemo(
     () =>
       createMarkdownSync({
         delayMs: 300,
-        serialize: () => handleRef.current?.getMarkdown() ?? initialMarkdown,
-        onFlush: (markdown) => onMarkdownChange(markdown),
+        serialize: () => handleRef.current?.getMarkdown() ?? initialMarkdownRef.current,
+        onFlush: (markdown) => onMarkdownChangeRef.current(markdown),
       }),
-    [initialMarkdown, onMarkdownChange],
+    [],
   )
 
   useEffect(() => () => sync.dispose(), [sync])
@@ -57,13 +67,13 @@ function EditorHostInner(props: EditorHostProps) {
     const handle: EditorHandle = {
       getMarkdown: () => {
         const editor = get()
-        return editor ? editor.action(getMarkdown()) : initialMarkdown
+        return editor ? editor.action(getMarkdown()) : initialMarkdownRef.current
       },
       flushNow: () => sync.flushNow(),
     }
     handleRef.current = handle
     onReady?.(handle)
-  }, [get, initialMarkdown, onReady, sync])
+  }, [get, onReady, sync])
 
   return <Milkdown />
 }

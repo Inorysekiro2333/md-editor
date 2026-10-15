@@ -4,6 +4,11 @@ import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
 
+function toStatusMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error)
+  return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
+}
+
 export function App() {
   const doc = useAppStore((state) => state.doc)
   const setDoc = useAppStore((state) => state.setDoc)
@@ -16,21 +21,28 @@ export function App() {
 
   const openFile = useCallback(
     async (path: string) => {
-      const content = await ipc.readFile(path)
-      await ipc.watchFile(path)
-      setDoc(
-        new MdDocument({
-          id: `${path}#${Date.now()}`,
-          path,
-          text: content.text,
-          originalBytesBase64: content.base64,
-          eol: content.eol,
-          hasBom: content.hasBom,
-        }),
-      )
-      setExternalNotice(null)
-      setStatus(`已打开 ${path}`)
-      setReloadToken((token) => token + 1)
+      try {
+        const content = await ipc.readFile(path)
+        await ipc.watchFile(path)
+        setDoc(
+          new MdDocument({
+            id: `${path}#${Date.now()}`,
+            path,
+            text: content.text,
+            originalBytesBase64: content.base64,
+            eol: content.eol,
+            hasBom: content.hasBom,
+          }),
+        )
+        setExternalNotice(null)
+        setStatus(`已打开 ${path}`)
+        setReloadToken((token) => token + 1)
+      } catch (error) {
+        console.error('[app] openFile failed', error)
+        setDoc(null)
+        setExternalNotice(null)
+        setStatus(`打开失败：${toStatusMessage(error)}`)
+      }
     },
     [setDoc, setExternalNotice],
   )
@@ -44,9 +56,14 @@ export function App() {
       setStatus('无改动，已跳过写盘')
       return
     }
-    const credential = await ipc.writeFile(current.path, bytes)
-    current.markSaved(credential)
-    setStatus('已保存')
+    try {
+      const credential = await ipc.writeFile(current.path, bytes)
+      current.markSaved(credential)
+      setStatus('已保存')
+    } catch (error) {
+      console.error('[app] save failed', error)
+      setStatus('保存失败，请重试')
+    }
   }, [])
 
   useEffect(() => {
@@ -71,11 +88,16 @@ export function App() {
         setExternalNotice('文件已被外部修改，请另存以免覆盖')
         return
       }
-      const content = await ipc.readFile(path)
-      current.setExternalText(content.text, content.base64)
-      setReloadToken((token) => token + 1)
-      setExternalNotice(null)
-      setStatus('已自动重载外部修改')
+      try {
+        const content = await ipc.readFile(path)
+        current.setExternalText(content.text, content.base64)
+        setReloadToken((token) => token + 1)
+        setExternalNotice(null)
+        setStatus('已自动重载外部修改')
+      } catch (error) {
+        console.error('[app] reload external change failed', error)
+        setStatus(`打开失败：${toStatusMessage(error)}`)
+      }
     })
     return unsubscribe
   }, [setExternalNotice])

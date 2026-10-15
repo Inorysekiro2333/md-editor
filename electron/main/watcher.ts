@@ -39,6 +39,9 @@ export async function createFileWatcher(options: FileWatcherOptions): Promise<FS
 
   watcher.on('change', (changedPath) => void handle(changedPath))
   watcher.on('add', (changedPath) => void handle(changedPath))
+  watcher.on('error', (error) => {
+    console.error('[watcher] error', error)
+  })
 
   await new Promise<void>((resolve) => watcher.once('ready', () => resolve()))
   return watcher
