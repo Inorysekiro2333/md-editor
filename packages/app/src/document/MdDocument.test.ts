@@ -91,4 +91,3 @@ describe('MdDocument', () => {
     expect(doc.bytesForSave()).toBe(encodeUtf8Base64('\uFEFF# hello world\n'))
   })
 })
-
