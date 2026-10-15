@@ -2582,6 +2582,7 @@ git tag m0-electron
 | 3 | e2e 用 `--open` 而非系统对话框 | 避免自动化驱动系统文件对话框；同时为 M5 文件关联打基础 |
 | 4 | `packages/export` / `packages/theming` 在 M0 不创建 | `TODO.md` M0 只要求结构就位，这两个包的实现分别在 M4 导出与主题阶段；提前建空包属 YAGNI。若要求「目录必须齐」，在 Task 1 各加一个只含 `package.json` 的占位包并在此登记 |
 | 5 | 首次冷启动不设硬门禁 | 首次含系统扫描等一次性开销，`architecture.md` 5 节给了 < 8s 的宽松值；CI 不测启动时间，仅在实际发布前手工测（M5） |
+| 6 | `pnpm-workspace.yaml` 含 pnpm 11.25 自动写入的 `allowBuilds` | pnpm 11.25.0 会把 `electron-winstaller` 的构建脚本置为需批准并重写该文件；已裁决 `electron-winstaller: true`（该脚本仅选择随包 7-Zip 架构）。若未来改为 `false`，必须先验证 `electron-builder --dir` 与 Windows 打包仍可用。 |
 
 **5. 执行顺序注意事项**
 
