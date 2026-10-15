@@ -749,7 +749,7 @@ git commit -m "feat(main): add electron shell with sandboxed preload bridge"
   - `readFile(path: string): Promise<FileContent>`
   - `writeAtomic(path: string, bytes: Buffer): Promise<WriteCredential>`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `electron/main/fs_io.test.ts`:
 
@@ -830,13 +830,13 @@ describe('writeAtomic', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `pnpm test -- electron/main/fs_io.test.ts`
 
 Expected: FAIL —— `./fs_io` 不存在。
 
-- [ ] **Step 3: 实现 fs_io**
+- [x] **Step 3: 实现 fs_io**
 
 `electron/main/fs_io.ts`:
 
@@ -927,13 +927,13 @@ export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCre
 
 > `tmpPathFor` 被 `writeAtomic` 与后续清理逻辑共用；两处必须走同一个函数，否则"写盘失败不留半个文件"会漏删。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm test -- electron/main/fs_io.test.ts`
 
 Expected: PASS（5 个用例）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add electron/main/fs_io.ts electron/main/fs_io.test.ts
