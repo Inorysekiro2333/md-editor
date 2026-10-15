@@ -1563,7 +1563,7 @@ git commit -m "feat(app): wire ipc bridge and buffer-of-truth document"
   - `interface EditorHandle { getMarkdown(): string; flushNow(): void }`
   - `<EditorHost docId initialMarkdown onMarkdownChange onReady />`
 
-- [ ] **Step 1: 写 sync 失败测试**
+- [x] **Step 1: 写 sync 失败测试**
 
 `packages/editor/src/sync.test.ts`:
 
@@ -1644,13 +1644,13 @@ describe('createMarkdownSync', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `pnpm test -- packages/editor/src/sync.test.ts`
 
 Expected: FAIL —— `./sync` 不存在。
 
-- [ ] **Step 3: 实现 sync**
+- [x] **Step 3: 实现 sync**
 
 `packages/editor/src/sync.ts`:
 
@@ -1707,13 +1707,13 @@ export function createMarkdownSync(options: MarkdownSyncOptions): MarkdownSync {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm test -- packages/editor/src/sync.test.ts`
 
 Expected: PASS（5 个用例）。
 
-- [ ] **Step 5: 写 Milkdown `EditorHost`**
+- [x] **Step 5: 写 Milkdown `EditorHost`**
 
 `packages/editor/package.json`:
 
@@ -1842,7 +1842,7 @@ export { createMarkdownSync, type MarkdownSync, type MarkdownSyncOptions } from 
 
 > 已核实的 Milkdown 7.22.3 API：`useEditor` 返回 `{ loading, get }`；`editor.action(getMarkdown())` 取 Markdown；`listenerCtx.markdownUpdated` 提供变更通知；`history` 是 `MilkdownPlugin[]`。
 
-- [ ] **Step 6: 接入 app 依赖并全量校验**
+- [x] **Step 6: 接入 app 依赖并全量校验**
 
 1. `packages/app/package.json` 的 `dependencies` 增加 `"@md-editor/editor": "workspace:*"`。
 2. 根 `package.json` 的 `typecheck` 改为：
@@ -1855,7 +1855,7 @@ Run: `pnpm install; pnpm test; pnpm typecheck`
 
 Expected: 28 个用例通过，类型检查无错误。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add packages/editor packages/app/package.json package.json pnpm-lock.yaml
