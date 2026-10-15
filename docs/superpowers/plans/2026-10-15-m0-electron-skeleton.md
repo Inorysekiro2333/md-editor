@@ -2528,11 +2528,11 @@ git commit -m "chore(ci): add electron lint, test and build gates"
 - Consumes: Task 1–10 的全部产出
 - Produces: 与实现一致的 M0 状态
 
-- [ ] **Step 1: 写入性能基线**
+- [x] **Step 1: 写入性能基线**
 
 把 Task 9 输出的一行数据替换 `development.md` 7 节里的"待 M0"占位行，并在备注写明：测量工具（`app.getAppMetrics()`）、口径差异（`workingSetSize` 之和 vs `architecture.md` 5 节的"私有工作集"）、平台（win32）。
 
-- [ ] **Step 2: 澄清 `e2e:install`**
+- [x] **Step 2: 澄清 `e2e:install`**
 
 `development.md` 1 节表格里 Playwright 一行改为：
 
@@ -2540,11 +2540,11 @@ git commit -m "chore(ci): add electron lint, test and build gates"
 | Playwright | 跟随 devDependencies | e2e 走 `_electron` 驱动真实应用，**不需要** `pnpm e2e:install`；该命令仅供将来浏览器模式用例使用 |
 ```
 
-- [ ] **Step 3: 校对 `component-api.md`**
+- [x] **Step 3: 校对 `component-api.md`**
 
 逐项核对实现与文档：通道名（`app:info` / `doc:read` / `doc:write` / `watch:file` / `app:open-file` / `fs:external-modified`）、`MdDocument.bytesForSave(): string | null`、`EditorHandle`、`createMarkdownSync`。**只允许把文档改成实现的样子，或把实现改成文档的样子，不允许两边各写一套。**
 
-- [ ] **Step 4: 勾选 TODO 并记录验收**
+- [x] **Step 4: 勾选 TODO 并记录验收**
 
 勾选 `TODO.md` M0 全部条目，并在验收行追加：
 
@@ -2552,7 +2552,7 @@ git commit -m "chore(ci): add electron lint, test and build gates"
 （M0 验收记录：`pnpm e2e` 全绿——打开/编辑/保存 3 例、外部修改 2 例、PDF 冒烟 1 例、Shell 1 例；零编辑保存 mtime 与 size 均未变化；性能基线已记入 development.md 7 节）
 ```
 
-- [ ] **Step 5: 全量终检**
+- [x] **Step 5: 全量终检**
 
 Run:
 
@@ -2566,7 +2566,7 @@ pnpm build:app
 
 Expected: 全部通过；`pnpm e2e` 7 个用例全绿。
 
-- [ ] **Step 6: 提交并打标签**
+- [x] **Step 6: 提交并打标签**
 
 ```bash
 git add development.md TODO.md component-api.md
