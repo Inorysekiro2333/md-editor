@@ -19,17 +19,17 @@
 
 ## M0 — 项目骨架（目标：1 周）
 
-- [ ] (P0) 初始化 pnpm monorepo：`electron/{main,preload,shared}` + `packages/{app,editor,export,theming}`
-- [ ] (P0) Electron + Vite + React 18 + TS 骨架可运行，`pnpm dev` 打开空窗口
-- [ ] (P0) preload 契约 + 主进程 `fs_io`（原子写 → 写入凭证）
-- [ ] (P0) 打开 .md → 编辑 → 保存（Ctrl+S）；**零编辑保存不写盘**
-- [ ] (P0) 性能基线实测（包体 / 冷启动 / 空文档内存）并写入 `development.md` 7 节
-- [ ] (P1) chokidar 单文件监听 + 写入凭证抑制自身事件
-- [ ] (P1) ESLint + Prettier + Electron 安全基线断言（R7）
-- [ ] (P1) Vitest + Playwright 基础配置（含 `_electron` 启动冒烟）
-- [ ] (P1) CI：Windows 构建 + 三平台 `electron-builder` 干跑
+- [x] (P0) 初始化 pnpm monorepo：`electron/{main,preload,shared}` + `packages/{app,editor,export,theming}`
+- [x] (P0) Electron + Vite + React 18 + TS 骨架可运行，`pnpm dev` 打开空窗口
+- [x] (P0) preload 契约 + 主进程 `fs_io`（原子写 → 写入凭证）
+- [x] (P0) 打开 .md → 编辑 → 保存（Ctrl+S）；**零编辑保存不写盘**
+- [x] (P0) 性能基线实测（包体 / 冷启动 / 空文档内存）并写入 `development.md` 7 节
+- [x] (P1) chokidar 单文件监听 + 写入凭证抑制自身事件
+- [x] (P1) ESLint + Prettier + Electron 安全基线断言（R7）
+- [x] (P1) Vitest + Playwright 基础配置（含 `_electron` 启动冒烟）
+- [x] (P1) CI：Windows 构建 + 三平台 `electron-builder` 干跑
 
-**验收**：能打开/编辑/保存一个 markdown 文件；手改文件后编辑器正确重新渲染；零编辑保存后文件哈希与 mtime 均不变；性能基线入档。
+**验收**：能打开/编辑/保存一个 markdown 文件；手改文件后编辑器正确重新渲染；零编辑保存后文件哈希与 mtime 均不变；性能基线入档。（M0 验收记录：pnpm e2e 全绿 7 例——打开/编辑/保存 3 例、外部修改 2 例、PDF 冒烟 1 例、Shell 1 例；零编辑保存 mtime 与 size 均未变化；性能基线已记入 development.md 7 节：冷启动 340ms、内存 408MB（getAppMetrics workingSetSize 之和）/ 186MB（私有工作集之和，达标））
 
 ## M1 — 编辑内核（目标：3–4 周）
 

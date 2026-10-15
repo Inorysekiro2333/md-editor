@@ -35,7 +35,7 @@ class MdDocument {
   replaceText(range: TextRange, replacement: string): void
   /** 未编辑返回 null —— 调用方必须跳过写盘（零编辑保存 = 不写盘） */
   bytesForSave(): string | null
-  markSaved(credential: WriteCredential): void
+  markSaved(credential?: WriteCredential | null): void // 保存失败/重置时可传 null
   setExternalText(text: string, originalBytesBase64: string): void // 外部修改且 Buffer 干净时自动重载
 }
 ```
@@ -74,10 +74,12 @@ export interface MdEditorBridge {
   showOpenDialog(): Promise<string | null>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
+  getAppInfo(): Promise<AppInfo> // { version, electron }
   watchFile(path: string): Promise<void> // M0 单文件；M3 扩 workspace:watch
   onExternalModified(handler: (path: string) => void): () => void
-  exportPdf(html: string, target: string): Promise<void> // webContents.printToPDF
-  exportHtml(content: string, target: string): Promise<void>
+  onOpenFile(handler: (path: string) => void): () => void // app:open-file（--open CLI 触发）
+  exportPdf(html: string, target: string): Promise<void> // 目标形态（M4）
+  exportHtml(content: string, target: string): Promise<void> // 目标形态（M4）
 }
 
 declare global {
@@ -94,8 +96,8 @@ declare global {
 
 ### 2.2 通道与事件命名
 
-- invoke 通道：`域:动作`，如 `doc:read` / `doc:write` / `watch:file` / `export:pdf`。
-- 主进程 → 渲染进程事件：`fs:external-modified`、`menu:command`。
+- invoke 通道：`域:动作`。M0 已实现：`app:info` / `doc:read` / `doc:write` / `watch:file`；`export:pdf` / `export:html` 为目标形态（M4）。
+- 主进程 → 渲染进程事件。M0 已实现：`app:open-file`（`path: string`，`--open` CLI 触发）、`fs:external-modified`；`menu:command` 为目标形态（M3）。
 
 ## 3. `packages/editor`
 
@@ -244,12 +246,14 @@ export function validateTheme(css: string): ThemeIssue[] // theme:check 与运�
 
 | 通道 / 事件            | 方向      | payload                 | 说明                                                      |
 | ---------------------- | --------- | ----------------------- | --------------------------------------------------------- |
+| `app:info`             | 渲染 → 主 | —                       | 返回 `{ version, electron }`（M0 已实现）                 |
 | `doc:read`             | 渲染 → 主 | `{ path }`              | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息） |
 | `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }` | 原子写；返回 `WriteCredential`                            |
 | `watch:file`           | 渲染 → 主 | `{ path }`              | 替换当前监听目标（M3 扩展为工作区级）                     |
-| `export:pdf`           | 渲染 → 主 | `{ html, target }`      | `webContents.printToPDF()`                                |
-| `export:html`          | 渲染 → 主 | `{ content, target }`   | 写自包含 HTML                                             |
+| `app:open-file`        | 主 → 渲染 | `path: string`          | `--open` CLI 触发（M0 已实现）                            |
 | `fs:external-modified` | 主 → 渲染 | `path: string`          | 非自身写入的变更                                          |
-| `menu:command`         | 主 → 渲染 | `{ id: string }`        | 原生菜单/快捷键转发                                       |
+| `export:pdf`           | 渲染 → 主 | `{ html, target }`      | `webContents.printToPDF()`（M4 计划）                     |
+| `export:html`          | 渲染 → 主 | `{ content, target }`   | 写自包含 HTML（M4 计划）                                  |
+| `menu:command`         | 主 → 渲染 | `{ id: string }`        | 原生菜单/快捷键转发（M3 计划）                            |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。

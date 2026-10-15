@@ -4,12 +4,12 @@
 
 ## 1. 环境要求
 
-| 依赖       | 版本                 | 说明                                    |
-| ---------- | -------------------- | --------------------------------------- |
-| Node.js    | >= 20 LTS            |                                         |
-| pnpm       | >= 9                 | 包管理（`corepack enable` 可启用）      |
-| Electron   | 44.x                 | 作为 devDependency 安装，不需要全局安装 |
-| Playwright | 跟随 devDependencies | e2e 需 `pnpm e2e:install`               |
+| 依赖       | 版本                 | 说明                                                                                             |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------ |
+| Node.js    | >= 20 LTS            |                                                                                                  |
+| pnpm       | >= 9                 | 包管理（`corepack enable` 可启用）                                                               |
+| Electron   | 44.x                 | 作为 devDependency 安装，不需要全局安装                                                          |
+| Playwright | 跟随 devDependencies | e2e 走 `_electron` 驱动真实应用，**不需要** `pnpm e2e:install`；该命令仅供将来浏览器模式用例使用 |
 
 - 不再需要：Rust 工具链、MSVC 生成工具、WSL、WebView2 Runtime。
 - 三平台开发均可本地 `pnpm dev`；本仓库当前只在 Windows 上做过手工验证，macOS / Linux 由 CI 覆盖（见 6 节 R5）。
@@ -120,9 +120,12 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 
 ## 7. 性能基准记录
 
-| 日期       | 提交     | 包体                          | 冷启动（第二次） | 空文档内存 | 1MB 打开   | 平台/备注                                                                                   |
-| ---------- | -------- | ----------------------------- | ---------------- | ---------- | ---------- | ------------------------------------------------------------------------------------------- |
-| 2026-10-15 | <commit> | 未打包（请先执行 pnpm build） | 340ms            | 408MB      | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集 |
+| 日期       | 提交    | 包体                          | 冷启动（第二次） | 空文档内存 | 1MB 打开   | 平台/备注                                                                                                                                            |
+| ---------- | ------- | ----------------------------- | ---------------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build） | 340ms            | 408MB      | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集                                                          |
+| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build） | —                | 186MB      | 未测（M1） | win32；Get-Process electron PrivateMemorySize64 之和，第二次启动，4 个 electron 进程；与 architecture.md 5 节「私有工作集之和」口径一致，≤300MB 达标 |
+
+两种口径采样时刻不同（getAppMetrics 由主进程在 ready-to-show 时写入，Get-Process 为外部事后采样），数值仅供基线参考；M5 发布验收以私有工作集口径为准。
 
 ## 8. 调试技巧
 
@@ -131,3 +134,4 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - 编辑器状态检查：开发模式下 console 里 `window.__md_debug.doc()` 可打印当前编辑器 Doc JSON 与 mdast（仅开发模式注册）。
 - 切换问题排查：`window.__md_debug.cursor()` 打印最近一次 `captureSelection` / `restoreSelection` 的结果（含 `exact` / `ancestor` / `none`）。
 - round-trip 失败排查：`pnpm test -t roundtrip`，diff 工具会输出两版本文本差异。
+- Windows + 代理环境首次运行 Electron：二进制下载不走系统代理环境变量，需要 `ELECTRON_GET_USE_PROXY=true` + `GLOBAL_AGENT_HTTPS_PROXY=<代理地址>`（仅首次；二进制已缓存后无需设置）。
