@@ -952,7 +952,7 @@ git commit -m "feat(main): add atomic file write with bom and eol metadata"
   - `shouldSuppress(credential: WriteCredential | null, eventPath: string, size: number, mtimeMs: number, nowMs: number): boolean`
   - `createFileWatcher(options: { path: string; getCredential(): WriteCredential | null; onChange(path: string): void }): Promise<FSWatcher>`
 
-- [ ] **Step 1: 写失败测试（含真实文件集成用例）**
+- [x] **Step 1: 写失败测试（含真实文件集成用例）**
 
 `electron/main/watcher.test.ts`:
 
@@ -1036,13 +1036,13 @@ describe('createFileWatcher', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `pnpm test -- electron/main/watcher.test.ts`
 
 Expected: FAIL —— `./watcher` 不存在。
 
-- [ ] **Step 3: 实现 watcher**
+- [x] **Step 3: 实现 watcher**
 
 `electron/main/watcher.ts`:
 
@@ -1096,13 +1096,13 @@ export async function createFileWatcher(options: FileWatcherOptions): Promise<FS
 
 > 抑制判断用**磁盘上的 size + mtime**与 `doc:write` 返回的凭证比对；命中即不发事件，渲染进程自然不会弹「外部修改」。`awaitWriteFinish` 保证原子替换只触发一次事件。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm test -- electron/main/watcher.test.ts`
 
 Expected: PASS（6 个用例，其中集成用例在 Windows 上约 1–2s）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add electron/main/watcher.ts electron/main/watcher.test.ts
