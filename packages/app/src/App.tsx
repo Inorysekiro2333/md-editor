@@ -1,18 +1,111 @@
-import { useEffect, useState } from 'react'
-import type { AppInfo } from './bridge'
+import { EditorHost, type EditorHandle } from '@md-editor/editor'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MdDocument } from './document/MdDocument'
+import { ipc } from './ipc'
+import { useAppStore } from './state/appStore'
 
 export function App() {
-  const [info, setInfo] = useState<AppInfo | null>(null)
+  const doc = useAppStore((state) => state.doc)
+  const setDoc = useAppStore((state) => state.setDoc)
+  const externalNotice = useAppStore((state) => state.externalNotice)
+  const setExternalNotice = useAppStore((state) => state.setExternalNotice)
+  const [status, setStatus] = useState('未打开文件')
+  const [reloadToken, setReloadToken] = useState(0)
+  const editorHandle = useRef<EditorHandle | null>(null)
+
+  const openFile = useCallback(
+    async (path: string) => {
+      const content = await ipc.readFile(path)
+      await ipc.watchFile(path)
+      setDoc(
+        new MdDocument({
+          id: `${path}#${Date.now()}`,
+          path,
+          text: content.text,
+          originalBytesBase64: content.base64,
+          eol: content.eol,
+          hasBom: content.hasBom,
+        }),
+      )
+      setExternalNotice(null)
+      setStatus(`已打开 ${path}`)
+      setReloadToken((token) => token + 1)
+    },
+    [setDoc, setExternalNotice],
+  )
+
+  const save = useCallback(async () => {
+    const current = useAppStore.getState().doc
+    if (current === null || current.path === null) return
+    editorHandle.current?.flushNow()
+    const bytes = current.bytesForSave()
+    if (bytes === null) {
+      setStatus('无改动，已跳过写盘')
+      return
+    }
+    const credential = await ipc.writeFile(current.path, bytes)
+    current.markSaved(credential)
+    setStatus('已保存')
+  }, [])
 
   useEffect(() => {
-    void window.mdEditor.getAppInfo().then(setInfo)
-  }, [])
+    const unsubscribe = ipc.onOpenFile((path) => {
+      void openFile(path)
+    })
+    return unsubscribe
+  }, [openFile])
+
+  useEffect(() => {
+    const unsubscribe = ipc.onExternalModified(async (path) => {
+      const current = useAppStore.getState().doc
+      if (current === null || current.path !== path) return
+      if (current.isDirty) {
+        setExternalNotice('文件已被外部修改，请另存以免覆盖')
+        return
+      }
+      const content = await ipc.readFile(path)
+      current.setExternalText(content.text, content.base64)
+      setReloadToken((token) => token + 1)
+      setExternalNotice(null)
+      setStatus('已自动重载外部修改')
+    })
+    return unsubscribe
+  }, [setExternalNotice])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+      event.preventDefault()
+      void save()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [save])
 
   return (
     <main className="workspace">
-      <p data-testid="app-info">
-        {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
-      </p>
+      <header className="chrome">
+        <span data-testid="status">
+          {doc?.isDirty === true ? '未保存 · ' : ''}
+          {status}
+        </span>
+      </header>
+      {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
+      <section className="editor-host">
+        {doc === null ? (
+          <p className="placeholder">正在等待文件…</p>
+        ) : (
+          <EditorHost
+            key={`${doc.id}-${reloadToken}`}
+            docId={doc.id}
+            initialMarkdown={doc.text}
+            onMarkdownChange={(markdown) => doc.applyEditorMarkdown(markdown)}
+            onReady={(handle) => {
+              editorHandle.current = handle
+            }}
+          />
+        )}
+      </section>
     </main>
   )
 }

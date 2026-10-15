@@ -26,6 +26,7 @@ export interface MdEditorBridge {
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
   onExternalModified(handler: (path: string) => void): () => void
+  onOpenFile(handler: (path: string) => void): () => void
 }
 
 const bridge: MdEditorBridge = {
@@ -39,6 +40,13 @@ const bridge: MdEditorBridge = {
     ipcRenderer.on(CHANNELS.externalModified, listener)
     return () => {
       ipcRenderer.removeListener(CHANNELS.externalModified, listener)
+    }
+  },
+  onOpenFile: (handler) => {
+    const listener = (_event: unknown, opened: string): void => handler(opened)
+    ipcRenderer.on(CHANNELS.openFile, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.openFile, listener)
     }
   },
 }

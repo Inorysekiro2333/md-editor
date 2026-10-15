@@ -4,6 +4,7 @@ export const CHANNELS = {
   docWrite: 'doc:write',
   watchFile: 'watch:file',
   externalModified: 'fs:external-modified',
+  openFile: 'app:open-file',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

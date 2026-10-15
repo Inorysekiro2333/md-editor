@@ -5,6 +5,7 @@ export interface Ipc {
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
   onExternalModified(handler: (path: string) => void): () => void
+  onOpenFile(handler: (path: string) => void): () => void
 }
 
 export function createIpc(bridge: MdEditorBridge): Ipc {
@@ -13,6 +14,7 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     writeFile: (path, bytes) => bridge.writeFile(path, bytes),
     watchFile: (path) => bridge.watchFile(path),
     onExternalModified: (handler) => bridge.onExternalModified(handler),
+    onOpenFile: (handler) => bridge.onOpenFile(handler),
   }
 }
 

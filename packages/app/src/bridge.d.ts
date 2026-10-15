@@ -23,6 +23,7 @@ export interface MdEditorBridge {
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
   onExternalModified(handler: (path: string) => void): () => void
+  onOpenFile(handler: (path: string) => void): () => void
 }
 
 declare global {
