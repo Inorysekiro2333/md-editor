@@ -1125,7 +1125,7 @@ git commit -m "feat(main): watch the open file and suppress self writes"
   - `MdDocument`（`bytesForSave(): string | null`，未编辑返回 `null`）
   - `useAppStore`（`doc` / `mode` / `externalNotice`）
 
-- [ ] **Step 1: 写 base64 与 MdDocument 失败测试**
+- [x] **Step 1: 写 base64 与 MdDocument 失败测试**
 
 `packages/app/src/base64.test.ts`:
 
@@ -1215,13 +1215,13 @@ describe('MdDocument', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `pnpm test -- packages/app/src`
 
 Expected: FAIL —— `./base64` 与 `./MdDocument` 不存在。
 
-- [ ] **Step 3: 实现 base64 与 MdDocument**
+- [x] **Step 3: 实现 base64 与 MdDocument**
 
 `packages/app/src/base64.ts`:
 
@@ -1348,13 +1348,13 @@ export class MdDocument {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `pnpm test -- packages/app/src`
 
 Expected: PASS（9 个用例）。
 
-- [ ] **Step 5: 补 IPC 通道、主进程 handler 与 preload 方法**
+- [x] **Step 5: 补 IPC 通道、主进程 handler 与 preload 方法**
 
 `electron/shared/channels.ts` 改为：
 
@@ -1483,7 +1483,7 @@ contextBridge.exposeInMainWorld('mdEditor', bridge)
 
 `packages/app/src/bridge.d.ts`：补上 `FileContent` / `WriteCredential` 与四个新方法（字段名必须与 preload 完全一致）。
 
-- [ ] **Step 6: 写渲染进程 IPC 封装与 store**
+- [x] **Step 6: 写渲染进程 IPC 封装与 store**
 
 `packages/app/src/ipc.ts`:
 
@@ -1536,13 +1536,13 @@ export const useAppStore = create<AppState>((set) => ({
 }))
 ```
 
-- [ ] **Step 7: 全量测试与类型检查**
+- [x] **Step 7: 全量测试与类型检查**
 
 Run: `pnpm test; pnpm typecheck`
 
 Expected: 全部通过（fs_io 5 + watcher 6 + security 3 + base64 2 + MdDocument 7 = 23 个用例）。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add electron packages/app
