@@ -5,7 +5,9 @@
   "description": "Open-source cross-platform WYSIWYG Markdown editor",
   "main": "./out/main/index.js",
   "packageManager": "pnpm@11.25.0",
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build:app": "electron-vite build",
@@ -38,5 +40,8 @@
     "typescript-eslint": "8.71.2",
     "vite": "8.3.4",
     "vitest": "5.0.4"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0"
   }
 }
