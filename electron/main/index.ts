@@ -1,5 +1,5 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron'
-import { CHANNELS } from '../shared/channels'
+import { app, BrowserWindow, session } from 'electron'
+import { registerIpc, type IpcRegistry } from './ipc'
 import { buildCsp } from './security'
 import { createMainWindow } from './window'
 
@@ -9,13 +9,7 @@ if (userDataOverride) {
 }
 
 let mainWindow: BrowserWindow | null = null
-
-function registerIpc(): void {
-  ipcMain.handle(CHANNELS.appInfo, () => ({
-    version: app.getVersion(),
-    electron: process.versions.electron,
-  }))
-}
+let ipcRegistry: IpcRegistry | null = null
 
 function installCsp(): void {
   const policy = buildCsp(!app.isPackaged)
@@ -37,7 +31,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     installCsp()
-    registerIpc()
+    ipcRegistry = registerIpc(() => mainWindow)
     mainWindow = createMainWindow()
 
     app.on('activate', () => {
@@ -45,6 +39,10 @@ if (!app.requestSingleInstanceLock()) {
         mainWindow = createMainWindow()
       }
     })
+  })
+
+  app.on('before-quit', () => {
+    void ipcRegistry?.dispose()
   })
 
   app.on('window-all-closed', () => {
