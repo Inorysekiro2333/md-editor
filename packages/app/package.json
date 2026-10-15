@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@md-editor/editor": "workspace:*",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zustand": "^5.0.0"
