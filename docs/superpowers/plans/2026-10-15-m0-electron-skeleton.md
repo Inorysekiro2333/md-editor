@@ -1873,7 +1873,7 @@ git commit -m "feat(editor): add debounced sync and milkdown host"
 - Consumes: Task 5 的 `ipc` 与 `MdDocument`、Task 6 的 `EditorHost`
 - Produces: `--open <path>` 启动参数（M5 文件关联的基础）；`Ctrl+S` 保存语义（未编辑则跳过写盘）
 
-- [ ] **Step 1: 写失败的 e2e**
+- [x] **Step 1: 写失败的 e2e**
 
 `e2e/fixtures/sample.md`:
 
@@ -1950,13 +1950,13 @@ test('does not touch the file when nothing was edited', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `pnpm e2e -- e2e/open-save.spec.ts`
 
 Expected: FAIL —— 主进程尚未处理 `--open`，编辑器未挂载。
 
-- [ ] **Step 3: 主进程支持 `--open`**
+- [x] **Step 3: 主进程支持 `--open`**
 
 在 `electron/main/index.ts` 增加参数解析与转发：
 
@@ -1984,7 +1984,7 @@ onOpenFile(handler: (path: string) => void): () => void
 
 `packages/app/src/bridge.d.ts` 与 `packages/app/src/ipc.ts` 同步补上 `onOpenFile`。
 
-- [ ] **Step 4: 写 App 编排**
+- [x] **Step 4: 写 App 编排**
 
 `packages/app/src/App.tsx`:
 
@@ -2138,13 +2138,13 @@ export function App() {
 }
 ```
 
-- [ ] **Step 5: 运行 e2e 确认通过**
+- [x] **Step 5: 运行 e2e 确认通过**
 
 Run: `pnpm e2e -- e2e/open-save.spec.ts`
 
 Expected: PASS（3 个用例）。第三个用例断言 mtime 与 size 均不变，证明**零编辑保存完全没有写盘**。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add electron packages/app e2e
