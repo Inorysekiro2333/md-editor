@@ -7,3 +7,10 @@ playwright-report/
 test-results/
 *.log
 .DS_Store
+.superpowers/
+.eslintcache
+*.tsbuildinfo
+Thumbs.db
+.idea/
+.vscode/
+*.local
