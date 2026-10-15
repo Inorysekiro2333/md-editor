@@ -281,7 +281,7 @@ git commit -m "chore(repo): bootstrap electron workspace"
   - `buildCsp(isDev: boolean): string`
   - `window.mdEditor.getAppInfo(): Promise<{ version: string; electron: string }>`
 
-- [ ] **Step 1: 写失败的冒烟测试**
+- [x] **Step 1: 写失败的冒烟测试**
 
 `playwright.config.ts`:
 
@@ -338,13 +338,13 @@ test('opens a window with the preload bridge and no node access', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `pnpm e2e`
 
 Expected: FAIL —— 构建产物不存在（`out/main/index.js` 缺失）或 Electron 启动失败，证明测试确实在验证真实产物。
 
-- [ ] **Step 3: 写 electron-vite 三进程配置**
+- [x] **Step 3: 写 electron-vite 三进程配置**
 
 `electron.vite.config.ts`:
 
@@ -381,7 +381,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 4: 写通道常量与安全策略（含单测）**
+- [x] **Step 4: 写通道常量与安全策略（含单测）**
 
 `electron/shared/channels.ts`:
 
@@ -435,7 +435,7 @@ describe('buildCsp', () => {
 })
 ```
 
-- [ ] **Step 5: 写主进程窗口与入口**
+- [x] **Step 5: 写主进程窗口与入口**
 
 `electron/main/window.ts`:
 
@@ -539,7 +539,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 ```
 
-- [ ] **Step 6: 写 preload 契约**
+- [x] **Step 6: 写 preload 契约**
 
 `electron/preload/index.ts`:
 
@@ -565,7 +565,7 @@ contextBridge.exposeInMainWorld('mdEditor', bridge)
 
 > 只暴露白名单方法，**不**把 `ipcRenderer` 本体交给渲染进程；后续任务在此文件逐个追加方法。
 
-- [ ] **Step 7: 写渲染进程最小壳**
+- [x] **Step 7: 写渲染进程最小壳**
 
 `packages/app/package.json`:
 
@@ -716,19 +716,19 @@ body {
 
 > 这里只放最小样式；`DESIGN.md` 的完整 token 表在 M4 主题系统落地时统一注入，M0 不复制一遍。
 
-- [ ] **Step 8: 安装依赖并跑通冒烟**
+- [x] **Step 8: 安装依赖并跑通冒烟**
 
 Run: `pnpm install; pnpm e2e`
 
 Expected: `pnpm e2e` 先构建再跑 Playwright，1 个用例 PASS（窗口标题、bridge 存在、无 `require`、版本号正确）。
 
-- [ ] **Step 9: 手工确认窗口与热更新**
+- [x] **Step 9: 手工确认窗口与热更新**
 
 Run: `pnpm dev`
 
 Expected: 弹出 `md-editor` 窗口并显示版本号；改 `App.tsx` 界面热更新；改主进程代码自动重启。
 
-- [ ] **Step 10: 提交**
+- [x] **Step 10: 提交**
 
 ```bash
 git add .
