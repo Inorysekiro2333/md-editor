@@ -2161,7 +2161,7 @@ git commit -m "feat(app): open, edit and save markdown with no-op save"
 - Consumes: Task 4 的 watcher、Task 7 的 App 编排
 - Produces: R4 的可执行证据（自动重载 / 无误报）
 
-- [ ] **Step 1: 写 e2e**
+- [x] **Step 1: 写 e2e**
 
 `e2e/external-change.spec.ts`:
 
@@ -2217,13 +2217,13 @@ test('does not warn about external changes for our own save', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行并修产品代码（不改断言）**
+- [x] **Step 2: 运行并修产品代码（不改断言）**
 
 Run: `pnpm e2e -- e2e/external-change.spec.ts`
 
 Expected: 2 个用例 PASS。若第一个超时，检查 `electron/main/ipc.ts` 是否把 watcher 存进闭包变量（被 GC 掉会导致监听静默失效）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add e2e/external-change.spec.ts
