@@ -2241,7 +2241,7 @@ git commit -m "test(e2e): cover external change reload and self-write suppressio
 - Consumes: Task 7 的 `--open`
 - Produces: `development.md` 7 节的一行真实基线；ADR-4 的冒烟证据
 
-- [ ] **Step 1: 主进程打点**
+- [x] **Step 1: 主进程打点**
 
 `electron/main/index.ts` 增加（`writeFileSync` 从 `node:fs` 引入）：
 
@@ -2265,7 +2265,7 @@ mainWindow?.once('ready-to-show', () => {
 })
 ```
 
-- [ ] **Step 2: 写测量脚本**
+- [x] **Step 2: 写测量脚本**
 
 `scripts/measure-startup.mjs`:
 
@@ -2320,7 +2320,7 @@ console.log(
 if (!Number.isFinite(readyMs)) process.exit(1)
 ```
 
-- [ ] **Step 3: 运行测量并记录**
+- [x] **Step 3: 运行测量并记录**
 
 Run: `pnpm build:app; pnpm measure`
 
@@ -2328,7 +2328,7 @@ Expected: 输出一行 Markdown 表格数据；把该行抄进 `development.md` 
 
 > **口径提醒**：`app.getAppMetrics()` 只暴露 `workingSetSize`（KB），**拿不到**文档口径里的"私有工作集"。M0 先记该值并写明工具差异；若明显超标，按 `architecture.md` 5 节约定找用户裁定，不得自行放宽数字。
 
-- [ ] **Step 4: 写 `printToPDF` 冒烟**
+- [x] **Step 4: 写 `printToPDF` 冒烟**
 
 `e2e/print-pdf.spec.ts`:
 
@@ -2365,7 +2365,7 @@ test('prints the rendered document to a silent pdf', async () => {
 })
 ```
 
-- [ ] **Step 5: 运行冒烟并提交**
+- [x] **Step 5: 运行冒烟并提交**
 
 Run: `pnpm e2e -- e2e/print-pdf.spec.ts`
 
