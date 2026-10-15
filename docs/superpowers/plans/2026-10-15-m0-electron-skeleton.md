@@ -2415,7 +2415,7 @@ git commit -m "chore(perf): measure startup baseline and smoke print-to-pdf"
 - Consumes: Task 1 的根脚本
 - Produces: PR 必过的两个 job（`check` / `build`），其中 `check` 同时覆盖 R7 安全断言
 
-- [ ] **Step 1: 写 ESLint flat config**
+- [x] **Step 1: 写 ESLint flat config**
 
 `eslint.config.mjs`:
 
@@ -2444,13 +2444,13 @@ export default tseslint.config(
 )
 ```
 
-- [ ] **Step 2: 跑 lint 并修真实问题**
+- [x] **Step 2: 跑 lint 并修真实问题**
 
 Run: `pnpm lint`
 
 Expected: 通过（Prettier 报格式差异就 `pnpm format` 后重跑；报 `any` 就改代码，不许关规则）。
 
-- [ ] **Step 3: 写 CI**
+- [x] **Step 3: 写 CI**
 
 `.github/workflows/ci.yml`:
 
@@ -2502,13 +2502,13 @@ jobs:
 
 > `check` 在 Ubuntu 上用 `xvfb-run` 跑 Electron e2e（CI 无显示器）；`build` 只做打包干跑（`--dir`），安装包与签名属 M5。
 
-- [ ] **Step 4: 本地复现门禁**
+- [x] **Step 4: 本地复现门禁**
 
 Run: `pnpm typecheck; pnpm lint; pnpm test; pnpm e2e`
 
 Expected: 全绿；e2e 共 7 个用例（shell 1 + open-save 3 + external-change 2 + print-pdf 1）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add eslint.config.mjs .github/workflows/ci.yml
