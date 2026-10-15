@@ -4,17 +4,17 @@
 
 ## 1. 技术栈总览
 
-| 层 | 选型 | 备注 |
-|---|---|---|
-| 应用壳 | **Electron 44** | 主进程握有 Node 能力；渲染进程是 Chromium，无 Node 权限 |
-| 前端 | React 18 + TypeScript | Zustand 管理外围状态 |
-| 编辑内核 | **Milkdown 7**（内部即 ProseMirror + remark） | 渲染模式唯一内核，schema 与序列化均采用其默认行为 |
-| 源码模式 | **CodeMirror 6** | 与渲染模式共享 Buffer，只作视图 |
-| Markdown | remark / unified | 仅用于大纲、字数、索引与光标路径解析 |
-| 导出 | **Electron `webContents.printToPDF()`** / 自包含 HTML | 静默 PDF 不需要额外引入 headless Chromium |
-| 文件监听 | **chokidar 5** | 主进程侧，配合写入凭证抑制自身事件 |
-| 打包 | **electron-builder 26** | NSIS / DMG / AppImage + deb |
-| 测试 | Vitest + Playwright（`_electron` 启动 + 浏览器模式） | round-trip 差异用例全绿是 CI 门禁 |
+| 层       | 选型                                                  | 备注                                                    |
+| -------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| 应用壳   | **Electron 44**                                       | 主进程握有 Node 能力；渲染进程是 Chromium，无 Node 权限 |
+| 前端     | React 18 + TypeScript                                 | Zustand 管理外围状态                                    |
+| 编辑内核 | **Milkdown 7**（内部即 ProseMirror + remark）         | 渲染模式唯一内核，schema 与序列化均采用其默认行为       |
+| 源码模式 | **CodeMirror 6**                                      | 与渲染模式共享 Buffer，只作视图                         |
+| Markdown | remark / unified                                      | 仅用于大纲、字数、索引与光标路径解析                    |
+| 导出     | **Electron `webContents.printToPDF()`** / 自包含 HTML | 静默 PDF 不需要额外引入 headless Chromium               |
+| 文件监听 | **chokidar 5**                                        | 主进程侧，配合写入凭证抑制自身事件                      |
+| 打包     | **electron-builder 26**                               | NSIS / DMG / AppImage + deb                             |
+| 测试     | Vitest + Playwright（`_electron` 启动 + 浏览器模式）  | round-trip 差异用例全绿是 CI 门禁                       |
 
 ## 2. 分层架构
 
@@ -43,12 +43,12 @@
 
 ### 2.2 渲染进程组成（`packages/*`）
 
-| 包 | 职责 | 关键约束 |
-|---|---|---|
-| `packages/app` | React 外壳、状态编排、查找替换 UI | 不直接访问 Node/fs；只经 preload 接口 |
-| `packages/editor` | Milkdown 封装、输入规则、NodeView、CodeMirror 源码视图、`cursor-map` | 不做 IO；不引入第二套解析/编辑内核 |
-| `packages/export` | 导出管线的前端部分（生成自包含 HTML、调用主进程导出） | 不依赖 app 状态 |
-| `packages/theming` | 主题加载与校验 | 只允许 CSS 变量 |
+| 包                 | 职责                                                                 | 关键约束                              |
+| ------------------ | -------------------------------------------------------------------- | ------------------------------------- |
+| `packages/app`     | React 外壳、状态编排、查找替换 UI                                    | 不直接访问 Node/fs；只经 preload 接口 |
+| `packages/editor`  | Milkdown 封装、输入规则、NodeView、CodeMirror 源码视图、`cursor-map` | 不做 IO；不引入第二套解析/编辑内核    |
+| `packages/export`  | 导出管线的前端部分（生成自包含 HTML、调用主进程导出）                | 不依赖 app 状态                       |
+| `packages/theming` | 主题加载与校验                                                       | 只允许 CSS 变量                       |
 
 > **已删除**：`packages/md-bridge`。mdast ↔ ProseMirror 的转换改由 Milkdown 内置管线承担（ADR-2）。
 
@@ -124,29 +124,29 @@ watcher 收到变更 → 比对最近一次写入凭证（size + mtime）
 
 ## 4. 关键设计决策（ADR 摘要）
 
-| # | 决策 | 理由 |
-|---|---|---|
-| ADR-1 | Buffer 为唯一事实源，PM Doc 是投影 | 保证源码/渲染切换无损、往返保真可测试（**不变**） |
-| ADR-2 | ~~独立 `packages/md-bridge` 纯函数包~~ **已撤销（2026-10-15）** | Milkdown 内部已实现 remark ↔ ProseMirror，重复实现属于第二套转换逻辑且维护成本高；代价是序列化控制权下降，用差异登记用例兜底 |
-| ADR-3 | 桌面壳用 **Electron**（取代 Tauri，2026-10-15） | ① 开发机零安装即可本地跑通（此前 Tauri 需要 Rust + MSVC）；② 自带 `printToPDF()`，静默 PDF 免去 headless Chromium；③ Typora 同为 Electron，行为对齐成本低。代价：包体与内存显著高于 Tauri，已通过 5 节预算显式接受 |
-| ADR-4 | 导出 PDF 用 `webContents.printToPDF()`（取代 headless Chromium 兜底） | Electron 原生能力，静默、跨平台一致；长图走 `capturePage`（v1.1） |
-| ADR-5 | 表格/代码块用 NodeView 而非纯 DOM 规则 | 复杂交互需要组件生命周期 |
-| ADR-6 | 查找替换对外语义是改 Buffer，内部实现为单个 ReplaceStep transaction | Ctrl+Z 可整体撤销，避免逐项 dispatch 卡顿 |
-| ADR-7 | 会话快照存 appdata，每 5s | 崩溃恢复；不给文件本身写临时垃圾 |
+| #     | 决策                                                                  | 理由                                                                                                                                                                                                               |
+| ----- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ADR-1 | Buffer 为唯一事实源，PM Doc 是投影                                    | 保证源码/渲染切换无损、往返保真可测试（**不变**）                                                                                                                                                                  |
+| ADR-2 | ~~独立 `packages/md-bridge` 纯函数包~~ **已撤销（2026-10-15）**       | Milkdown 内部已实现 remark ↔ ProseMirror，重复实现属于第二套转换逻辑且维护成本高；代价是序列化控制权下降，用差异登记用例兜底                                                                                       |
+| ADR-3 | 桌面壳用 **Electron**（取代 Tauri，2026-10-15）                       | ① 开发机零安装即可本地跑通（此前 Tauri 需要 Rust + MSVC）；② 自带 `printToPDF()`，静默 PDF 免去 headless Chromium；③ Typora 同为 Electron，行为对齐成本低。代价：包体与内存显著高于 Tauri，已通过 5 节预算显式接受 |
+| ADR-4 | 导出 PDF 用 `webContents.printToPDF()`（取代 headless Chromium 兜底） | Electron 原生能力，静默、跨平台一致；长图走 `capturePage`（v1.1）                                                                                                                                                  |
+| ADR-5 | 表格/代码块用 NodeView 而非纯 DOM 规则                                | 复杂交互需要组件生命周期                                                                                                                                                                                           |
+| ADR-6 | 查找替换对外语义是改 Buffer，内部实现为单个 ReplaceStep transaction   | Ctrl+Z 可整体撤销，避免逐项 dispatch 卡顿                                                                                                                                                                          |
+| ADR-7 | 会话快照存 appdata，每 5s                                             | 崩溃恢复；不给文件本身写临时垃圾                                                                                                                                                                                   |
 
 ## 5. 性能预算（2026-10-15 生效，取代旧值）
 
-| 指标 | 预算 | 测量口径 |
-|---|---|---|
-| 安装包（下载体积） | ≤150MB | electron-builder 产物文件大小 |
-| 安装后磁盘占用 | ≤400MB | 安装目录实际占用 |
-| 冷启动（第二次及以后） | **< 3s** | 从进程启动到编辑区可输入 |
-| 首次冷启动 | < 8s | 含系统 Defender 扫描等一次性开销，单列宽松值 |
-| 打开 1MB markdown | < 500ms | 文件读取到渲染完成 |
-| 10k 文件文件夹索引 | < 3s（后台，不阻塞 UI） | 索引完成事件时间 |
-| 渲染模式键入延迟 | < 16ms/帧 | 防抖序列化时间不计入 |
-| 空文档常驻内存 | **≤300MB** | 单窗口、release 构建、**全部 md-editor 进程的私有工作集之和** |
-| Mermaid / KaTeX | 视口外不渲染 | v1.1 起生效 |
+| 指标                   | 预算                    | 测量口径                                                      |
+| ---------------------- | ----------------------- | ------------------------------------------------------------- |
+| 安装包（下载体积）     | ≤150MB                  | electron-builder 产物文件大小                                 |
+| 安装后磁盘占用         | ≤400MB                  | 安装目录实际占用                                              |
+| 冷启动（第二次及以后） | **< 3s**                | 从进程启动到编辑区可输入                                      |
+| 首次冷启动             | < 8s                    | 含系统 Defender 扫描等一次性开销，单列宽松值                  |
+| 打开 1MB markdown      | < 500ms                 | 文件读取到渲染完成                                            |
+| 10k 文件文件夹索引     | < 3s（后台，不阻塞 UI） | 索引完成事件时间                                              |
+| 渲染模式键入延迟       | < 16ms/帧               | 防抖序列化时间不计入                                          |
+| 空文档常驻内存         | **≤300MB**              | 单窗口、release 构建、**全部 md-editor 进程的私有工作集之和** |
+| Mermaid / KaTeX        | 视口外不渲染            | v1.1 起生效                                                   |
 
 测量结果按里程碑记录在 `development.md` 7 节；M0 必须记录一次基线（含实测内存），若基线超预算则由用户重新裁定数字，而不是等到 M5 才发现。
 

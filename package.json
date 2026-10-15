@@ -15,7 +15,7 @@
     "build": "pnpm build:app && electron-builder",
     "test": "vitest run --exclude \"e2e/**\"",
     "test:watch": "vitest --exclude \"e2e/**\"",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --exclude \"e2e/**\" --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p packages/editor/tsconfig.json && tsc --noEmit -p packages/app/tsconfig.json",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",

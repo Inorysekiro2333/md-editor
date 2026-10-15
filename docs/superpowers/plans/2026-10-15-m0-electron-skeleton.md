@@ -26,14 +26,14 @@
 
 ## 关键技术决策（写进实现，避免踩坑）
 
-| 决策 | 原因 |
-|---|---|
-| 用 `electron-vite` 统一管理 main / preload / renderer 三份构建 | 官方模板化方案，dev 模式自带 renderer HMR 与主进程重启 |
-| `package.json` **不设** `"type": "module"`，主进程与 preload 产物为 CJS | `sandbox: true` 下 preload 必须是 CJS（Electron 硬约束，安全基线不可放宽） |
+| 决策                                                                                         | 原因                                                                          |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 用 `electron-vite` 统一管理 main / preload / renderer 三份构建                               | 官方模板化方案，dev 模式自带 renderer HMR 与主进程重启                        |
+| `package.json` **不设** `"type": "module"`，主进程与 preload 产物为 CJS                      | `sandbox: true` 下 preload 必须是 CJS（Electron 硬约束，安全基线不可放宽）    |
 | `chokidar@5` **必须打进主进程 bundle**（`externalizeDepsPlugin({ exclude: ['chokidar'] })`） | chokidar 5 是 ESM-only（`"type": "module"`），CJS 主进程 `require` 会直接失败 |
-| `.npmrc` **不设** `auto-install-peers=true` | 避免为 electron-vite 的可选 peer `@swc/core` 自动装入几十 MB 依赖 |
-| e2e 用 `--open <path>` CLI 参数打开固定 fixture | 避免在自动化里驱动系统文件对话框；同时为 M5 的文件关联/命令行打开打基础 |
-| 性能基线用"打包后产物 + 第二次启动"测量 | 首次启动含系统 Defender 扫描等一次性开销，文档已单独放宽 |
+| `.npmrc` **不设** `auto-install-peers=true`                                                  | 避免为 electron-vite 的可选 peer `@swc/core` 自动装入几十 MB 依赖             |
+| e2e 用 `--open <path>` CLI 参数打开固定 fixture                                              | 避免在自动化里驱动系统文件对话框；同时为 M5 的文件关联/命令行打开打基础       |
+| 性能基线用"打包后产物 + 第二次启动"测量                                                      | 首次启动含系统 Defender 扫描等一次性开销，文档已单独放宽                      |
 
 ## File Structure
 
@@ -80,10 +80,12 @@ e2e/fixtures/sample.md          测试用 Markdown
 ### Task 1: 仓库骨架与工具链
 
 **Files:**
+
 - Create: `.gitignore`、`.npmrc`、`.editorconfig`、`.prettierrc.json`、`.prettierignore`、`package.json`、`pnpm-workspace.yaml`、`tsconfig.base.json`、`tsconfig.node.json`
 - Create: `scripts/theme-check.mjs`
 
 **Interfaces:**
+
 - Consumes: 本机已具备的 Node 24 / pnpm 11 / git
 - Produces: 根脚本 `pnpm dev` / `build` / `build:app` / `test` / `typecheck` / `lint` / `e2e` / `theme:check`；workspace 成员 `packages/*`
 
@@ -266,14 +268,17 @@ git commit -m "chore(repo): bootstrap electron workspace"
 ```
 
 ---
+
 ### Task 2: Electron 三进程壳 + preload 契约 + Playwright 冒烟
 
 **Files:**
+
 - Create: `electron.vite.config.ts`、`electron/shared/channels.ts`、`electron/main/index.ts`、`electron/main/window.ts`、`electron/main/security.ts`、`electron/main/security.test.ts`、`electron/preload/index.ts`
 - Create: `packages/app/package.json`、`packages/app/tsconfig.json`、`packages/app/index.html`、`packages/app/src/main.tsx`、`packages/app/src/App.tsx`、`packages/app/src/app.css`、`packages/app/src/bridge.d.ts`
 - Create: `playwright.config.ts`、`e2e/shell.spec.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 的根脚本与 workspace
 - Produces:
   - `CHANNELS`（`electron/shared/channels.ts`）：`appInfo: 'app:info'`（M0 期间陆续增加）
@@ -736,12 +741,15 @@ git commit -m "feat(main): add electron shell with sandboxed preload bridge"
 ```
 
 ---
+
 ### Task 3: 主进程 fs_io —— 读文件元信息 + 原子写 + 写入凭证（TDD）
 
 **Files:**
+
 - Create: `electron/main/fs_io.ts`、`electron/main/fs_io.test.ts`
 
 **Interfaces:**
+
 - Consumes: 无（纯 Node 模块）
 - Produces:
   - `interface FileContent { base64: string; text: string; eol: 'lf' | 'crlf'; hasBom: boolean }`
@@ -941,12 +949,15 @@ git commit -m "feat(main): add atomic file write with bom and eol metadata"
 ```
 
 ---
+
 ### Task 4: 主进程 watcher —— chokidar 监听 + 自身写入抑制（TDD + 集成测试）
 
 **Files:**
+
 - Create: `electron/main/watcher.ts`、`electron/main/watcher.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 3 的 `WriteCredential`
 - Produces:
   - `shouldSuppress(credential: WriteCredential | null, eventPath: string, size: number, mtimeMs: number, nowMs: number): boolean`
@@ -1110,14 +1121,17 @@ git commit -m "feat(main): watch the open file and suppress self writes"
 ```
 
 ---
+
 ### Task 5: IPC 接线 + 渲染进程 IPC 封装 + MdDocument（TDD）
 
 **Files:**
+
 - Modify: `electron/shared/channels.ts`、`electron/main/index.ts`、`electron/preload/index.ts`
 - Create: `electron/main/ipc.ts`
 - Create: `packages/app/src/ipc.ts`、`packages/app/src/base64.ts`、`packages/app/src/base64.test.ts`、`packages/app/src/document/MdDocument.ts`、`packages/app/src/document/MdDocument.test.ts`、`packages/app/src/state/appStore.ts`
 
 **Interfaces:**
+
 - Consumes: Task 3 的 `readFile` / `writeAtomic`，Task 4 的 `createFileWatcher`
 - Produces:
   - 通道：`docRead: 'doc:read'`、`docWrite: 'doc:write'`、`watchFile: 'watch:file'`、`externalModified: 'fs:external-modified'`
@@ -1550,13 +1564,16 @@ git commit -m "feat(app): wire ipc bridge and buffer-of-truth document"
 ```
 
 ---
+
 ### Task 6: editor 包 —— 防抖收敛（TDD） + Milkdown `EditorHost`
 
 **Files:**
+
 - Create: `packages/editor/package.json`、`packages/editor/tsconfig.json`、`packages/editor/src/sync.ts`、`packages/editor/src/sync.test.ts`、`packages/editor/src/EditorHost.tsx`、`packages/editor/src/index.ts`
 - Modify: `packages/app/package.json`（加入 `@md-editor/editor` 依赖）、根 `package.json`（`typecheck` 覆盖 editor 包）
 
 **Interfaces:**
+
 - Consumes: `@milkdown/kit` 7.22.3、`@milkdown/react` 7.22.3
 - Produces:
   - `createMarkdownSync({ delayMs?, serialize, onFlush }): { schedule(); flushNow(); dispose(); pending }`
@@ -1863,13 +1880,16 @@ git commit -m "feat(editor): add debounced sync and milkdown host"
 ```
 
 ---
+
 ### Task 7: 打开 / 编辑 / 保存闭环 + 零编辑不写盘（e2e）
 
 **Files:**
+
 - Modify: `electron/main/index.ts`（支持 `--open <path>`）、`packages/app/src/App.tsx`（改为完整编排）、`packages/app/src/app.css`
 - Create: `e2e/fixtures/sample.md`、`e2e/open-save.spec.ts`
 
 **Interfaces:**
+
 - Consumes: Task 5 的 `ipc` 与 `MdDocument`、Task 6 的 `EditorHost`
 - Produces: `--open <path>` 启动参数（M5 文件关联的基础）；`Ctrl+S` 保存语义（未编辑则跳过写盘）
 
@@ -2152,12 +2172,15 @@ git commit -m "feat(app): open, edit and save markdown with no-op save"
 ```
 
 ---
+
 ### Task 8: 外部修改自动重载 + 自身写入不误报（e2e）
 
 **Files:**
+
 - Create: `e2e/external-change.spec.ts`
 
 **Interfaces:**
+
 - Consumes: Task 4 的 watcher、Task 7 的 App 编排
 - Produces: R4 的可执行证据（自动重载 / 无误报）
 
@@ -2231,13 +2254,16 @@ git commit -m "test(e2e): cover external change reload and self-write suppressio
 ```
 
 ---
+
 ### Task 9: 性能基线实测 + `printToPDF` 冒烟
 
 **Files:**
+
 - Modify: `electron/main/index.ts`（启动打点、`--probe-memory <file>`）、根 `package.json`（新增 `"measure": "node scripts/measure-startup.mjs"`）
 - Create: `scripts/measure-startup.mjs`、`e2e/print-pdf.spec.ts`
 
 **Interfaces:**
+
 - Consumes: Task 7 的 `--open`
 - Produces: `development.md` 7 节的一行真实基线；ADR-4 的冒烟证据
 
@@ -2377,12 +2403,15 @@ git commit -m "chore(perf): measure startup baseline and smoke print-to-pdf"
 ```
 
 ---
+
 ### Task 10: 质量门禁与 CI
 
 **Files:**
+
 - Create: `eslint.config.mjs`、`.github/workflows/ci.yml`
 
 **Interfaces:**
+
 - Consumes: Task 1 的根脚本
 - Produces: PR 必过的两个 job（`check` / `build`），其中 `check` 同时覆盖 R7 安全断言
 
@@ -2397,7 +2426,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', 'out/**', 'release/**', 'coverage/**', 'playwright-report/**'] },
+  {
+    ignores: ['**/node_modules/**', 'out/**', 'release/**', 'coverage/**', 'playwright-report/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -2489,9 +2520,11 @@ git commit -m "chore(ci): add electron lint, test and build gates"
 ### Task 11: 文档收口（把实测数字写回权威文档）
 
 **Files:**
+
 - Modify: `development.md`（7 节性能记录、`e2e:install` 说明）、`TODO.md`（M0 勾选与验收记录）、`component-api.md`（若 API 有漂移）
 
 **Interfaces:**
+
 - Consumes: Task 1–10 的全部产出
 - Produces: 与实现一致的 M0 状态
 
@@ -2542,22 +2575,23 @@ git tag m0-electron
 ```
 
 ---
+
 ## Self-Review
 
 **1. Spec coverage（逐条对照 `TODO.md` M0）**
 
-| M0 条目 | 覆盖任务 |
-| --- | --- |
-| 初始化 pnpm monorepo：`electron/{main,preload,shared}` + `packages/{app,editor}` | Task 1、2、6（`export` / `theming` 见偏离表第 4 条） |
-| Electron + Vite + React 18 + TS 骨架可运行，`pnpm dev` 打开空窗口 | Task 2 |
-| preload 契约 + 主进程 `fs_io`（原子写 + 写入凭证） | Task 3、5 |
-| 打开 .md → 编辑 → 保存（Ctrl+S）；零编辑保存不写盘 | Task 7 |
-| 性能基线实测（包体 / 冷启动 / 空文档内存）并写入 `development.md` 7 节 | Task 9、11 |
-| chokidar 单文件监听 + 写入凭证抑制自身事件 | Task 4、8 |
-| ESLint + Prettier + Electron 安全基线断言（R7） | Task 2（`buildCsp` 单测 + e2e 无 `require` 断言）、Task 10 |
-| Vitest + Playwright 基础配置（含 `_electron` 启动冒烟） | Task 2、10、11 |
-| CI：Windows 构建 + 三平台 `electron-builder` 干跑 | Task 10 |
-| 验收：打开/编辑/保存 + 外部修改后正确重渲染 | Task 7、8、11 |
+| M0 条目                                                                          | 覆盖任务                                                   |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 初始化 pnpm monorepo：`electron/{main,preload,shared}` + `packages/{app,editor}` | Task 1、2、6（`export` / `theming` 见偏离表第 4 条）       |
+| Electron + Vite + React 18 + TS 骨架可运行，`pnpm dev` 打开空窗口                | Task 2                                                     |
+| preload 契约 + 主进程 `fs_io`（原子写 + 写入凭证）                               | Task 3、5                                                  |
+| 打开 .md → 编辑 → 保存（Ctrl+S）；零编辑保存不写盘                               | Task 7                                                     |
+| 性能基线实测（包体 / 冷启动 / 空文档内存）并写入 `development.md` 7 节           | Task 9、11                                                 |
+| chokidar 单文件监听 + 写入凭证抑制自身事件                                       | Task 4、8                                                  |
+| ESLint + Prettier + Electron 安全基线断言（R7）                                  | Task 2（`buildCsp` 单测 + e2e 无 `require` 断言）、Task 10 |
+| Vitest + Playwright 基础配置（含 `_electron` 启动冒烟）                          | Task 2、10、11                                             |
+| CI：Windows 构建 + 三平台 `electron-builder` 干跑                                | Task 10                                                    |
+| 验收：打开/编辑/保存 + 外部修改后正确重渲染                                      | Task 7、8、11                                              |
 
 **2. Placeholder scan**
 
@@ -2575,14 +2609,14 @@ git tag m0-electron
 
 **4. 已知偏离与登记**
 
-| # | 偏离 | 说明 |
-| --- | --- | --- |
-| 1 | 内存测量口径 | `app.getAppMetrics()` 没有「私有工作集」，M0 记 `workingSetSize` 之和并在 `development.md` 7 节写明差异（Task 9 Step 3、Task 11 Step 1） |
-| 2 | `cursor-map` 不在 M0 | M0 只保证 Buffer 是唯一事实源、Milkdown 视图可由 Buffer 重建；精确光标恢复属 M2 P0 |
-| 3 | e2e 用 `--open` 而非系统对话框 | 避免自动化驱动系统文件对话框；同时为 M5 文件关联打基础 |
-| 4 | `packages/export` / `packages/theming` 在 M0 不创建 | `TODO.md` M0 只要求结构就位，这两个包的实现分别在 M4 导出与主题阶段；提前建空包属 YAGNI。若要求「目录必须齐」，在 Task 1 各加一个只含 `package.json` 的占位包并在此登记 |
-| 5 | 首次冷启动不设硬门禁 | 首次含系统扫描等一次性开销，`architecture.md` 5 节给了 < 8s 的宽松值；CI 不测启动时间，仅在实际发布前手工测（M5） |
-| 6 | `pnpm-workspace.yaml` 含 pnpm 11.25 自动写入的 `allowBuilds` | pnpm 11.25.0 会把 `electron-winstaller` 的构建脚本置为需批准并重写该文件；已裁决 `electron-winstaller: true`（该脚本仅选择随包 7-Zip 架构）。若未来改为 `false`，必须先验证 `electron-builder --dir` 与 Windows 打包仍可用。 |
+| #   | 偏离                                                         | 说明                                                                                                                                                                                                                         |
+| --- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 内存测量口径                                                 | `app.getAppMetrics()` 没有「私有工作集」，M0 记 `workingSetSize` 之和并在 `development.md` 7 节写明差异（Task 9 Step 3、Task 11 Step 1）                                                                                     |
+| 2   | `cursor-map` 不在 M0                                         | M0 只保证 Buffer 是唯一事实源、Milkdown 视图可由 Buffer 重建；精确光标恢复属 M2 P0                                                                                                                                           |
+| 3   | e2e 用 `--open` 而非系统对话框                               | 避免自动化驱动系统文件对话框；同时为 M5 文件关联打基础                                                                                                                                                                       |
+| 4   | `packages/export` / `packages/theming` 在 M0 不创建          | `TODO.md` M0 只要求结构就位，这两个包的实现分别在 M4 导出与主题阶段；提前建空包属 YAGNI。若要求「目录必须齐」，在 Task 1 各加一个只含 `package.json` 的占位包并在此登记                                                      |
+| 5   | 首次冷启动不设硬门禁                                         | 首次含系统扫描等一次性开销，`architecture.md` 5 节给了 < 8s 的宽松值；CI 不测启动时间，仅在实际发布前手工测（M5）                                                                                                            |
+| 6   | `pnpm-workspace.yaml` 含 pnpm 11.25 自动写入的 `allowBuilds` | pnpm 11.25.0 会把 `electron-winstaller` 的构建脚本置为需批准并重写该文件；已裁决 `electron-winstaller: true`（该脚本仅选择随包 7-Zip 架构）。若未来改为 `false`，必须先验证 `electron-builder --dir` 与 Windows 打包仍可用。 |
 
 **5. 执行顺序注意事项**
 

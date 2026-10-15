@@ -12,31 +12,31 @@
 
 ```ts
 interface MdDocumentOptions {
-  path: string | null;          // null = 未保存的新文档
-  initialText: string;
-  initialBytesBase64: string;   // 打开时的原始字节，用于「零编辑不写盘」
-  encoding?: 'utf-8';
-  eol?: 'lf' | 'crlf';          // 检测自原文件
-  hasBom?: boolean;
+  path: string | null // null = 未保存的新文档
+  initialText: string
+  initialBytesBase64: string // 打开时的原始字节，用于「零编辑不写盘」
+  encoding?: 'utf-8'
+  eol?: 'lf' | 'crlf' // 检测自原文件
+  hasBom?: boolean
 }
 
 class MdDocument {
-  readonly id: string;
-  get text(): string;                 // 当前 Buffer
-  get isDirty(): boolean;
-  get path(): string | null;
-  get eol(): 'lf' | 'crlf';
-  get hasBom(): boolean;
+  readonly id: string
+  get text(): string // 当前 Buffer
+  get isDirty(): boolean
+  get path(): string | null
+  get eol(): 'lf' | 'crlf'
+  get hasBom(): boolean
 
   // 订阅：'change' | 'dirty' | 'saved' | 'external-modified'
-  on<E extends DocEvent>(event: E, cb: (payload: DocEventPayload[E]) => void): Unsubscribe;
+  on<E extends DocEvent>(event: E, cb: (payload: DocEventPayload[E]) => void): Unsubscribe
 
-  applyEditorMarkdown(markdown: string): void;   // 渲染模式防抖收敛：PM Doc -> Markdown -> Buffer
-  replaceText(range: TextRange, replacement: string): void;
+  applyEditorMarkdown(markdown: string): void // 渲染模式防抖收敛：PM Doc -> Markdown -> Buffer
+  replaceText(range: TextRange, replacement: string): void
   /** 未编辑返回 null —— 调用方必须跳过写盘（零编辑保存 = 不写盘） */
-  bytesForSave(): string | null;
-  markSaved(credential: WriteCredential): void;
-  setExternalText(text: string, originalBytesBase64: string): void;  // 外部修改且 Buffer 干净时自动重载
+  bytesForSave(): string | null
+  markSaved(credential: WriteCredential): void
+  setExternalText(text: string, originalBytesBase64: string): void // 外部修改且 Buffer 干净时自动重载
 }
 ```
 
@@ -46,21 +46,21 @@ class MdDocument {
 
 ```ts
 export interface FileContent {
-  base64: string;              // 原始字节；零编辑不写盘时不需要它，但外部重载与哈希比对要用
-  text: string;                // 去 BOM 后的 UTF-8 文本
-  eol: 'lf' | 'crlf';
-  hasBom: boolean;
+  base64: string // 原始字节；零编辑不写盘时不需要它，但外部重载与哈希比对要用
+  text: string // 去 BOM 后的 UTF-8 文本
+  eol: 'lf' | 'crlf'
+  hasBom: boolean
 }
 
 export interface WriteCredential {
-  path: string;
-  size: number;
-  mtimeMs: number;
-  writtenAtMs: number;         // 供 watcher 的 500ms 兜底窗口使用
+  path: string
+  size: number
+  mtimeMs: number
+  writtenAtMs: number // 供 watcher 的 500ms 兜底窗口使用
 }
 
-export async function readFile(path: string): Promise<FileContent>;
-export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCredential>;
+export async function readFile(path: string): Promise<FileContent>
+export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCredential>
 ```
 
 `writeAtomic`：写 `.tmp` → `fsync` → `rename`（Linux 额外 `fsync` 父目录）；返回值写入凭证供 watcher 比对以抑制自身事件。
@@ -71,18 +71,18 @@ export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCre
 
 ```ts
 export interface MdEditorBridge {
-  showOpenDialog(): Promise<string | null>;
-  readFile(path: string): Promise<FileContent>;
-  writeFile(path: string, bytesBase64: string): Promise<WriteCredential>;
-  watchFile(path: string): Promise<void>;                      // M0 单文件；M3 扩 workspace:watch
-  onExternalModified(handler: (path: string) => void): () => void;
-  exportPdf(html: string, target: string): Promise<void>;      // webContents.printToPDF
-  exportHtml(content: string, target: string): Promise<void>;
+  showOpenDialog(): Promise<string | null>
+  readFile(path: string): Promise<FileContent>
+  writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
+  watchFile(path: string): Promise<void> // M0 单文件；M3 扩 workspace:watch
+  onExternalModified(handler: (path: string) => void): () => void
+  exportPdf(html: string, target: string): Promise<void> // webContents.printToPDF
+  exportHtml(content: string, target: string): Promise<void>
 }
 
 declare global {
   interface Window {
-    mdEditor: MdEditorBridge;
+    mdEditor: MdEditorBridge
   }
 }
 ```
@@ -117,15 +117,15 @@ declare global {
 
 ```ts
 export function createMarkdownSync(options: {
-  delayMs?: number;            // 默认 300ms，与 architecture.md 3.2 一致
-  serialize(): string;
-  onFlush(markdown: string): void;
+  delayMs?: number // 默认 300ms，与 architecture.md 3.2 一致
+  serialize(): string
+  onFlush(markdown: string): void
 }): {
-  schedule(): void;
-  flushNow(): void;
-  dispose(): void;
-  readonly pending: boolean;
-};
+  schedule(): void
+  flushNow(): void
+  dispose(): void
+  readonly pending: boolean
+}
 ```
 
 ### 3.3 cursor-map — 光标精确恢复（`packages/editor/src/cursor-map.ts`）
@@ -133,28 +133,34 @@ export function createMarkdownSync(options: {
 纯函数模块，不碰 DOM 与 IO。语义定义见 `architecture.md` 3.4（5 条验收口径）。
 
 ```ts
-export interface MdPath { path: number[]; offset: number }        // mdast 节点路径 + 节点内偏移
-export interface MdSelection { anchor: MdPath; head: MdPath }
+export interface MdPath {
+  path: number[]
+  offset: number
+} // mdast 节点路径 + 节点内偏移
+export interface MdSelection {
+  anchor: MdPath
+  head: MdPath
+}
 export type RestoreResult =
   | { restored: 'exact'; target: number }
   | { restored: 'ancestor'; target: number }
-  | { restored: 'none'; target: null };
+  | { restored: 'none'; target: null }
 
-export function pmPosToMdPath(doc: ProseMirrorNode, pos: number): MdPath | null;
-export function mdPathToPmPos(doc: ProseMirrorNode, path: MdPath): RestoreResult;
-export function markdownOffsetToMdPath(markdown: string, offset: number): MdPath | null;
-export function mdPathToMarkdownOffset(markdown: string, path: MdPath): RestoreResult;
+export function pmPosToMdPath(doc: ProseMirrorNode, pos: number): MdPath | null
+export function mdPathToPmPos(doc: ProseMirrorNode, path: MdPath): RestoreResult
+export function markdownOffsetToMdPath(markdown: string, offset: number): MdPath | null
+export function mdPathToMarkdownOffset(markdown: string, path: MdPath): RestoreResult
 export function captureSelection(
   mode: 'wysiwyg' | 'source',
   editor: unknown,
   markdown: string,
-): MdSelection | null;
+): MdSelection | null
 export function restoreSelection(
   mode: 'wysiwyg' | 'source',
   editor: unknown,
   markdown: string,
   selection: MdSelection,
-): RestoreResult;
+): RestoreResult
 ```
 
 契约：只有 `restored: 'exact'` 才代表逐字符等价；`ancestor` / `none` 必须被调用方记录，并在切换用例里登记，不得对外宣称永远精确。
@@ -162,38 +168,38 @@ export function restoreSelection(
 ### 3.4 只读投影（remark）
 
 ```ts
-export function parseOutline(markdown: string): OutlineNode[];   // 大纲：标题层级 + 位置
-export function countWords(markdown: string, opts?: { cjk?: boolean }): number;
+export function parseOutline(markdown: string): OutlineNode[] // 大纲：标题层级 + 位置
+export function countWords(markdown: string, opts?: { cjk?: boolean }): number
 ```
 
 两者都是纯函数，供状态栏与大纲面板使用；不参与编辑内核。
 
 ## 4. 工作台组件（`packages/app`）
 
-| 组件 | Props（摘要） | 说明 |
-|---|---|---|
-| `Workspace` | `root: string \| null` | 顶层布局；持有 tab 状态、侧栏状态 |
-| `TabBar` | `tabs: Tab[]`, `activeId`, `onSelect/onClose/onReorder` | 脏标记圆点、中键关闭 |
-| `FileTree` | `root: string`, `onOpen(path)` | 虚拟滚动；数据来自主进程 watcher 增量事件 |
-| `OutlinePanel` | `outline: OutlineNode[]`, `activeHeadingPath`, `onJump(path)` | 由 `parseOutline` 派生，跟随光标高亮 |
-| `FindReplaceBar` | `doc: MdDocument` | 替换调用 `doc.replaceText`，不经过编辑器组件 |
-| `StatusBar` | `chars, cursor, mode, savedAt` | 只读展示 |
-| `SettingsDialog` | `settings: Settings, onChange(patch)` | JSON schema 驱动渲染 |
-| `ExportDialog` | `doc: MdDocument` | 调用 `packages/export` |
-| `ToastHost` | — | 右下角，最多 3 条 |
+| 组件             | Props（摘要）                                                 | 说明                                         |
+| ---------------- | ------------------------------------------------------------- | -------------------------------------------- |
+| `Workspace`      | `root: string \| null`                                        | 顶层布局；持有 tab 状态、侧栏状态            |
+| `TabBar`         | `tabs: Tab[]`, `activeId`, `onSelect/onClose/onReorder`       | 脏标记圆点、中键关闭                         |
+| `FileTree`       | `root: string`, `onOpen(path)`                                | 虚拟滚动；数据来自主进程 watcher 增量事件    |
+| `OutlinePanel`   | `outline: OutlineNode[]`, `activeHeadingPath`, `onJump(path)` | 由 `parseOutline` 派生，跟随光标高亮         |
+| `FindReplaceBar` | `doc: MdDocument`                                             | 替换调用 `doc.replaceText`，不经过编辑器组件 |
+| `StatusBar`      | `chars, cursor, mode, savedAt`                                | 只读展示                                     |
+| `SettingsDialog` | `settings: Settings, onChange(patch)`                         | JSON schema 驱动渲染                         |
+| `ExportDialog`   | `doc: MdDocument`                                             | 调用 `packages/export`                       |
+| `ToastHost`      | —                                                             | 右下角，最多 3 条                            |
 
 ### 4.1 状态管理（Zustand store 摘要）
 
 ```ts
 interface AppState {
-  tabs: TabInfo[];            // { id, path, title, dirty }
-  activeTabId: string | null;
-  sidebar: { visible: boolean; width: number; page: 'files' | 'outline' };
-  mode: 'wysiwyg' | 'source';
-  settings: Settings;
-  openFile(path: string): Promise<void>;
-  closeTab(id: string, force?: boolean): Promise<'closed' | 'cancelled'>;
-  setMode(m: 'wysiwyg' | 'source'): void;
+  tabs: TabInfo[] // { id, path, title, dirty }
+  activeTabId: string | null
+  sidebar: { visible: boolean; width: number; page: 'files' | 'outline' }
+  mode: 'wysiwyg' | 'source'
+  settings: Settings
+  openFile(path: string): Promise<void>
+  closeTab(id: string, force?: boolean): Promise<'closed' | 'cancelled'>
+  setMode(m: 'wysiwyg' | 'source'): void
 }
 ```
 
@@ -201,19 +207,19 @@ interface AppState {
 
 ```ts
 export interface ExportInput {
-  markdown: string;
-  themeCss?: string;           // 内联主题
-  assetResolver?: (src: string) => Promise<Uint8Array | null>;
+  markdown: string
+  themeCss?: string // 内联主题
+  assetResolver?: (src: string) => Promise<Uint8Array | null>
 }
 
-export type ExportFormat = 'pdf' | 'html' | 'image' | 'docx';
+export type ExportFormat = 'pdf' | 'html' | 'image' | 'docx'
 
 export interface ExportPipeline {
-  readonly format: ExportFormat;
-  run(input: ExportInput, target: string): Promise<void>;
+  readonly format: ExportFormat
+  run(input: ExportInput, target: string): Promise<void>
 }
 
-export const exporters = new Map<ExportFormat, ExportPipeline>();
+export const exporters = new Map<ExportFormat, ExportPipeline>()
 ```
 
 - `pdf`（v1）：渲染进程拼出自包含 HTML → `window.mdEditor.exportPdf()` → 主进程 `webContents.printToPDF()`，**静默导出，无需 headless Chromium**。
@@ -224,26 +230,26 @@ export const exporters = new Map<ExportFormat, ExportPipeline>();
 
 ```ts
 export interface ThemeMeta {
-  id: string;               // 'github-light'
-  name: string;
-  appearance: 'light' | 'dark';
+  id: string // 'github-light'
+  name: string
+  appearance: 'light' | 'dark'
 }
 
-export function listThemes(): ThemeMeta[];          // 内置 + 用户目录扫描
-export function loadThemeCss(id: string): string;   // 返回 CSS 文本，由 app 注入
-export function validateTheme(css: string): ThemeIssue[];  // theme:check 与运行时共用
+export function listThemes(): ThemeMeta[] // 内置 + 用户目录扫描
+export function loadThemeCss(id: string): string // 返回 CSS 文本，由 app 注入
+export function validateTheme(css: string): ThemeIssue[] // theme:check 与运行时共用
 ```
 
 ## 7. IPC 通道与事件表
 
-| 通道 / 事件 | 方向 | payload | 说明 |
-|---|---|---|---|
-| `doc:read` | 渲染 → 主 | `{ path }` | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息） |
-| `doc:write` | 渲染 → 主 | `{ path, bytesBase64 }` | 原子写；返回 `WriteCredential` |
-| `watch:file` | 渲染 → 主 | `{ path }` | 替换当前监听目标（M3 扩展为工作区级） |
-| `export:pdf` | 渲染 → 主 | `{ html, target }` | `webContents.printToPDF()` |
-| `export:html` | 渲染 → 主 | `{ content, target }` | 写自包含 HTML |
-| `fs:external-modified` | 主 → 渲染 | `path: string` | 非自身写入的变更 |
-| `menu:command` | 主 → 渲染 | `{ id: string }` | 原生菜单/快捷键转发 |
+| 通道 / 事件            | 方向      | payload                 | 说明                                                      |
+| ---------------------- | --------- | ----------------------- | --------------------------------------------------------- |
+| `doc:read`             | 渲染 → 主 | `{ path }`              | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息） |
+| `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }` | 原子写；返回 `WriteCredential`                            |
+| `watch:file`           | 渲染 → 主 | `{ path }`              | 替换当前监听目标（M3 扩展为工作区级）                     |
+| `export:pdf`           | 渲染 → 主 | `{ html, target }`      | `webContents.printToPDF()`                                |
+| `export:html`          | 渲染 → 主 | `{ content, target }`   | 写自包含 HTML                                             |
+| `fs:external-modified` | 主 → 渲染 | `path: string`          | 非自身写入的变更                                          |
+| `menu:command`         | 主 → 渲染 | `{ id: string }`        | 原生菜单/快捷键转发                                       |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。

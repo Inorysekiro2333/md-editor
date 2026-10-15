@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, type BrowserWindow } from 'electron'
 import type { FSWatcher } from 'chokidar'
 import { CHANNELS } from '../shared/channels'
 import { readFile, writeAtomic, type WriteCredential } from './fs_io'
@@ -11,6 +11,11 @@ export interface IpcRegistry {
 export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry {
   let credential: WriteCredential | null = null
   let watcher: FSWatcher | null = null
+
+  ipcMain.handle(CHANNELS.appInfo, () => ({
+    version: app.getVersion(),
+    electron: process.versions.electron ?? '',
+  }))
 
   ipcMain.handle(CHANNELS.docRead, (_event, path: string) => readFile(path))
 
@@ -31,6 +36,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry 
   return {
     async dispose() {
       await watcher?.close()
+      ipcMain.removeHandler(CHANNELS.appInfo)
       ipcMain.removeHandler(CHANNELS.docRead)
       ipcMain.removeHandler(CHANNELS.docWrite)
       ipcMain.removeHandler(CHANNELS.watchFile)

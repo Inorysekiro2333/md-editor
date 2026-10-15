@@ -16,30 +16,31 @@
 
 ### 2.1 颜色
 
-| Token | Light 默认 | Dark 默认 | 用途 |
-|---|---|---|---|
-| --bg | #ffffff | #1e1e1e | 编辑区背景 |
-| --bg-chrome | #f6f8fa | #252526 | 侧栏/标签/菜单背景 |
-| --fg | #24292f | #d4d4d4 | 正文文字 |
-| --fg-muted | #57606a | #8b949e | 次要文字（行号、占位） |
-| --accent | #0366d6 | #4493f8 | 选中、链接、光标、激活标签 |
-| --border | #d0d7de | #333333 | 分割线、边框 |
-| --code-bg | #f6f8fa | #161b22 | 行内代码/代码块背景 |
-| --quote-bg | #f6f8fa | #21262d | 引用块背景 |
-| --selection | accent 25% | accent 35% | 文本选区 |
+| Token       | Light 默认 | Dark 默认  | 用途                       |
+| ----------- | ---------- | ---------- | -------------------------- |
+| --bg        | #ffffff    | #1e1e1e    | 编辑区背景                 |
+| --bg-chrome | #f6f8fa    | #252526    | 侧栏/标签/菜单背景         |
+| --fg        | #24292f    | #d4d4d4    | 正文文字                   |
+| --fg-muted  | #57606a    | #8b949e    | 次要文字（行号、占位）     |
+| --accent    | #0366d6    | #4493f8    | 选中、链接、光标、激活标签 |
+| --border    | #d0d7de    | #333333    | 分割线、边框               |
+| --code-bg   | #f6f8fa    | #161b22    | 行内代码/代码块背景        |
+| --quote-bg  | #f6f8fa    | #21262d    | 引用块背景                 |
+| --selection | accent 25% | accent 35% | 文本选区                   |
 
 规则：
+
 - 对比度（WCAG AA）：正文不低于 4.5:1；次要文字在 18.66px bold 或 24px 以上时 3:1，其余 4.5:1。
 - 禁止在 accent 之外引入第二彩色语义色；错误提示用 toast 样式区分。
 
 ### 2.2 字体
 
-| Token | 默认值 | 用途 |
-|---|---|---|
-| --font-ui | system-ui 栈 | chrome（侧栏/菜单/对话框） |
-| --font-md | Georgia / Songti SC / SimSun（纸感主题），system-ui（默认主题） | 正文 |
-| --font-code | Cascadia Code / JetBrains Mono / Consolas, monospace | 代码 |
-| --font-math | KaTeX 自带 | 公式 |
+| Token       | 默认值                                                          | 用途                       |
+| ----------- | --------------------------------------------------------------- | -------------------------- |
+| --font-ui   | system-ui 栈                                                    | chrome（侧栏/菜单/对话框） |
+| --font-md   | Georgia / Songti SC / SimSun（纸感主题），system-ui（默认主题） | 正文                       |
+| --font-code | Cascadia Code / JetBrains Mono / Consolas, monospace            | 代码                       |
+| --font-math | KaTeX 自带                                                      | 公式                       |
 
 字号阶梯（正文 --fs-body = 16px 基准，全部使用 rem）：
 
@@ -55,11 +56,11 @@
 
 ### 2.4 动效
 
-| Token | 值 | 用途 |
-|---|---|---|
-| --dur-fast | 80ms | hover、按下反馈 |
-| --dur-slow | 180ms | 侧栏展开/收起、模式切换淡入 |
-| easing | ease-out | 全部 |
+| Token      | 值       | 用途                        |
+| ---------- | -------- | --------------------------- |
+| --dur-fast | 80ms     | hover、按下反馈             |
+| --dur-slow | 180ms    | 侧栏展开/收起、模式切换淡入 |
+| easing     | ease-out | 全部                        |
 
 - 只对 opacity/transform 做动画；禁止对布局属性动画。
 - prefers-reduced-motion: reduce 时全部动效时长归零。
@@ -81,17 +82,17 @@
 
 ## 5. 组件视觉细则
 
-| 组件 | 规则 |
-|---|---|
-| 标签页 | 激活标签底部 2px --accent 指示条；未保存显示圆点而非星号 |
-| 文件树 | 行高 28px；选中行背景 --code-bg；悬停仅加深 4% |
-| 表格 | 表头加粗 + 底部 1px --border；行悬停高亮 --code-bg；列拖拽手柄悬停才显示 |
-| 代码块 | 左上角悬浮"语言 + 复制"按钮，默认半透明，容器 hover 时不透明 |
-| 公式块 | 渲染态无边框；双击进入编辑态显示 --code-bg 容器 |
-| 引用块 | 3px 左侧 --border 竖线 + --quote-bg |
-| 任务列表 | 自绘 checkbox（accent 勾选态），不可聚焦到原生 checkbox |
-| 对话框 | 遮罩 rgba(0,0,0,.4)；宽 480px 起，垂直居中；Esc 关闭 |
-| Toast | 右下角，5s 自动消失，最多同时 3 条 |
+| 组件     | 规则                                                                     |
+| -------- | ------------------------------------------------------------------------ |
+| 标签页   | 激活标签底部 2px --accent 指示条；未保存显示圆点而非星号                 |
+| 文件树   | 行高 28px；选中行背景 --code-bg；悬停仅加深 4%                           |
+| 表格     | 表头加粗 + 底部 1px --border；行悬停高亮 --code-bg；列拖拽手柄悬停才显示 |
+| 代码块   | 左上角悬浮"语言 + 复制"按钮，默认半透明，容器 hover 时不透明             |
+| 公式块   | 渲染态无边框；双击进入编辑态显示 --code-bg 容器                          |
+| 引用块   | 3px 左侧 --border 竖线 + --quote-bg                                      |
+| 任务列表 | 自绘 checkbox（accent 勾选态），不可聚焦到原生 checkbox                  |
+| 对话框   | 遮罩 rgba(0,0,0,.4)；宽 480px 起，垂直居中；Esc 关闭                     |
+| Toast    | 右下角，5s 自动消失，最多同时 3 条                                       |
 
 ## 6. 图标与插画
 
@@ -104,4 +105,3 @@
 - 全部可交互元素可用 Tab 到达，焦点环 2px --accent outline，不可移除。
 - 图标按钮必须有 aria-label。
 - 深色主题禁止纯黑 #000 背景（使用 --bg 的 dark 值）。
-

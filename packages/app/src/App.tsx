@@ -11,6 +11,7 @@ export function App() {
   const setExternalNotice = useAppStore((state) => state.setExternalNotice)
   const [status, setStatus] = useState('未打开文件')
   const [reloadToken, setReloadToken] = useState(0)
+  const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
 
   const openFile = useCallback(
@@ -46,6 +47,13 @@ export function App() {
     const credential = await ipc.writeFile(current.path, bytes)
     current.markSaved(credential)
     setStatus('已保存')
+  }, [])
+
+  useEffect(() => {
+    void ipc
+      .getAppInfo()
+      .then(setInfo)
+      .catch(() => setInfo(null))
   }, [])
 
   useEffect(() => {
@@ -90,6 +98,9 @@ export function App() {
           {status}
         </span>
       </header>
+      <p data-testid="app-info">
+        {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
+      </p>
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
       <section className="editor-host">
         {doc === null ? (

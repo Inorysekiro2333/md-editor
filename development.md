@@ -4,12 +4,12 @@
 
 ## 1. 环境要求
 
-| 依赖 | 版本 | 说明 |
-|---|---|---|
-| Node.js | >= 20 LTS | |
-| pnpm | >= 9 | 包管理（`corepack enable` 可启用） |
-| Electron | 44.x | 作为 devDependency 安装，不需要全局安装 |
-| Playwright | 跟随 devDependencies | e2e 需 `pnpm e2e:install` |
+| 依赖       | 版本                 | 说明                                    |
+| ---------- | -------------------- | --------------------------------------- |
+| Node.js    | >= 20 LTS            |                                         |
+| pnpm       | >= 9                 | 包管理（`corepack enable` 可启用）      |
+| Electron   | 44.x                 | 作为 devDependency 安装，不需要全局安装 |
+| Playwright | 跟随 devDependencies | e2e 需 `pnpm e2e:install`               |
 
 - 不再需要：Rust 工具链、MSVC 生成工具、WSL、WebView2 Runtime。
 - 三平台开发均可本地 `pnpm dev`；本仓库当前只在 Windows 上做过手工验证，macOS / Linux 由 CI 覆盖（见 6 节 R5）。
@@ -120,9 +120,9 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 
 ## 7. 性能基准记录
 
-| 日期 | 提交 | 包体 | 冷启动（第二次） | 空文档内存 | 1MB 打开 | 平台/备注 |
-|---|---|---|---|---|---|---|
-| 2026-10-15 | <commit> | 未打包（请先执行 pnpm build） | 340ms | 408MB | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集 |
+| 日期       | 提交     | 包体                          | 冷启动（第二次） | 空文档内存 | 1MB 打开   | 平台/备注                                                                                   |
+| ---------- | -------- | ----------------------------- | ---------------- | ---------- | ---------- | ------------------------------------------------------------------------------------------- |
+| 2026-10-15 | <commit> | 未打包（请先执行 pnpm build） | 340ms            | 408MB      | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集 |
 
 ## 8. 调试技巧
 
