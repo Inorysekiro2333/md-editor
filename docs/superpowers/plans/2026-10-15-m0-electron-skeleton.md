@@ -87,13 +87,13 @@ e2e/fixtures/sample.md          测试用 Markdown
 - Consumes: 本机已具备的 Node 24 / pnpm 11 / git
 - Produces: 根脚本 `pnpm dev` / `build` / `build:app` / `test` / `typecheck` / `lint` / `e2e` / `theme:check`；workspace 成员 `packages/*`
 
-- [ ] **Step 1: 初始化 git 仓库**
+- [x] **Step 1: 初始化 git 仓库**
 
 ```powershell
 git init -b main
 ```
 
-- [ ] **Step 2: 写忽略、包管理与格式化配置**
+- [x] **Step 2: 写忽略、包管理与格式化配置**
 
 `.gitignore`:
 
@@ -150,7 +150,7 @@ coverage
 pnpm-lock.yaml
 ```
 
-- [ ] **Step 3: 写根 `package.json`**
+- [x] **Step 3: 写根 `package.json`**
 
 ```json
 {
@@ -199,7 +199,7 @@ pnpm-lock.yaml
 
 > 注意：`main` 指向 electron-vite 的构建产物 `./out/main/index.js`；不设 `"type": "module"`（见「关键技术决策」）。
 
-- [ ] **Step 4: 写 workspace 与 TS 基线**
+- [x] **Step 4: 写 workspace 与 TS 基线**
 
 `pnpm-workspace.yaml`:
 
@@ -241,7 +241,7 @@ packages:
 }
 ```
 
-- [ ] **Step 5: 写 `theme:check` 占位脚本**
+- [x] **Step 5: 写 `theme:check` 占位脚本**
 
 `scripts/theme-check.mjs`:
 
@@ -252,13 +252,13 @@ console.error('theme:check 尚未实现：主题规范校验属于 M4（见 TODO
 process.exit(1)
 ```
 
-- [ ] **Step 6: 安装并验证**
+- [x] **Step 6: 安装并验证**
 
 Run: `pnpm install`
 
 Expected: 生成 `pnpm-lock.yaml`；安装日志里**没有** `@swc/core` 被自动装入；`pnpm exec electron --version` 输出 `v44.7.2`。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add .
