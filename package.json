@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build:app": "electron-vite build",
+    "measure": "node scripts/measure-startup.mjs",
     "build": "pnpm build:app && electron-builder",
     "test": "vitest run --exclude \"e2e/**\"",
     "test:watch": "vitest --exclude \"e2e/**\"",
@@ -45,4 +46,3 @@
     "chokidar": "^5.0.0"
   }
 }
-

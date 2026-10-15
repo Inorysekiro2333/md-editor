@@ -1,8 +1,17 @@
 import { app, BrowserWindow, session } from 'electron'
+import { writeFileSync } from 'node:fs'
 import { registerIpc, type IpcRegistry } from './ipc'
 import { buildCsp } from './security'
 import { createMainWindow } from './window'
 import { CHANNELS } from '../shared/channels'
+
+const STARTED_AT = Date.now()
+
+function probeMemoryPathFromCli(): string | null {
+  const index = process.argv.indexOf('--probe-memory')
+  if (index === -1) return null
+  return process.argv[index + 1] ?? null
+}
 
 const userDataOverride = process.env['MD_EDITOR_USER_DATA']
 if (userDataOverride) {
@@ -40,6 +49,14 @@ if (!app.requestSingleInstanceLock()) {
     installCsp()
     ipcRegistry = registerIpc(() => mainWindow)
     mainWindow = createMainWindow()
+    mainWindow.once('ready-to-show', () => {
+      console.log(`[startup] ready ${Date.now() - STARTED_AT}`)
+      const probePath = probeMemoryPathFromCli()
+      if (probePath !== null) {
+        writeFileSync(probePath, JSON.stringify(app.getAppMetrics(), null, 2))
+        app.quit()
+      }
+    })
 
     const cliPath = openPathFromCli()
     if (cliPath !== null) {
