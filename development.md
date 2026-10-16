@@ -67,6 +67,21 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 
 > 说明：mdast ↔ PM 的转换由 Milkdown 内置承担，我们不重复实现；因此这一节的重点是"注册 + 差异登记"，不是"写一对 serialize/deserialize"。
 
+### round-trip harness
+
+- **方案**：jsdom。`createTestEditor(markdown)`（`packages/editor/src/testing/create-test-editor.ts`）在 jsdom 中创建无 React 的 Milkdown Editor（commonmark + GFM preset），`getMarkdown()` 返回序列化结果，无需启动 Electron。
+- **用法**：用例写在 `packages/editor/src/roundtrip.test.ts`，形如：
+
+  ```ts
+  expect(await roundtrip(input)).toBe(expected)
+  ```
+
+- **差异登记规则（R1）**：任何序列化规范化差异（列表符号、Setext→ATX、围栏形态、表格对齐/填充、空行收敛等）必须：
+  1. 在用例上方以 `// Registered normalization (R1): ...` 注释说明差异；
+  2. 期望值显式写出精确序列化结果（`toBe`），禁止 `toMatch`、禁止跳过；
+  3. 长文档 fixture（`packages/editor/src/__fixtures__/long-doc-*.md`）的整篇序列化结果登记在同名 `.expected.md` 快照中并精确比对。
+- **回归判定**：凡未登记的差异视为回归——新增差异必须先登记再合入，不得静默改变用户格式。
+
 ## 6. 回归清单（发布/合并必查）
 
 ### R1 — 往返保真（CI 自动）

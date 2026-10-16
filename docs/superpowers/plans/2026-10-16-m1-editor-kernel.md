@@ -353,4 +353,3 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 ## 执行顺序
 
 Task 0 → 1 → 2 → 3 → 4 → 5（需人工手测协作）→ 6 → 7。Task 5 IME 手测需要真人参与微软拼音输入；若由执行者自测则用本机输入法完成并如实记录。每个 Task 结束：勾选计划 checkbox、跑 M0 e2e 7 例确认全绿、给用户简报。
-
