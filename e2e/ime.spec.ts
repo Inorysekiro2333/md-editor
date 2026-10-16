@@ -118,19 +118,31 @@ async function undoUntil(window: Page, editor: ReturnType<Page['locator']>, expe
   throw new Error(`undo did not reach expected state: ${expected}`)
 }
 
-// 点击段落最左侧把光标放到块首（输入规则只在块首触发）
-async function clickParagraphStart(editor: ReturnType<Page['locator']>) {
-  await editor
-    .locator('p')
-    .first()
-    .click({ position: { x: 3, y: 12 } })
+// 等待编辑器空闲：文本连续两拍（间隔 50ms）无变化，确保上一步（IME commit / undo）完全落定，
+// 避免 Linux 上 CDP composition 拆除延迟吞掉后续普通键入
+async function waitEditorIdle(window: Page, editor: ReturnType<Page['locator']>) {
+  let prev: string | null = null
+  for (let i = 0; i < 20; i += 1) {
+    const text = ((await editor.textContent()) ?? '').replace(/\s+/g, '')
+    if (text === prev) return
+    prev = text
+    await window.waitForTimeout(50)
+  }
+}
+
+// 点击段落任意位置后按 Home，把光标确定地放到块首（输入规则只在块首触发）。
+// 不依赖固定像素偏移，避免 Linux 字体度量差异导致点击落点偏移。
+async function clickParagraphStart(window: Page, editor: ReturnType<Page['locator']>) {
+  await editor.locator('p').first().click()
+  await window.keyboard.press('Home')
+  await waitEditorIdle(window, editor)
 }
 
 test('composition containing "#" does not trigger heading rule', async () => {
   const { app, window, editor } = await openDoc('正文\n')
 
   // 反向对照：同样文本非组合普通键入必须触发标题规则
-  await clickParagraphStart(editor)
+  await clickParagraphStart(window, editor)
   await window.keyboard.type('# 标题文字')
   await expect(editor.locator('h1')).toContainText('标题文字')
   await undoUntil(window, editor, '正文')
@@ -150,7 +162,7 @@ test('composition containing "-" and "1." does not trigger list rules', async ()
   const session = await window.context().newCDPSession(window)
 
   // 反向对照 1：同样文本非组合普通键入必须触发 bullet 规则
-  await clickParagraphStart(editor)
+  await clickParagraphStart(window, editor)
   await window.keyboard.type('- 连字符')
   await expect(editor.locator('li')).toContainText('连字符')
   await undoUntil(window, editor, '第一段第二段')
@@ -159,9 +171,10 @@ test('composition containing "-" and "1." does not trigger list rules', async ()
   await imeCommit(session, ['-', '- ', '- 连字符'], '- 连字符')
   await expect(editor.locator('p').first()).toContainText('- 连字符')
   expect(await editor.locator('ul').count()).toBe(0)
+  await undoUntil(window, editor, '第一段第二段')
 
   // 反向对照 2：同样文本非组合普通键入必须触发 ordered 规则
-  await clickParagraphStart(editor)
+  await clickParagraphStart(window, editor)
   await window.keyboard.type('1. 第一')
   await expect(editor.locator('ol')).toContainText('第一')
   await undoUntil(window, editor, '第一段第二段')
