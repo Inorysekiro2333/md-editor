@@ -4,6 +4,13 @@ import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
 
+const ASSET_EXT_BY_MIME: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+}
+
 function toStatusMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error)
   return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
@@ -18,6 +25,29 @@ export function App() {
   const [reloadToken, setReloadToken] = useState(0)
   const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
+
+  const onPasteAsset = useCallback(async (base64: string, mime: string): Promise<string> => {
+    const current = useAppStore.getState().doc
+    const path = current?.path ?? null
+    if (path === null) {
+      setStatus('请先保存文档后再粘贴图片')
+      throw new Error('请先保存文档后再粘贴图片')
+    }
+    const ext = ASSET_EXT_BY_MIME[mime]
+    if (ext === undefined) {
+      setStatus('不支持的图片格式')
+      throw new Error('不支持的图片格式')
+    }
+    try {
+      const rel = await ipc.saveAsset(path, base64, ext)
+      setStatus(`已保存图片 ${rel}`)
+      return rel
+    } catch (error) {
+      console.error('[app] saveAsset failed', error)
+      setStatus(`图片保存失败：${toStatusMessage(error)}`)
+      throw error
+    }
+  }, [])
 
   const openFile = useCallback(
     async (path: string) => {
@@ -136,6 +166,7 @@ export function App() {
             onReady={(handle) => {
               editorHandle.current = handle
             }}
+            onPasteAsset={onPasteAsset}
           />
         )}
       </section>

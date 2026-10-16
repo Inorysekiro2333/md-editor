@@ -6,6 +6,7 @@ import { getMarkdown } from '@milkdown/kit/utils'
 import { prosePluginsCtx } from '@milkdown/kit/core'
 import { sessionRecorderPlugin } from '../session-history'
 import type { EditorView } from '@milkdown/prose/view'
+import type { Plugin } from '@milkdown/prose/state'
 
 export interface TestEditor {
   getMarkdown(): string
@@ -15,14 +16,17 @@ export interface TestEditor {
 }
 
 /** Create a React-free Milkdown Editor under jsdom for round-trip tests. */
-export async function createTestEditor(markdown: string): Promise<TestEditor> {
+export async function createTestEditor(
+  markdown: string,
+  extraPlugins: Plugin[] = [],
+): Promise<TestEditor> {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const editor = Editor.make()
     .config((ctx) => {
       ctx.set(rootCtx, root)
       ctx.set(defaultValueCtx, markdown)
-      ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin])
+      ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin, ...extraPlugins])
     })
     .use(commonmark)
     .use(gfm)

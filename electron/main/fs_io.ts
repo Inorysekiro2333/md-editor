@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
-import { dirname } from 'node:path'
+import { randomBytes } from 'node:crypto'
+import { dirname, isAbsolute, join } from 'node:path'
 
 export interface FileContent {
   base64: string
@@ -79,4 +80,50 @@ export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCre
     mtimeMs: info.mtimeMs,
     writtenAtMs: Date.now(),
   }
+}
+
+// ---------------------------------------------------------------------------
+// asset:save —— 粘贴图片存盘
+// ---------------------------------------------------------------------------
+
+export const ASSET_EXT_WHITELIST = ['png', 'jpg', 'jpeg', 'gif', 'webp'] as const
+export type AssetExt = (typeof ASSET_EXT_WHITELIST)[number]
+
+export function isAssetExt(ext: string): ext is AssetExt {
+  return (ASSET_EXT_WHITELIST as readonly string[]).includes(ext)
+}
+
+function pad(n: number, width: number): string {
+  return String(n).padStart(width, '0')
+}
+
+export function assetFileName(now: Date, randHex: string, ext: AssetExt): string {
+  const stamp =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1, 2)}-${pad(now.getDate(), 2)}` +
+    `-${pad(now.getHours(), 2)}${pad(now.getMinutes(), 2)}${pad(now.getSeconds(), 2)}`
+  return `${stamp}-${randHex}.${ext}`
+}
+
+/** 把粘贴的图片写入 <docDir>/assets/，返回 assets/xxx.ext 相对路径。 */
+export async function saveAssetFile(docPath: string, bytes: Buffer, ext: string): Promise<string> {
+  if (!isAssetExt(ext)) {
+    throw new Error('不支持的图片格式')
+  }
+  if (typeof docPath !== 'string' || docPath.length === 0 || !isAbsolute(docPath)) {
+    throw new Error('无法保存图片：文档路径无效，请先保存文档')
+  }
+  let stat
+  try {
+    stat = await fs.stat(docPath)
+  } catch {
+    throw new Error('无法保存图片：文档路径无效，请先保存文档')
+  }
+  if (!stat.isFile()) {
+    throw new Error('无法保存图片：文档路径无效，请先保存文档')
+  }
+  const dir = join(dirname(docPath), 'assets')
+  await fs.mkdir(dir, { recursive: true })
+  const name = assetFileName(new Date(), randomBytes(4).toString('hex'), ext)
+  await writeAtomic(join(dir, name), bytes)
+  return `assets/${name}`
 }

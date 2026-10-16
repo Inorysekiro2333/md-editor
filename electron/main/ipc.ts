@@ -1,7 +1,7 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import type { FSWatcher } from 'chokidar'
 import { CHANNELS } from '../shared/channels'
-import { readFile, writeAtomic, type WriteCredential } from './fs_io'
+import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
 import { createFileWatcher } from './watcher'
 
 export interface IpcRegistry {
@@ -24,6 +24,26 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry 
     return credential
   })
 
+  ipcMain.handle(
+    CHANNELS.assetSave,
+    async (_event, docPath: string, bytesBase64: string, ext: string) => {
+      if (!isAssetExt(ext)) {
+        throw new Error('不支持的图片格式')
+      }
+      if (typeof docPath !== 'string' || docPath.length === 0) {
+        throw new Error('无法保存图片：文档路径无效，请先保存文档')
+      }
+      try {
+        return await saveAssetFile(docPath, Buffer.from(bytesBase64, 'base64'), ext)
+      } catch (error) {
+        // 不向渲染进程泄漏内部路径细节；错误信息为面向用户的结构化文案
+        const message = error instanceof Error ? error.message : String(error)
+        if (/不支持的图片格式|文档路径无效/.test(message)) throw error
+        throw new Error('无法保存图片：写入失败，请重试')
+      }
+    },
+  )
+
   ipcMain.handle(CHANNELS.watchFile, async (_event, path: string) => {
     await watcher?.close()
     watcher = await createFileWatcher({
@@ -40,6 +60,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry 
       ipcMain.removeHandler(CHANNELS.docRead)
       ipcMain.removeHandler(CHANNELS.docWrite)
       ipcMain.removeHandler(CHANNELS.watchFile)
+      ipcMain.removeHandler(CHANNELS.assetSave)
     },
   }
 }

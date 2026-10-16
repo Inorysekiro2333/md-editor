@@ -5,6 +5,7 @@ export const CHANNELS = {
   watchFile: 'watch:file',
   externalModified: 'fs:external-modified',
   openFile: 'app:open-file',
+  assetSave: 'asset:save',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

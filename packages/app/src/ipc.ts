@@ -5,6 +5,7 @@ export interface Ipc {
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
+  saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
 }
@@ -15,6 +16,7 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     readFile: (path) => bridge.readFile(path),
     writeFile: (path, bytes) => bridge.writeFile(path, bytes),
     watchFile: (path) => bridge.watchFile(path),
+    saveAsset: (docPath, bytes, ext) => bridge.saveAsset(docPath, bytes, ext),
     onExternalModified: (handler) => bridge.onExternalModified(handler),
     onOpenFile: (handler) => bridge.onOpenFile(handler),
   }

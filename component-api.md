@@ -255,16 +255,17 @@ export function validateTheme(css: string): ThemeIssue[] // theme:check 与运�
 
 ## 7. IPC 通道与事件表
 
-| 通道 / 事件            | 方向      | payload                 | 说明                                                      |
-| ---------------------- | --------- | ----------------------- | --------------------------------------------------------- |
-| `app:info`             | 渲染 → 主 | —                       | 返回 `{ version, electron }`（M0 已实现）                 |
-| `doc:read`             | 渲染 → 主 | `{ path }`              | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息） |
-| `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }` | 原子写；返回 `WriteCredential`                            |
-| `watch:file`           | 渲染 → 主 | `{ path }`              | 替换当前监听目标（M3 扩展为工作区级）                     |
-| `app:open-file`        | 主 → 渲染 | `path: string`          | `--open` CLI 触发（M0 已实现）                            |
-| `fs:external-modified` | 主 → 渲染 | `path: string`          | 非自身写入的变更                                          |
-| `export:pdf`           | 渲染 → 主 | `{ html, target }`      | `webContents.printToPDF()`（M4 计划）                     |
-| `export:html`          | 渲染 → 主 | `{ content, target }`   | 写自包含 HTML（M4 计划）                                  |
-| `menu:command`         | 主 → 渲染 | `{ id: string }`        | 原生菜单/快捷键转发（M3 计划）                            |
+| 通道 / 事件            | 方向      | payload                         | 说明                                                                                               |
+| ---------------------- | --------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `app:info`             | 渲染 → 主 | —                               | 返回 `{ version, electron }`（M0 已实现）                                                          |
+| `doc:read`             | 渲染 → 主 | `{ path }`                      | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息）                                          |
+| `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }`         | 原子写；返回 `WriteCredential`                                                                     |
+| `asset:save`           | 渲染 → 主 | `{ docPath, bytesBase64, ext }` | 写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>`；返回 `assets/xxx.ext` 相对路径（M1 已实现） |
+| `watch:file`           | 渲染 → 主 | `{ path }`                      | 替换当前监听目标（M3 扩展为工作区级）                                                              |
+| `app:open-file`        | 主 → 渲染 | `path: string`                  | `--open` CLI 触发（M0 已实现）                                                                     |
+| `fs:external-modified` | 主 → 渲染 | `path: string`                  | 非自身写入的变更                                                                                   |
+| `export:pdf`           | 渲染 → 主 | `{ html, target }`              | `webContents.printToPDF()`（M4 计划）                                                              |
+| `export:html`          | 渲染 → 主 | `{ content, target }`           | 写自包含 HTML（M4 计划）                                                                           |
+| `menu:command`         | 主 → 渲染 | `{ id: string }`                | 原生菜单/快捷键转发（M3 计划）                                                                     |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。

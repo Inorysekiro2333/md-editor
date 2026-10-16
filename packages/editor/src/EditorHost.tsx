@@ -1,5 +1,6 @@
 import {
   defaultValueCtx,
+  pasteRulesCtx,
   Editor,
   editorViewCtx,
   parserCtx,
@@ -14,6 +15,7 @@ import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { editorInputRules } from './input-rules'
+import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
   buildSessionHistory,
   loadHistory,
@@ -33,16 +35,26 @@ export interface EditorHostProps {
   initialMarkdown: string
   onMarkdownChange(markdown: string): void
   onReady?(handle: EditorHandle): void
+  onPasteAsset?: OnPasteAsset
 }
 
 function EditorHostInner(props: EditorHostProps) {
-  const { docId, initialMarkdown, onMarkdownChange, onReady } = props
+  const { docId, initialMarkdown, onMarkdownChange, onReady, onPasteAsset } = props
   const handleRef = useRef<EditorHandle | null>(null)
   const initialMarkdownRef = useRef(initialMarkdown)
   const onMarkdownChangeRef = useRef(onMarkdownChange)
   const restoredRef = useRef(false)
   const restoringRef = useRef(false)
   const baseMarkdownRef = useRef(initialMarkdown)
+  const onPasteAssetRef = useRef(onPasteAsset)
+
+  useEffect(() => {
+    onPasteAssetRef.current = onPasteAsset
+  }, [onPasteAsset])
+
+  // 粘贴扩展只在 editor 创建时注册一次；回调经 ref 读取最新值
+  const pastePlugin = useMemo(() => createPastePlugin(() => onPasteAssetRef.current), [])
+  const pasteRule = useMemo(() => createPasteRule(), [])
 
   useEffect(() => {
     initialMarkdownRef.current = initialMarkdown
@@ -70,7 +82,8 @@ function EditorHostInner(props: EditorHostProps) {
         .config((ctx) => {
           ctx.set(rootCtx, root)
           ctx.set(defaultValueCtx, initialMarkdown)
-          ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin])
+          ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin, pastePlugin])
+          ctx.update(pasteRulesCtx, (rules) => [...rules, pasteRule])
           ctx.get(listenerCtx).markdownUpdated((ctx) => {
             sync.schedule()
             // 每次文档更新即刷新会话撤销栈记录（卸载时 editor 可能已被 Milkdown 销毁）；

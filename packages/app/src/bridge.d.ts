@@ -22,6 +22,7 @@ export interface MdEditorBridge {
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
+  saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
 }
