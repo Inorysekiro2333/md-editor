@@ -251,11 +251,11 @@ git commit -m "feat(editor): verify and register markdown input rules"
 
 `session-history.test.ts`（jsdom）：创建 `createTestEditor` 后用 `editor.action((ctx) => ctx.get(editorViewCtx))` 拿 view，dispatch 两次插入事务 → `saveHistory('doc1', view.state)` → 新建同 markdown 编辑器并 `loadHistory` → 断言 `undo(view.state)` 可撤销且撤销后文档回到初始文本。`e2e/undo-session.spec.ts`：键入文字 → 关闭标签页（e2e 场景简化为重新挂载：`page.reload()` 场景属 M3 多标签，这里用 e2e 断言撤销栈在 EditorHost 重挂后仍可 Ctrl+Z 回退到打开时内容）。
 
-- [ ] **Step 2: 确认失败 → 最小实现**
+- [x] **Step 2: 确认失败 → 最小实现**
 
 `session-history.ts`：`const store = new Map<string, unknown>()`；`EditorHost.tsx` 卸载 effect 里从 `editorViewCtx` 保存 state，创建后若 `loadHistory` 命中则用 `EditorState.fromJSON(state.schema, json)` 思路恢复（Milkdown 场景：把保存的 `HistoryState` 通过 history plugin key set 回新 state；若 Milkdown 不支持直接注入，则登记偏离并在 e2e 用「重挂后仍可 undo」的行为断言兜底——不许为绕开而改断言语义）。
 
-- [ ] **Step 3: 跑绿 + 全量回归**
+- [x] **Step 3: 跑绿 + 全量回归**
 
 `pnpm test` + `pnpm e2e`。
 
@@ -346,14 +346,16 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 
 ## 已知偏离与登记
 
-| #      | 偏离                                                                                                                | 说明                                                  | 日期       |
-| ------ | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------- |
-| （空） |                                                                                                                     |                                                       |            |
-| 1      | 新增 devDependency jsdom ^30.1.2（Task 0）                                                                          | 测试环境依赖，非 Markdown 内核，不违反铁律 3          | 2026-10-16 |
-| 2      | 冒烟用例 2 例期望值按 Milkdown 实际序列化登记（bullet `-`→`*`、表格分隔行最小化）                                   | 铁律 1 差异登记要求，已注释登记                       | 2026-10-16 |
-| 3      | round-trip 用例实现为 `roundtrip(input)` + 内联 `toBe(expected)`（计划原写 `roundtrip(input, expectedOrIdentity)`） | 语义等价，精确断言不变                                | 2026-10-16 |
-| 4      | fixtures 加入 .prettierignore                                                                                       | 保护测试数据字节级原样（expected 快照含列宽 padding） | 2026-10-16 |
-| 5      | 表格管道 Enter 规则 Milkdown/gfm 未覆盖，补自定义 keymap 规则（editorInputRules）                                   | 仅复用 gfm 已注册 table 节点，未引入第二套解析器      | 2026-10-16 |
+| #      | 偏离                                                                                                                | 说明                                                                               | 日期       |
+| ------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
+| （空） |                                                                                                                     |                                                                                    |            |
+| 1      | 新增 devDependency jsdom ^30.1.2（Task 0）                                                                          | 测试环境依赖，非 Markdown 内核，不违反铁律 3                                       | 2026-10-16 |
+| 2      | 冒烟用例 2 例期望值按 Milkdown 实际序列化登记（bullet `-`→`*`、表格分隔行最小化）                                   | 铁律 1 差异登记要求，已注释登记                                                    | 2026-10-16 |
+| 3      | round-trip 用例实现为 `roundtrip(input)` + 内联 `toBe(expected)`（计划原写 `roundtrip(input, expectedOrIdentity)`） | 语义等价，精确断言不变                                                             | 2026-10-16 |
+| 4      | fixtures 加入 .prettierignore                                                                                       | 保护测试数据字节级原样（expected 快照含列宽 padding）                              | 2026-10-16 |
+| 5      | 表格管道 Enter 规则 Milkdown/gfm 未覆盖，补自定义 keymap 规则（editorInputRules）                                   | 仅复用 gfm 已注册 table 节点，未引入第二套解析器                                   | 2026-10-16 |
+| 6      | Milkdown history key 不导出、HistoryState 不可序列化，会话撤销改用 step JSON 重放重建撤销栈                         | 撤销/重做语义未减弱（e2e + 单测兜底）；显式依赖 @milkdown/prose@7.22.3 与 kit 同源 | 2026-10-16 |
+| 7      | 重放/恢复期间抑制 recorder 记录，恢复后重置 recorder 状态                                                           | 修复评审发现的基线污染缺陷，非计划内但属正确性修复                                 | 2026-10-16 |
 
 ## 执行顺序
 
