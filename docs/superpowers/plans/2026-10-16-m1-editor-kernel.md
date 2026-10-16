@@ -148,7 +148,7 @@ git commit -m "test(editor): add jsdom round-trip harness with smoke cases"
 - Consumes: Task 0 的 `createTestEditor`。
 - Produces: `roundtrip.test.ts` 内按类目分组的 describe 块（headings / lists / blockquote / code / table / tasklist / emphasis / links-images / hr / mixed-nesting / long-docs），长文档用例读 `__fixtures__` 并断言 `roundtrip(text) === text` 或登记的规范化结果。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `roundtrip.test.ts` 按类目补齐到 ≥50 用例，必须覆盖且每条显式写出预期序列化（含规范化差异登记）：
 
@@ -164,20 +164,20 @@ git commit -m "test(editor): add jsdom round-trip harness with smoke cases"
 10. mixed-nesting：引用内表格、列表内代码块、表格单元格内换行 `<br>`（登记输出形态）、连续段落间 1/2 个空行（登记统一为 1 空行）、多语言文档（中文/emoji/CJK 标点）。
 11. long-docs：3 篇 fixture（`__fixtures__/`）——第 1 篇取本仓库 `AGENTS.md` 内容裁剪版（标题/列表/表格/代码混排）、第 2 篇手写 ≥300 行含大表格（≥30 行）与长列表混合、第 3 篇中文长文档（段落+嵌套列表+引用+代码块）。断言整篇 round-trip 等值；不等值处登记为该文档的已知差异用例（不得直接改成 `!==` 蒙混）。
 
-- [ ] **Step 2: 运行确认失败/收集实际输出**
+- [x] **Step 2: 运行确认失败/收集实际输出**
 
 `pnpm vitest run packages/editor/src/roundtrip.test.ts`
 预期：部分用例 FAIL——把每个差异处的**实际输出**逐条回填为登记的期望值（或写成 `expect(actual).toBe(登记值)` 注释说明差异），不许为了让绿而改成宽松断言。
 
-- [ ] **Step 3: 跑绿 + 稳定性**
+- [x] **Step 3: 跑绿 + 稳定性**
 
 `pnpm test`（全部单元测试），连续 3 遍 roundtrip 测试全绿。
 
-- [ ] **Step 4: 更新 development.md**
+- [x] **Step 4: 更新 development.md**
 
 5 节新增「round-trip harness」小节：写明采用 jsdom 还是 Playwright、`createTestEditor` 用法、差异登记规则（未登记差异视为回归）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add packages/editor/src/roundtrip.test.ts packages/editor/src/__fixtures__/ development.md
@@ -227,7 +227,7 @@ git commit -m "test(editor): register 50+ round-trip difference cases with fixtu
 
 `pnpm e2e`（7 例 M0 + 新增 input-rules 全绿）+ `pnpm test`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add e2e/input-rules.spec.ts packages/editor/src/ packages/editor/index.ts component-api.md
@@ -247,7 +247,7 @@ git commit -m "feat(editor): verify and register markdown input rules"
 - Consumes: `@milkdown/kit/plugin/history` 的 `historyKeyCtx`（若不可从 kit 导出，改用 `prosemirror-history` 的 `history` plugin key——Milkdown 已内含该依赖，只复用不新增解析器）。
 - Produces: `sessionHistory` 模块：`saveHistory(docId: string, state: unknown): void` / `loadHistory(docId: string): unknown | null` / `clearHistory(docId: string): void`（内存 Map，随进程存活）；`EditorHost` 在卸载时保存、创建时恢复（同一 docId 的标签页关闭重开或外部重载后撤销栈仍在）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `session-history.test.ts`（jsdom）：创建 `createTestEditor` 后用 `editor.action((ctx) => ctx.get(editorViewCtx))` 拿 view，dispatch 两次插入事务 → `saveHistory('doc1', view.state)` → 新建同 markdown 编辑器并 `loadHistory` → 断言 `undo(view.state)` 可撤销且撤销后文档回到初始文本。`e2e/undo-session.spec.ts`：键入文字 → 关闭标签页（e2e 场景简化为重新挂载：`page.reload()` 场景属 M3 多标签，这里用 e2e 断言撤销栈在 EditorHost 重挂后仍可 Ctrl+Z 回退到打开时内容）。
 
@@ -284,7 +284,7 @@ git commit -m "feat(editor): keep undo stack across editor remounts in session"
   - `EditorHost` props 新增 `onPasteAsset?: (base64: string, mime: string) => Promise<string>`；app 侧实现为调 `window.mdEditor.saveAsset(path, base64, ext)` 返回相对路径。
   - preload 新增 `saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>`（通道 `asset:save`），主进程写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>` 并返回 `assets/xxx.png` 相对路径；ext 白名单 `png|jpg|jpeg|gif|webp`；docPath 为 null（未保存文档）时返回错误（v1 行为：提示先保存文档）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `paste.test.ts`（jsdom）：`htmlToMarkdown('<h1>标题</h1><p><strong>加粗</strong> 与 <a href="https://e.com">链接</a></p><ul><li>项</li></ul>')` 断言 `# 标题\n\n**加粗** 与 [链接](https://e.com)\n\n- 项\n` 形态（按实际输出登记）；URL 粘贴断言选中文字变 `[文字](url)`（transformPasted 单元测试）。`e2e/paste.spec.ts`：`DataTransfer` 注入 `text/html` 剪贴板 → 断言序列化结果；图片粘贴用 `ClipboardEvent` 注入 png File → mock 主进程返回相对路径 → 断言文档出现 `![](assets/xxx.png)` 且磁盘出现文件。
 
@@ -300,7 +300,7 @@ git commit -m "feat(editor): keep undo stack across editor remounts in session"
 
 `component-api.md` 2.1 加 `saveAsset`、7 节 IPC 表加 `asset:save` 行。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add packages/editor/ packages/app/ electron/ component-api.md e2e/paste.spec.ts
