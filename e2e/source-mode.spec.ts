@@ -52,7 +52,26 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     const editor = window.locator('.ProseMirror')
     await expect(editor).toContainText('中文标题')
 
-    await editor.locator('p').first().click()
+    // Milkdown create() 是异步的：过早点击会被初始化重置回文档开头（Linux CI 上必现）。
+    // 点到位：anchor 必须落在第一个段落且 offset>0，否则重试。
+    let baseline = 0
+    for (let i = 0; i < 25; i += 1) {
+      await editor.locator('p').first().click()
+      const inParagraph = await window.evaluate(() => {
+        const sel = window.getSelection()
+        const pEl = document.querySelector('.ProseMirror p')
+        if (sel === null || sel.anchorNode === null || pEl === null) return false
+        const anchor = sel.anchorNode
+        const el = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
+        return pEl.contains(el) && sel.anchorOffset > 0
+      })
+      if (inParagraph) {
+        baseline = await caretBlockOffset(window)
+        if (baseline > 0) break
+      }
+      await window.waitForTimeout(100)
+    }
+    expect(baseline).toBeGreaterThan(0)
     const expected: Partial<Record<'wysiwyg' | 'source', { text: string; caret: number }>> = {}
 
     for (let i = 0; i < 10; i += 1) {
@@ -96,9 +115,33 @@ test('caret and content stay stable across 10 mode toggles', async () => {
         expect(caret).toBe(expected[mode].caret)
       }
     }
-    // 正文段落的 PM 块文本与 CM 行文本一致，跨模式 caret 必须落在同一字符位置
+    // 正文段落的 PM 块文本与 CM 行文本一致，跨模式 caret 必须都等于点击 baseline
     expect(expected.source).toBeDefined()
     expect(expected.wysiwyg).toBeDefined()
+    expect(expected.source.caret).toBe(baseline)
+    if (expected.source.caret !== expected.wysiwyg.caret) {
+      const dbg = await window.evaluate(() => {
+        const dump = () => {
+          const sel = window.getSelection()
+          if (sel === null || sel.anchorNode === null) return { anchor: 'none' }
+          const anchor = sel.anchorNode
+          const el = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
+          return {
+            nodeType: anchor.nodeType,
+            nodeName: anchor.nodeName,
+            anchorOffset: sel.anchorOffset,
+            parentClass: el?.className ?? '',
+            parentText: el?.textContent?.slice(0, 40) ?? '',
+            isCollapsed: sel.isCollapsed,
+          }
+        }
+        return { wysiwyg: dump() }
+      })
+      throw new Error(
+        'cross-mode caret mismatch: ' +
+          JSON.stringify({ source: expected.source, wysiwyg: expected.wysiwyg, dom: dbg }),
+      )
+    }
     expect(expected.source.caret).toBe(expected.wysiwyg.caret)
     await app.close()
   })
