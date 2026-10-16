@@ -59,6 +59,11 @@ test('table pipe rule', async () => {
   expect(saved).toBe('| a  | b  |\n| :- | :- |\n')
 })
 
+test('table pipe with escaped cell', async () => {
+  const saved = await typeAndSave('| a\\|b | c |\r')
+  // Registered normalization: 单元格内转义竖线被解析为字面 "|"，序列化时重新转义为 "\|"；单元格按序列化宽度做等宽补齐（"c" 后多一个空格，分隔行 " :--- "）
+  expect(saved).toBe('| a\\|b | c  |\n| :--- | :- |\n')
+})
 test('tasklist rule', async () => {
   const saved = await typeAndSave('- [ ] 待办')
   // Registered normalization: tasklist 属 bullet list，序列化统一使用 "*" 标记

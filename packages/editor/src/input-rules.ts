@@ -12,7 +12,7 @@ export const editorInputRules = $prose(() => {
   return keymap({
     Enter: (state, dispatch) => {
       const { $from, empty } = state.selection
-      if (!empty || !$from.parent.isTextblock || !$from.parent.type.isTextblock) return false
+      if (!empty || !$from.parent.isTextblock) return false
       if ($from.parentOffset !== $from.parent.content.size) return false
       const match = /^\|(.+)\|$/.exec($from.parent.textContent)
       if (!match) return false
@@ -22,8 +22,8 @@ export const editorInputRules = $prose(() => {
       const paragraph = state.schema.nodes.paragraph
       if (!table || !row || !header) return false
       if (!dispatch) return true
-      const cells = match[1].split('|').map((raw) => {
-        const text = raw.trim()
+      const cells = match[1].split(/(?<!\\)\|/).map((raw) => {
+        const text = raw.replaceAll('\\|', '|').trim()
         return header.create(null, paragraph.create(null, text ? state.schema.text(text) : null))
       })
       const tableNode = table.create(null, [row.create(null, cells)])

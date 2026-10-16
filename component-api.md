@@ -115,17 +115,6 @@ declare global {
 
 组件内部持有 Milkdown 的 Editor 与 CodeMirror 的 EditorView，随 mode 切换；切换时通过 `cursor-map` 做光标映射，外部无需关心。
 
-### 3.3 输入规则补齐
-
-```ts
-export const editorInputRules: MilkdownPlugin
-```
-
-由 `$prose` 封装的插件（当前含一个 Enter 键位规则）：在段落末尾键入
-`| a | b |` 后按 Enter，将该段替换为 GFM 表格（首行即表头）。复用 gfm
-preset 注册的 table 节点，不引入第二套解析器。已在 `EditorHost.tsx`
-插件链中追加 `.use(editorInputRules)`，无需业务方手动挂载。
-
 ### 3.2 防抖收敛
 
 ```ts
@@ -141,7 +130,18 @@ export function createMarkdownSync(options: {
 }
 ```
 
-### 3.3 cursor-map — 光标精确恢复（`packages/editor/src/cursor-map.ts`）
+### 3.3 输入规则补齐
+
+```ts
+export const editorInputRules: MilkdownPlugin
+```
+
+由 `$prose` 封装的插件（当前含一个 Enter 键位规则）：在段落末尾键入
+`| a | b |` 后按 Enter，将该段替换为 GFM 表格（首行即表头）。复用 gfm
+preset 注册的 table 节点，不引入第二套解析器。已在 `EditorHost.tsx`
+插件链中追加 `.use(editorInputRules)`，无需业务方手动挂载。
+
+### 3.4 cursor-map — 光标精确恢复（`packages/editor/src/cursor-map.ts`）
 
 纯函数模块，不碰 DOM 与 IO。语义定义见 `architecture.md` 3.4（5 条验收口径）。
 
@@ -178,7 +178,7 @@ export function restoreSelection(
 
 契约：只有 `restored: 'exact'` 才代表逐字符等价；`ancestor` / `none` 必须被调用方记录，并在切换用例里登记，不得对外宣称永远精确。
 
-### 3.4 只读投影（remark）
+### 3.5 只读投影（remark）
 
 ```ts
 export function parseOutline(markdown: string): OutlineNode[] // 大纲：标题层级 + 位置
