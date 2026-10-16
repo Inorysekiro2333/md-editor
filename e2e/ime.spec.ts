@@ -97,7 +97,19 @@ test('table cell: pinyin burst + commit inside cell', async () => {
 
 test('code block: pinyin burst + commit stays inside fence', async () => {
   const { app, window, editor } = await openDoc('```ts\nconst a=1\n```\n')
-  await commitIn(window, editor, ['bianma', '编码zhu', '编码注释'], '编码注释')
+  // NodeView（CM6）在 SchemaReady 后才挂载；慢环境（xvfb）下必须在点击/输入前
+  // 等 .cm-content 存在且真正拿到焦点，否则 CDP 组合事件落到未聚焦的 CM DOM
+  // 被吞（Windows 本地快、Linux CI 间歇性触发的竞态）。
+  const cmContent = editor.locator('.md-codeblock .cm-content')
+  await expect(cmContent).toBeVisible()
+  await cmContent.click()
+  await expect(cmContent).toBeFocused()
+  await window.keyboard.press('Control+End')
+  await imeCommit(
+    await window.context().newCDPSession(window),
+    ['bianma', '编码zhu', '编码注释'],
+    '编码注释',
+  )
   // M2 起代码块由 CM6 NodeView 渲染（.md-codeblock），不再是原生 <pre>。
   await expect(editor.locator('.md-codeblock .cm-content')).toContainText('const a=1')
   await expect(editor.locator('.md-codeblock .cm-content')).toContainText('编码注释')
