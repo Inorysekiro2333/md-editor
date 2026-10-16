@@ -76,6 +76,7 @@ export interface MdEditorBridge {
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   getAppInfo(): Promise<AppInfo> // { version, electron }
   watchFile(path: string): Promise<void> // M0 单文件；M3 扩 workspace:watch
+  saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string> // M1 粘贴图片存盘（asset:save）
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void // app:open-file（--open CLI 触发）
   exportPdf(html: string, target: string): Promise<void> // 目标形态（M4）

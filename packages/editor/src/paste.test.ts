@@ -22,12 +22,7 @@ describe('URL paste becomes link over selection', () => {
     const editor = await createTestEditor('selected')
     try {
       const view = editor.getView()
-      view.dispatch(
-        view.state.tr.setSelection(
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          TextSelection.create(view.state.doc, 1, 9),
-        ),
-      )
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 9)))
       const schema = view.state.schema
       const slice = new Slice(Fragment.from(schema.text('https://example.com/a')), 0, 0)
       const transformed = rule.run(slice, view, true)
@@ -95,6 +90,25 @@ describe('image paste', () => {
       const event = new Event('paste') as ClipboardEvent
       Object.defineProperty(event, 'clipboardData', { value: { files: [file] } })
       expect(props.handlePaste!(view, event)).toBe(false)
+    } finally {
+      await editor.destroy()
+    }
+  })
+})
+
+describe('URL paste without selection', () => {
+  it('inserts the URL as plain text when nothing is selected', async () => {
+    const rule = createPasteRule()
+    const editor = await createTestEditor('body')
+    try {
+      const view = editor.getView()
+      const schema = view.state.schema
+      const slice = new Slice(Fragment.from(schema.text('https://example.com/a')), 0, 0)
+      // Registered behavior: 无选中文本时 URL 不变链接，按粘贴原文插入
+      const transformed = rule.run(slice, view, true)
+      expect(transformed).toBe(slice)
+      view.dispatch(view.state.tr.replaceSelection(transformed!))
+      expect(editor.getMarkdown()).toBe('https\\://example.com/abody' + '\n')
     } finally {
       await editor.destroy()
     }

@@ -10,6 +10,26 @@ function launchApp(file: string) {
   })
 }
 
+/**
+ * 粘贴后的 PM Doc -> Buffer 收敛走 300ms 防抖，测试通过「轮询期间反复 Ctrl+S」
+ * 等待落盘内容收敛，避免对内部时序的裸等待。
+ */
+async function pollSavedContent(
+  window: import('@playwright/test').Page,
+  file: string,
+  expected: string,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await window.keyboard.press('Control+s')
+        return readFileSync(file, 'utf8')
+      },
+      { timeout: 15_000, intervals: [300, 500, 1_000] },
+    )
+    .toContain(expected)
+}
+
 test('pasted HTML is serialized as Markdown', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'md-editor-paste-'))
   const file = join(dir, 'doc.md')
@@ -28,12 +48,8 @@ test('pasted HTML is serialized as Markdown', async () => {
     )
   })
 
-  await window.waitForTimeout(500)
-  await window.keyboard.press('Control+s')
-  await expect(window.locator('[data-testid="status"]')).toContainText('已保存')
-  const saved = readFileSync(file, 'utf8')
   // Registered normalization: 粘贴 HTML 与键入共用同一 Milkdown 序列化器
-  expect(saved).toContain('# Pasted')
+  await pollSavedContent(window, file, '# Pasted')
   await app.close()
 })
 
@@ -60,27 +76,22 @@ test('pasted image is saved under assets/ and referenced in the document', async
 
   const assetsDir = join(dir, 'assets')
   let savedName = ''
-  for (let i = 0; i < 50; i++) {
-    if (existsSync(assetsDir)) {
-      const files = readdirSync(assetsDir)
-      if (files.length === 1) {
-        savedName = files[0]
-        break
-      }
-    }
-    await window.waitForTimeout(100)
-  }
+  await expect
+    .poll(
+      () => {
+        const files = existsSync(assetsDir) ? readdirSync(assetsDir) : []
+        if (files.length === 1) savedName = files[0]
+        return files.length
+      },
+      { timeout: 10_000, intervals: [100, 250, 500] },
+    )
+    .toBe(1)
   expect(savedName).toMatch(/\d{4}-\d{2}-\d{2}-\d{6}-[0-9a-f]+\.png$/)
-  await window.waitForTimeout(1500)
+  expect(readFileSync(join(assetsDir, savedName)).equals(Buffer.from(bytes))).toBe(true)
   await expect(window.locator('.ProseMirror img:not(.ProseMirror-separator)')).toHaveCount(1, {
     timeout: 10_000,
   })
-  await window.waitForTimeout(600)
-  expect(readFileSync(join(assetsDir, savedName)).equals(Buffer.from(bytes))).toBe(true)
 
-  await window.keyboard.press('Control+s')
-  await expect(window.locator('[data-testid="status"]')).toContainText('已保存')
-  const saved = readFileSync(file, 'utf8')
-  expect(saved).toContain(`![](assets/${savedName})`)
+  await pollSavedContent(window, file, `![](assets/${savedName})`)
   await app.close()
 })

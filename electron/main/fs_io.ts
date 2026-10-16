@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { dirname, isAbsolute, join } from 'node:path'
+import { isAssetExt, type AssetExt } from '../shared/asset'
 
 export interface FileContent {
   base64: string
@@ -86,12 +87,8 @@ export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCre
 // asset:save —— 粘贴图片存盘
 // ---------------------------------------------------------------------------
 
-export const ASSET_EXT_WHITELIST = ['png', 'jpg', 'jpeg', 'gif', 'webp'] as const
-export type AssetExt = (typeof ASSET_EXT_WHITELIST)[number]
-
-export function isAssetExt(ext: string): ext is AssetExt {
-  return (ASSET_EXT_WHITELIST as readonly string[]).includes(ext)
-}
+export { ASSET_EXT_WHITELIST, isAssetExt } from '../shared/asset'
+export type { AssetExt } from '../shared/asset'
 
 function pad(n: number, width: number): string {
   return String(n).padStart(width, '0')

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { isAssetExt } from '../shared/asset'
 import { CHANNELS } from '../shared/channels'
 
 export interface AppInfo {
@@ -42,7 +43,7 @@ const bridge: MdEditorBridge = {
     if (typeof bytesBase64 !== 'string' || bytesBase64.length === 0) {
       return Promise.reject(new Error('无法保存图片：内容为空'))
     }
-    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+    if (!isAssetExt(ext)) {
       return Promise.reject(new Error('不支持的图片格式'))
     }
     return ipcRenderer.invoke(CHANNELS.assetSave, docPath, bytesBase64, ext) as Promise<string>
