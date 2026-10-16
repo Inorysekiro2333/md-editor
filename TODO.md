@@ -109,3 +109,7 @@
 - [ ] asset 写盘安全加固
 - [x] IPC bytesBase64 入参守卫（doc:write ≤10MB / asset:save ≤20MB，畸形入参干净拒绝，见 component-api.md 2.1；2026-10-16 完成）
 - [x] sync.dispose 兜底语义登记：dispose 先同步 flush pending，onFlush 重入 schedule 产生的新 timer 保留至下一轮收敛（packages/editor/src/sync.ts + sync.test.ts，2026-10-16 完成）：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
+
+- [ ] (P2) 代码块 CM→PM 整块替换语义：大代码块撤销粒度粗（M2 终审遗留，M3 前跟进）
+- [ ] (P2) 全局快捷键注册表：Ctrl+/ 目前 window capture 拦截，新增快捷键前先统一（M2 终审遗留）
+- [ ] (P2) M3 复测冷启动/内存并补齐 ≤300MB 口径数据（M2 性能表未测项）
