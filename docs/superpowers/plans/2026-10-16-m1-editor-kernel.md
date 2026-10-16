@@ -284,7 +284,7 @@ git commit -m "feat(editor): keep undo stack across editor remounts in session"
   - `EditorHost` props 新增 `onPasteAsset?: (base64: string, mime: string) => Promise<string>`；app 侧实现为调 `window.mdEditor.saveAsset(path, base64, ext)` 返回相对路径。
   - preload 新增 `saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>`（通道 `asset:save`），主进程写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>` 并返回 `assets/xxx.png` 相对路径；ext 白名单 `png|jpg|jpeg|gif|webp`；docPath 为 null（未保存文档）时返回错误（v1 行为：提示先保存文档）。
 
-- [x] **Step 1: 写失败测试**
+- [ ] **Step 1: 写失败测试**
 
 `paste.test.ts`（jsdom）：`htmlToMarkdown('<h1>标题</h1><p><strong>加粗</strong> 与 <a href="https://e.com">链接</a></p><ul><li>项</li></ul>')` 断言 `# 标题\n\n**加粗** 与 [链接](https://e.com)\n\n- 项\n` 形态（按实际输出登记）；URL 粘贴断言选中文字变 `[文字](url)`（transformPasted 单元测试）。`e2e/paste.spec.ts`：`DataTransfer` 注入 `text/html` 剪贴板 → 断言序列化结果；图片粘贴用 `ClipboardEvent` 注入 png File → mock 主进程返回相对路径 → 断言文档出现 `![](assets/xxx.png)` 且磁盘出现文件。
 
@@ -300,7 +300,7 @@ git commit -m "feat(editor): keep undo stack across editor remounts in session"
 
 `component-api.md` 2.1 加 `saveAsset`、7 节 IPC 表加 `asset:save` 行。
 
-- [x] **Step 5: 提交**
+- [ ] **Step 5: 提交**
 
 ```powershell
 git add packages/editor/ packages/app/ electron/ component-api.md e2e/paste.spec.ts
