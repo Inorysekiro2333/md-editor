@@ -29,6 +29,7 @@ export function App() {
   const mode = useAppStore((state) => state.mode)
   const setMode = useAppStore((state) => state.setMode)
   const [status, setStatus] = useState('未打开文件')
+  const [editorReady, setEditorReady] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
   const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
@@ -129,6 +130,10 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    setEditorReady(false)
+  }, [doc, reloadToken])
+
+  useEffect(() => {
     void ipc
       .getAppInfo()
       .then(setInfo)
@@ -197,7 +202,7 @@ export function App() {
         {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
       </p>
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
-      <section className="editor-host">
+      <section className="editor-host" data-editor-ready={editorReady ? 'true' : undefined}>
         {doc === null ? (
           <p className="placeholder">正在等待文件…</p>
         ) : mode === 'wysiwyg' ? (
@@ -212,6 +217,7 @@ export function App() {
             }}
             onReady={(handle) => {
               editorHandle.current = handle
+              setEditorReady(true)
             }}
             onPasteAsset={onPasteAsset}
           />
@@ -223,6 +229,7 @@ export function App() {
             onMarkdownChange={(markdown) => doc.applyEditorMarkdown(markdown)}
             onReady={(handle) => {
               sourceHandle.current = handle
+              setEditorReady(true)
               const pending = pendingSelection.current
               if (pending !== null) {
                 handle.setSelectionOffsets(pending.anchor, pending.head)
