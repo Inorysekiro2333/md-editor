@@ -23,7 +23,13 @@ function withFixture<T>(run: (file: string, content: string) => Promise<T>): Pro
 async function caretBlockOffset(window: Page): Promise<number> {
   return window.evaluate(() => {
     const selection = window.getSelection()
-    if (selection === null || selection.rangeCount === 0 || selection.anchorNode === null) return -1
+    if (
+      selection === null ||
+      selection.rangeCount === 0 ||
+      selection.anchorNode === null ||
+      selection.anchorNode.nodeType !== Node.TEXT_NODE
+    )
+      return -1
     const anchor = selection.anchorNode
     let block: Element | null =
       anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
@@ -53,7 +59,8 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     await expect(editor).toContainText('中文标题')
 
     // Milkdown create() 是异步的：过早点击会被初始化重置回文档开头（Linux CI 上必现）。
-    // 点到位：anchor 必须落在第一个段落且 offset>0，否则重试。
+    // 等编辑器就绪后再点击；点到位：anchor 必须是 TEXT_NODE 且落在第一个段落内且 offset>0，否则重试。
+    await window.waitForSelector('[data-editor-ready="true"]')
     let baseline = 0
     for (let i = 0; i < 25; i += 1) {
       await editor.locator('p').first().click()
@@ -61,9 +68,8 @@ test('caret and content stay stable across 10 mode toggles', async () => {
         const sel = window.getSelection()
         const pEl = document.querySelector('.ProseMirror p')
         if (sel === null || sel.anchorNode === null || pEl === null) return false
-        const anchor = sel.anchorNode
-        const el = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
-        return pEl.contains(el) && sel.anchorOffset > 0
+        if (sel.anchorNode.nodeType !== Node.TEXT_NODE) return false
+        return pEl.contains(sel.anchorNode.parentElement) && sel.anchorOffset > 0
       })
       if (inParagraph) {
         baseline = await caretBlockOffset(window)
