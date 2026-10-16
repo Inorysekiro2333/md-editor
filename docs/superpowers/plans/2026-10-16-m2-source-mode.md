@@ -295,3 +295,12 @@ NodeView 设计（vanilla TS，无 React/Vue）：`dom = div.md-codeblock`；hea
 - 覆盖检查：architecture.md 3.4 五条 → Task 1/2/3/4/5（第 4 条滚动=Ruling-4 简化版并登记）；TODO M2 P0 三项 → Task 1-6；handoff §5 两项顺手 → Task 7；R1/R2/R3 → Task 6/5/6 与文档任务。
 - 类型一致性：EditorHandle/SourceEditorHandle 接口在 Task 3/4 的 Produces 已对齐（anchor/head markdown offset 语义统一）。
 - 占位符扫描：无 TBD；「先读再改」仅指实现顺序约束，不是占位。
+
+## Execution Ledger（subagent-driven 执行记录）
+
+- Task 1: complete — commit 0b86ebc — review Approved（10/10）。偏离：计划示例期望值 2 处按真实 remark 结构修正（语义未变）。
+- Interlude: 并行会话把 checkout 切到 main 并合入 codex/fix-ime-ci（dc36762，IME e2e 修复，非本会话产物）。Ruling: 不回退，merge main 进本分支（7ba22ac）。
+- Task 2: complete — commit 091d52a — review Approved（cursor-map 23/23，全量 142/142）。偏离：① cursor-map parser 加 remark-gfm@4.0.1（与 Milkdown transformer 同管线，否则表格必 fallback）；② 全文扫描断言改为「pos→cursor→pos 往返 + offset→pos exact 保持性」双扫描（强于计划要求）。
+- Task 2 parked findings（Ruling: 非阻塞，推迟到 Task 8 前清理波；保守行为无错报 exact 风险）：
+  - cursor-map.ts:351-356 原子节点分支未校验 leaf.kind（建议补检查走 fallback）。
+  - cursor-map.ts:425-427 anchorsByMd 去重可能用非 exact 锚点遮蔽 exact 锚点（仅多报 ancestor，不会错报 exact）。
