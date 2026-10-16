@@ -94,6 +94,24 @@ importers:
 
   packages/editor:
     dependencies:
+      '@codemirror/commands':
+        specifier: ^6
+        version: 6.11.1
+      '@codemirror/lang-markdown':
+        specifier: ^6
+        version: 6.5.2
+      '@codemirror/language':
+        specifier: ^6
+        version: 6.13.1
+      '@codemirror/language-data':
+        specifier: ^6
+        version: 6.5.2
+      '@codemirror/state':
+        specifier: ^6
+        version: 6.7.6
+      '@codemirror/view':
+        specifier: ^6
+        version: 6.43.14
       '@milkdown/kit':
         specifier: 7.22.3
         version: 7.22.3(@codemirror/language@6.13.1)(@codemirror/state@6.7.6)(@codemirror/view@6.43.14)(supports-color@7.2.0)(typescript@5.9.3)
@@ -125,6 +143,9 @@ importers:
       '@types/react':
         specifier: ^18.3.0
         version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
       typescript:
         specifier: 5.9.3
         version: 5.9.3
