@@ -41,6 +41,8 @@ function EditorHostInner(props: EditorHostProps) {
   const initialMarkdownRef = useRef(initialMarkdown)
   const onMarkdownChangeRef = useRef(onMarkdownChange)
   const restoredRef = useRef(false)
+  const restoringRef = useRef(false)
+  const baseMarkdownRef = useRef(initialMarkdown)
 
   useEffect(() => {
     initialMarkdownRef.current = initialMarkdown
@@ -71,11 +73,15 @@ function EditorHostInner(props: EditorHostProps) {
           ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin])
           ctx.get(listenerCtx).markdownUpdated((ctx) => {
             sync.schedule()
-            // 每次文档更新即刷新会话撤销栈记录（卸载时 editor 可能已被 Milkdown 销毁）
-            saveHistory(
-              docId,
-              buildSessionHistory(ctx.get(editorViewCtx).state, initialMarkdownRef.current),
-            )
+            // 每次文档更新即刷新会话撤销栈记录（卸载时 editor 可能已被 Milkdown 销毁）；
+            // 基线永远是当前会话 record 的 baseMarkdown，恢复重放期间被 restoringRef 抑制，
+            // 否则重放事务会把基线污染成新的 initialMarkdown
+            if (!restoringRef.current) {
+              saveHistory(
+                docId,
+                buildSessionHistory(ctx.get(editorViewCtx).state, baseMarkdownRef.current),
+              )
+            }
           })
         })
         .use(commonmark)
@@ -95,17 +101,20 @@ function EditorHostInner(props: EditorHostProps) {
     restoredRef.current = true
     const record = loadHistory(docId)
     if (!record) return
-    editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      if (record.baseMarkdown !== initialMarkdownRef.current) {
-        // 外部重载等场景：初始内容已变，先重置为撤销栈的基线内容再重放
-        const base = ctx.get(parserCtx)(record.baseMarkdown)
-        if (base) {
-          view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, base))
-        }
-      }
-      restoreSessionHistory(record, view)
-    })
+    restoringRef.current = true
+    try {
+      editor.action((ctx) => {
+        restoreSessionHistory(record, ctx.get(editorViewCtx), {
+          currentMarkdown: initialMarkdownRef.current,
+          parseBase: (markdown) => ctx.get(parserCtx)(markdown),
+        })
+        // 恢复完成：以 record 的原始基线（而非新的 initialMarkdown）整体保存一次
+        saveHistory(docId, buildSessionHistory(ctx.get(editorViewCtx).state, record.baseMarkdown))
+      })
+      baseMarkdownRef.current = record.baseMarkdown
+    } finally {
+      restoringRef.current = false
+    }
   }, [get, loading, docId])
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
 import { undo } from '@milkdown/prose/history'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -39,6 +40,21 @@ function undoAll(editor: TestEditor, target: string): number {
   return count
 }
 
+/** 模拟 EditorHost 恢复协议：外部重载后先重置 doc 为 record 基线再重放，最后以 record 基线保存 */
+function simulateRemountAfterExternalReload(
+  editor: TestEditor,
+  record: NonNullable<ReturnType<typeof loadHistory>>,
+  currentMarkdown: string,
+): void {
+  editor.action((ctx) => {
+    restoreSessionHistory(record, ctx.get(editorViewCtx), {
+      currentMarkdown,
+      parseBase: (markdown) => ctx.get(parserCtx)(markdown),
+    })
+  })
+  saveHistory('doc1', buildSessionHistory(editor.getView().state, record.baseMarkdown))
+}
+
 afterEach(async () => {
   clearHistory('doc1')
   for (const editor of editors.splice(0)) {
@@ -71,6 +87,30 @@ describe('session history', () => {
   it('cannot undo without a restored session stack', async () => {
     const editor = await makeEditor('# Hello')
     expect(undo(editor.getView().state)).toBe(false)
+  })
+
+  it('keeps the baseline stable across repeated remounts after external reload', async () => {
+    // 第一次会话：基线 "# Hello"，用户输入 "A"
+    const first = await makeEditor('# Hello')
+    typeText(first, 'A')
+    saveHistory('doc1', buildSessionHistory(first.getView().state, '# Hello'))
+
+    // 第二次会话：外部重载导致 initialMarkdown 变化，恢复后基线不得被污染
+    const second = await makeEditor('外部重写')
+    const record2 = loadHistory('doc1')
+    expect(record2).not.toBeNull()
+    expect(record2?.baseMarkdown).toBe('# Hello')
+    simulateRemountAfterExternalReload(second, record2!, '外部重写')
+
+    // 第三次会话：再次外部重载，基线必须仍是 "# Hello"，撤销可达初始内容
+    const third = await makeEditor('再次重写')
+    const record3 = loadHistory('doc1')
+    expect(record3?.baseMarkdown).toBe('# Hello')
+    simulateRemountAfterExternalReload(third, record3!, '再次重写')
+    expect(docText(third)).toBe('AHello')
+
+    undoAll(third, 'Hello')
+    expect(docText(third)).toBe('Hello')
   })
 
   it('clearHistory drops the saved stack', async () => {

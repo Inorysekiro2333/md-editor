@@ -31,15 +31,14 @@ test('keeps the undo stack across editor remounts', async () => {
   writeFileSync(file, '外部重写\n')
   // 重挂后撤销栈恢复：内容先回到会话末状态，再逐次 Ctrl+Z 回到打开时内容
   await expect(editor).toContainText('追加', { timeout: 10_000 })
-  let restored = false
   for (let i = 0; i < 20; i += 1) {
-    await window.keyboard.press('Control+z')
     const text = await editor.textContent()
-    if (text !== null && !text.includes('追加')) {
-      restored = true
-      break
-    }
+    if (text !== null && text.includes('原文内容') && !text.includes('追加')) break
+    await window.keyboard.press('Control+z')
   }
-  expect(restored).toBe(true)
+  const finalText = await editor.textContent()
+  expect(finalText).toContain('原文内容')
+  expect(finalText).not.toContain('追加')
+  expect(finalText).not.toContain('外部重写')
   await app.close()
 })
