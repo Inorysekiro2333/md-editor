@@ -351,9 +351,21 @@ function buildLockstepMap(markdown: string, doc: PMNode, root: Root): LockstepMa
           }
         }
       } else {
-        // image / hardbreak / html 等原子节点：前后边界锚到叶子 range
-        recordAnchor(pmPos, leaf.start, false)
-        recordAnchor(pmPos + pmChild.nodeSize, leaf.end, false)
+        // image / hardbreak / html 等原子节点：前后边界锚到叶子 range。
+        // leaf.kind 错位（防御性：当前 schema 下不可自然复现）走 fallback，
+        // 不允许非同类叶子遮蔽原子节点边界（Task 8 清理波 ①）。
+        const atomKindMatch =
+          leaf.kind === 'image' ||
+          leaf.kind === 'break' ||
+          leaf.kind === 'html' ||
+          leaf.kind === 'other'
+        if (!atomKindMatch) {
+          recordAnchor(pmPos, leaf.contentStart, false)
+          fallbacks.push({ pmStart: pmPos, pmEnd, mdOffset: leaf.contentStart })
+        } else {
+          recordAnchor(pmPos, leaf.start, false)
+          recordAnchor(pmPos + pmChild.nodeSize, leaf.end, false)
+        }
       }
       pmPos = pmEnd
     }
@@ -423,7 +435,9 @@ function buildLockstepMap(markdown: string, doc: PMNode, root: Root): LockstepMa
   const anchors = [...anchorByPm.values()]
   const anchorsByPm = [...anchors].sort((a, b) => a.pm - b.pm)
   const anchorsByMd = [...anchors]
-    .sort((a, b) => a.md - b.md || a.pm - b.pm)
+    // 同一 md 去重时优先保留 exact 锚点（Task 8 清理波 ②），
+    // 避免非 exact 锚点遮蔽 exact 锚点。
+    .sort((a, b) => a.md - b.md || Number(b.exact) - Number(a.exact) || a.pm - b.pm)
     .filter((anchor, index, sorted) => index === 0 || sorted[index - 1].md !== anchor.md)
   return { anchorsByPm, anchorsByMd, textRegions, fallbacks }
 }

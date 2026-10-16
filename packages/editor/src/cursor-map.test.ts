@@ -172,6 +172,30 @@ describe('cursor-map PM bridge', () => {
     })
   })
 
+  it('atomic node boundaries stay anchored to matching-kind leaves (Task 8 guard)', async () => {
+    // kind 守卫为防御性（当前 schema 下原子节点只对应 image/break/html/other 叶子），
+    // 本用例登记原子边界语义：image/hardbreak 前后边界锚到叶子 range。
+    await withDoc(inlineMd, (doc) => {
+      const imgPos = atomPos(doc, 'image')
+      expect(pmPosToMarkdownOffset(inlineMd, doc, imgPos)).toBe(inlineMd.indexOf('![图'))
+      expect(pmPosToMarkdownOffset(inlineMd, doc, imgPos + 1)).toBe(inlineMd.indexOf('尾'))
+      const hbPos = atomPos(doc, 'hardbreak')
+      expect(pmPosToMarkdownOffset(inlineMd, doc, hbPos)).toBe(55)
+    })
+  })
+
+  it('prefers the exact anchor when anchors collide at the document end', async () => {
+    // 去重优先 exact（Task 8 清理波 ②）：无尾换行文档末尾同时有
+    // 叶子末尾 exact 锚点与 root 末尾非 exact 锚点。
+    const md = 'hi'
+    await withDoc(md, (doc) => {
+      expect(markdownOffsetToPmPos(md, doc, 2)).toEqual({
+        pos: doc.content.size - 1,
+        accuracy: 'exact',
+      })
+    })
+  })
+
   it('maps nested list and blockquote', async () => {
     const listMd = '- a\n  - b\n'
     await withDoc(listMd, (doc) => {

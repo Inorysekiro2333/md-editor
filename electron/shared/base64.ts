@@ -22,5 +22,7 @@ export function isValidBase64Payload(value: unknown, maxBytes: number): value is
   if (typeof value !== 'string') return false
   if (value.length === 0 || value.length % 4 !== 0) return false
   if (!BASE64_RE.test(value)) return false
+  // 全填充串（如 '===='）或填充错位：解码为空/非法，干净拒绝（Task 8 清理波）。
+  if (value.startsWith('=')) return false
   return base64DecodedLength(value) <= maxBytes
 }

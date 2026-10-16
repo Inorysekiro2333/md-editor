@@ -108,7 +108,6 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
       view.destroy()
       viewRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅 mount 一次；initialScrollRatio 按约定只读初值
   }, [sync])
 
   return <div ref={hostRef} className="md-source-editor" />

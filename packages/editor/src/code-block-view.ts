@@ -1,10 +1,10 @@
 import { EditorView as CMView, keymap, ViewUpdate } from '@codemirror/view'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import { LanguageDescription } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import { nodeViewCtx, SchemaReady } from '@milkdown/kit/core'
+import { nodeViewCtx, prosePluginsCtx, SchemaReady } from '@milkdown/kit/core'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import { TextSelection } from '@milkdown/prose/state'
+import { Plugin, TextSelection } from '@milkdown/prose/state'
 import type { Node as PMNode } from '@milkdown/prose/model'
 import type { EditorView as PMView, NodeView, NodeViewConstructor } from '@milkdown/prose/view'
 
@@ -30,6 +30,25 @@ export class CodeBlockNodeView implements NodeView {
   private updating = false
   private languageToken: symbol | null = null
   private copyTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly onDocSelectionChange = (): void => {
+    // PM 把逻辑选区放进代码块，但 DOM 焦点可能仍留在 PM 根节点；此时 IME/键入
+    // 会写进 CM DOM 而 CM 未聚焦，文本直接丢失。这里把焦点（和等价光标位）交给
+    // CM，让输入走 CM → PM 管线。
+    if (!this.outerView.hasFocus() || this.cmView.hasFocus) return
+    const pos = this.getPos()
+    if (pos === undefined) return
+    const { from, to } = this.outerView.state.selection
+    if (from <= pos || from >= pos + this.node.nodeSize) return
+    const cmFrom = Math.min(Math.max(from - pos - 1, 0), this.cmView.state.doc.length)
+    const cmTo = Math.min(Math.max(to - pos - 1, 0), this.cmView.state.doc.length)
+    this.cmView.focus()
+    if (
+      cmFrom !== this.cmView.state.selection.main.from ||
+      cmTo !== this.cmView.state.selection.main.to
+    ) {
+      this.cmView.dispatch({ selection: { anchor: cmFrom, head: cmTo } })
+    }
+  }
 
   constructor(node: PMNode, view: PMView, getPos: () => number | undefined) {
     this.node = node
@@ -58,15 +77,7 @@ export class CodeBlockNodeView implements NodeView {
     const initialLanguage = typeof node.attrs.language === 'string' ? node.attrs.language : ''
     // Preserve user-written fence languages that are not in the preset list
     // (e.g. `ts`, `pseudocode`) so the select never silently rewrites them.
-    if (
-      initialLanguage &&
-      !Array.from(this.select.options).some((o) => o.value === initialLanguage)
-    ) {
-      const custom = document.createElement('option')
-      custom.value = initialLanguage
-      custom.textContent = initialLanguage
-      this.select.appendChild(custom)
-    }
+    this.ensureLanguageOption(initialLanguage)
     this.select.value = initialLanguage
     this.select.addEventListener('change', () => this.setLanguage(this.select.value))
 
@@ -85,6 +96,8 @@ export class CodeBlockNodeView implements NodeView {
     body.classList.add('md-codeblock-body')
     this.dom.appendChild(body)
 
+    codeBlockViews.add(this)
+    document.addEventListener('selectionchange', this.onDocSelectionChange)
     this.loadLanguage(this.select.value)
     this.cmView = new CMView({
       state: EditorState.create({
@@ -108,13 +121,34 @@ export class CodeBlockNodeView implements NodeView {
     this.node = node
     const text = node.textContent
     if (!this.updating && this.cmView.state.doc.toString() !== text) {
+      // PM→CM 全量替换时保留 CM 光标/选区（偏移 clamp 到新文档末尾），
+      // 不再回落到行首（Task 8 清理波 ④）。
+      const { anchor, head } = this.cmView.state.selection.main
       this.updating = true
-      this.cmView.dispatch({ changes: { from: 0, to: this.cmView.state.doc.length, insert: text } })
+      this.cmView.dispatch({
+        changes: { from: 0, to: this.cmView.state.doc.length, insert: text },
+        selection: EditorSelection.range(
+          Math.min(anchor, text.length),
+          Math.min(head, text.length),
+        ),
+      })
       this.updating = false
     }
     const language = typeof node.attrs.language === 'string' ? node.attrs.language : ''
-    if (this.select.value !== language) this.setLanguage(language)
+    if (this.select.value !== language) {
+      // 外部更新恢复未收录语言时动态补 option，否则 select.value 赋值会静默
+      // 失败回落到 ''，标签显示失真（Task 8 清理波 ⑤）。
+      this.ensureLanguageOption(language)
+      this.setLanguage(language)
+    }
     return true
+  }
+
+  selectNode(): void {
+    // PM selection entering the block hands keyboard focus to CM; otherwise
+    // browser typing lands in the CM DOM while CM is unfocused and both the
+    // text and the sync back into PM are lost (e2e fence-rule regression).
+    this.cmView.focus()
   }
 
   ignoreMutation(): boolean {
@@ -128,6 +162,7 @@ export class CodeBlockNodeView implements NodeView {
   }
 
   destroy(): void {
+    document.removeEventListener('selectionchange', this.onDocSelectionChange)
     if (this.copyTimer !== null) clearTimeout(this.copyTimer)
     this.cmView.destroy()
   }
@@ -146,6 +181,15 @@ export class CodeBlockNodeView implements NodeView {
       .catch(() => {
         // Clipboard rejection (permissions/unsupported): keep button label as-is.
       })
+  }
+
+  private ensureLanguageOption(language: string): void {
+    if (!language) return
+    if (Array.from(this.select.options).some((o) => o.value === language)) return
+    const custom = document.createElement('option')
+    custom.value = language
+    custom.textContent = language
+    this.select.appendChild(custom)
   }
 
   private setLanguage(language: string): void {
@@ -182,6 +226,22 @@ export class CodeBlockNodeView implements NodeView {
    * code): the cursor leaves the block through PM when the user presses Escape
    * or an arrow key at the block's first/last boundary.
    */
+  getPosPublic(): number | undefined {
+    return this.getPos()
+  }
+
+  getSizePublic(): number {
+    return this.node.nodeSize
+  }
+
+  hasCmFocusPublic(): boolean {
+    return this.cmView.hasFocus
+  }
+
+  focusCmPublic(): void {
+    this.cmView.focus()
+  }
+
   private maybeEscape(dir: -1 | 1, edge: 'start' | 'end' | 'any'): boolean {
     const { state } = this.cmView
     const { from, to, empty } = state.selection.ranges[0]
@@ -215,6 +275,31 @@ export class CodeBlockNodeView implements NodeView {
 }
 
 /**
+ * NodeView registry for the selection-focus plugin below. Registering this
+ * plugin into the PM plugin set changes how ProseMirror routes text input for
+ * node-view-managed code blocks (fence input rule regression); the update
+ * handler additionally hands keyboard focus to CM when the PM selection moves
+ * into a block while PM still holds DOM focus.
+ */
+const codeBlockViews = new Set<CodeBlockNodeView>()
+
+const codeBlockFocusPlugin = new Plugin({
+  view() {
+    return {
+      update(v: PMView) {
+        for (const cb of codeBlockViews) {
+          const pos = cb.getPosPublic()
+          if (pos === undefined) continue
+          const sel = v.state.selection
+          const inside = sel.from > pos && sel.from < pos + cb.getSizePublic()
+          if (inside && v.hasFocus() && !cb.hasCmFocusPublic()) cb.focusCmPublic()
+        }
+      },
+    }
+  },
+})
+
+/**
  * Register the CodeBlockNodeView for Milkdown's commonmark code_block schema.
  * (Hand-rolled instead of $view: @milkdown/utils 7.22.3's $view reads
  * `type.id` before the schema plugin assigns it, registering under `undefined`
@@ -227,7 +312,9 @@ export const codeBlockView: MilkdownPlugin = (ctx) => async () => {
   const constructor: NodeViewConstructor = (node, view, getPos) =>
     new CodeBlockNodeView(node, view, getPos)
   ctx.update(nodeViewCtx, (ps) => [...ps, [id, constructor] as [string, NodeViewConstructor]])
+  ctx.update(prosePluginsCtx, (ps) => [...ps, codeBlockFocusPlugin])
   return () => {
     ctx.update(nodeViewCtx, (ps) => ps.filter(([key]) => key !== id))
+    ctx.update(prosePluginsCtx, (ps) => ps.filter((p) => p !== codeBlockFocusPlugin))
   }
 }

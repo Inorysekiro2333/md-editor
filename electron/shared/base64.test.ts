@@ -26,6 +26,7 @@ describe('isValidBase64Payload', () => {
   it('rejects payloads over the channel limit', () => {
     expect(isValidBase64Payload(doc10MB + 'YQ==', DOC_WRITE_MAX_BYTES)).toBe(false)
     expect(isValidBase64Payload(assetOver, ASSET_SAVE_MAX_BYTES)).toBe(false)
-    expect(isValidBase64Payload(assetOver, ASSET_SAVE_MAX_BYTES)).toBe(false)
+    // 全填充空串必须拒绝（清理波：原来只校验字符集，'====' 会漏过）
+    expect(isValidBase64Payload('====', DOC_WRITE_MAX_BYTES)).toBe(false)
   })
 })

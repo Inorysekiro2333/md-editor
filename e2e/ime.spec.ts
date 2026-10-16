@@ -98,8 +98,9 @@ test('table cell: pinyin burst + commit inside cell', async () => {
 test('code block: pinyin burst + commit stays inside fence', async () => {
   const { app, window, editor } = await openDoc('```ts\nconst a=1\n```\n')
   await commitIn(window, editor, ['bianma', '编码zhu', '编码注释'], '编码注释')
-  await expect(editor.locator('pre')).toContainText('const a=1')
-  await expect(editor.locator('pre')).toContainText('编码注释')
+  // M2 起代码块由 CM6 NodeView 渲染（.md-codeblock），不再是原生 <pre>。
+  await expect(editor.locator('.md-codeblock .cm-content')).toContainText('const a=1')
+  await expect(editor.locator('.md-codeblock .cm-content')).toContainText('编码注释')
   await expect(editor.locator('p')).toHaveCount(0)
   await app.close()
 })
