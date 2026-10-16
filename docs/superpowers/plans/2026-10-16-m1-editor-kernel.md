@@ -349,6 +349,10 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 | #      | 偏离 | 说明 | 日期 |
 | ------ | ---- | ---- | ---- |
 | （空） |      |      |      |
+| 1 | 新增 devDependency jsdom ^30.1.2（Task 0） | 测试环境依赖，非 Markdown 内核，不违反铁律 3 | 2026-10-16 |
+| 2 | 冒烟用例 2 例期望值按 Milkdown 实际序列化登记（bullet `-`→`*`、表格分隔行最小化） | 铁律 1 差异登记要求，已注释登记 | 2026-10-16 |
+| 3 | round-trip 用例实现为 `roundtrip(input)` + 内联 `toBe(expected)`（计划原写 `roundtrip(input, expectedOrIdentity)`） | 语义等价，精确断言不变 | 2026-10-16 |
+| 4 | fixtures 加入 .prettierignore | 保护测试数据字节级原样（expected 快照含列宽 padding） | 2026-10-16 |
 
 ## 执行顺序
 
