@@ -18,15 +18,31 @@ function withFixture<T>(run: (file: string, content: string) => Promise<T>): Pro
   return run(file, content)
 }
 
-interface DebugHooks {
-  pmSelection(): { anchor: number; head: number; hasFocus: boolean }
-  cmSelection(): { anchor: number; hasFocus: boolean }
+// 注意：Playwright evaluate 的返回值会 JSON 序列化，函数无法传回 Node 侧，
+// 因此钩子必须在页面上下文内调用，只返回数据。
+interface PmSel {
+  anchor: number
+  head: number
+  hasFocus: boolean
+}
+interface CmSel {
+  anchor: number
+  hasFocus: boolean
 }
 
-function readHooks(window: Page): Promise<DebugHooks | null> {
+async function readPmSelection(window: Page): Promise<PmSel | null> {
   return window.evaluate(() => {
-    const dbg = (window as unknown as { __mdEditorDebug?: DebugHooks }).__mdEditorDebug
-    return dbg && dbg.pmSelection && dbg.cmSelection ? dbg : null
+    const dbg = (window as unknown as { __mdEditorDebug?: { pmSelection?: () => PmSel } })
+      .__mdEditorDebug
+    return dbg?.pmSelection ? dbg.pmSelection() : null
+  })
+}
+
+async function readCmSelection(window: Page): Promise<CmSel | null> {
+  return window.evaluate(() => {
+    const dbg = (window as unknown as { __mdEditorDebug?: { cmSelection?: () => CmSel } })
+      .__mdEditorDebug
+    return dbg?.cmSelection ? dbg.cmSelection() : null
   })
 }
 
@@ -89,10 +105,10 @@ test('caret and content stay stable across 10 mode toggles', async () => {
       // cmSelection().anchor 是 CM doc 全局 offset，段落行内 offset = anchor - 8）。
       let caret = -1
       for (let j = 0; j < 20 && caret < 0; j += 1) {
-        const hooks = await readHooks(window)
-        if (hooks !== null) {
-          const sel = mode === 'source' ? await hooks.cmSelection() : await hooks.pmSelection()
-          caret = (mode === 'source' ? sel.anchor - 8 : sel.anchor - PM_PARA_START) as number
+        const sel =
+          mode === 'source' ? await readCmSelection(window) : await readPmSelection(window)
+        if (sel !== null) {
+          caret = mode === 'source' ? sel.anchor - 8 : sel.anchor - PM_PARA_START
         }
         if (caret < 0) await window.waitForTimeout(50)
       }
@@ -111,15 +127,14 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     expect(expected.wysiwyg).toBeDefined()
     expect(expected.source.caret).toBe(baseline)
     if (expected.source.caret !== expected.wysiwyg.caret) {
-      const hooks = await readHooks(window)
       throw new Error(
         'cross-mode caret mismatch: ' +
           JSON.stringify({
             source: expected.source,
             wysiwyg: expected.wysiwyg,
             baseline,
-            pmSelection: hooks ? await hooks.pmSelection() : null,
-            cmSelection: hooks ? await hooks.cmSelection() : null,
+            pmSelection: await readPmSelection(window),
+            cmSelection: await readCmSelection(window),
           }),
       )
     }
