@@ -304,3 +304,4 @@ NodeView 设计（vanilla TS，无 React/Vue）：`dom = div.md-codeblock`；hea
 - Task 2 parked findings（Ruling: 非阻塞，推迟到 Task 8 前清理波；保守行为无错报 exact 风险）：
   - cursor-map.ts:351-356 原子节点分支未校验 leaf.kind（建议补检查走 fallback）。
   - cursor-map.ts:425-427 anchorsByMd 去重可能用非 exact 锚点遮蔽 exact 锚点（仅多报 ancestor，不会错报 exact）。
+- Task 3: complete — commit 092ed12 — review Approved（source-editor 6/6，cursor-map 23/23 无回归，typecheck 0）。偏离：defaultHighlightStyle 改从 @codemirror/language 导入（@lezer/highlight 无此导出）、补 @types/react-dom devDep、setSelectionOffsets 超界 clamp。Parked findings（P2，Task 4 顺手）：source-editor.tsx:60 effect 依赖 initialScrollRatio 运行期变化会重建 view 并从 mount 值重置 doc（Task 4 用法不触发）——改 ref/只 mount 一次。
