@@ -363,8 +363,10 @@ function buildLockstepMap(markdown: string, doc: PMNode, root: Root): LockstepMa
           recordAnchor(pmPos, leaf.contentStart, false)
           fallbacks.push({ pmStart: pmPos, pmEnd, mdOffset: leaf.contentStart })
         } else {
-          recordAnchor(pmPos, leaf.start, false)
-          recordAnchor(pmPos + pmChild.nodeSize, leaf.end, false)
+          // 原子叶子边界与 md 偏移一一对应（kind 匹配即视为对齐），
+          // 记为 exact，保证反向 mdOffsetToPmPos 在叶子边界命中 exact。
+          recordAnchor(pmPos, leaf.start, true)
+          recordAnchor(pmPos + pmChild.nodeSize, leaf.end, true)
         }
       }
       pmPos = pmEnd
