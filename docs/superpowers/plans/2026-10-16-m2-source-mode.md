@@ -33,27 +33,28 @@
 
 ## File Structure（本计划锁定的文件边界）
 
-| 文件 | 职责 |
-| --- | --- |
-| `packages/editor/src/cursor-map.ts` | 全部互转纯函数（remark 层 + PM bridge 层） |
-| `packages/editor/src/cursor-map.test.ts` | cursor-map 单测（node 环境跑 remark 层；jsdom 跑 PM bridge 层） |
-| `packages/editor/src/source-editor.tsx` | CodeMirror 6 源码模式组件（React） |
-| `packages/editor/src/source-editor.test.ts` | 源码组件单测（jsdom） |
-| `packages/editor/src/code-block-view.ts` | 代码块 CM6 NodeView（vanilla TS） |
-| `packages/editor/src/code-block-view.test.ts` | NodeView 行为单测（jsdom） |
-| `packages/editor/src/EditorHost.tsx` | EditorHandle 扩展（getSelectionOffsets/setSelectionOffsets），不改动插件链 |
-| `packages/editor/src/sync.ts` | dispose 改为 flush pending（语义变更点） |
-| `packages/app/src/App.tsx` | mode 状态、Ctrl+/ 、切换按钮、选区/滚动交接 |
-| `electron/shared/base64.ts` | base64 载荷校验纯函数 |
-| `electron/main/*`、`electron/preload/*` | doc:write / asset:save 接入守卫（最小改动） |
-| `e2e/source-mode.spec.ts`、`e2e/code-block.spec.ts` | R3 验收 e2e + 代码块 e2e |
-| `TODO.md`、`component-api.md`、`development.md`、`DESIGN.md` | 交付后文档对齐 |
+| 文件                                                         | 职责                                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `packages/editor/src/cursor-map.ts`                          | 全部互转纯函数（remark 层 + PM bridge 层）                                 |
+| `packages/editor/src/cursor-map.test.ts`                     | cursor-map 单测（node 环境跑 remark 层；jsdom 跑 PM bridge 层）            |
+| `packages/editor/src/source-editor.tsx`                      | CodeMirror 6 源码模式组件（React）                                         |
+| `packages/editor/src/source-editor.test.ts`                  | 源码组件单测（jsdom）                                                      |
+| `packages/editor/src/code-block-view.ts`                     | 代码块 CM6 NodeView（vanilla TS）                                          |
+| `packages/editor/src/code-block-view.test.ts`                | NodeView 行为单测（jsdom）                                                 |
+| `packages/editor/src/EditorHost.tsx`                         | EditorHandle 扩展（getSelectionOffsets/setSelectionOffsets），不改动插件链 |
+| `packages/editor/src/sync.ts`                                | dispose 改为 flush pending（语义变更点）                                   |
+| `packages/app/src/App.tsx`                                   | mode 状态、Ctrl+/ 、切换按钮、选区/滚动交接                                |
+| `electron/shared/base64.ts`                                  | base64 载荷校验纯函数                                                      |
+| `electron/main/*`、`electron/preload/*`                      | doc:write / asset:save 接入守卫（最小改动）                                |
+| `e2e/source-mode.spec.ts`、`e2e/code-block.spec.ts`          | R3 验收 e2e + 代码块 e2e                                                   |
+| `TODO.md`、`component-api.md`、`development.md`、`DESIGN.md` | 交付后文档对齐                                                             |
 
 ---
 
 ### Task 1: cursor-map remark 层（Markdown offset ↔ MdCursor）
 
 **Files:**
+
 - Modify: `packages/editor/package.json`（dependencies 增加 `unified@11.0.5`、`remark-parse@11.0.0`、`@types/mdast`（dev）——版本必须与 node_modules/.pnpm 现存一致，禁止升级）
 - Create: `packages/editor/src/cursor-map.ts`
 - Test: `packages/editor/src/cursor-map.test.ts`
@@ -61,7 +62,10 @@
 **Interfaces (Produces):**
 
 ```ts
-export interface MdCursor { path: number[]; offset: number }
+export interface MdCursor {
+  path: number[]
+  offset: number
+}
 export type CursorAccuracy = 'exact' | 'ancestor'
 
 /** offset = UTF-16 code unit index in markdown string; cursor.offset 相对所解析到的最深 mdast 节点 position.start.offset */
@@ -71,6 +75,7 @@ export function cursorToMdOffset(markdown: string, cursor: MdCursor): number
 ```
 
 语义约定（写进 cursor-map.ts 顶部 doc comment，作为验收定义）：
+
 1. `path[i]` = 第 i 层 mdast 节点在其父节点 children 中的下标；解析目标是「包含该 offset 的最深节点」。
 2. 节点边界偏好：offset == child.end 时归入该 child（offset = child.end - child.start）；root 空文档（''）返回 `{ path: [], offset: 0 }`。
 3. `cursorToMdOffset` 退化路径 = architecture.md 3.4 第 3 条「最近祖先 + 块首」，必须有登记用例。
@@ -123,13 +128,17 @@ describe('cursorToMdOffset', () => {
 ### Task 2: cursor-map PM bridge（PM pos ↔ Markdown offset / MdCursor）
 
 **Files:**
+
 - Modify: `packages/editor/src/cursor-map.ts`（追加导出）
 - Test: `packages/editor/src/cursor-map.test.ts`（新增 `@vitest-environment jsdom` describe 块，复用 `testing/create-test-editor.ts`）
 
 **Interfaces (Produces):**
 
 ```ts
-export interface PositionResult { pos: number; accuracy: CursorAccuracy }
+export interface PositionResult {
+  pos: number
+  accuracy: CursorAccuracy
+}
 
 export function pmPosToMarkdownOffset(markdown: string, doc: PMNode, pos: number): number
 export function markdownOffsetToPmPos(markdown: string, doc: PMNode, offset: number): PositionResult
@@ -138,23 +147,25 @@ export function mdCursorToPmPos(markdown: string, doc: PMNode, cursor: MdCursor)
 ```
 
 实现算法（PM↔mdast 平行游走，双方都来自同一 buffer，故 child 序列一一对应是主路径）：
+
 1. 块级：逐 child 同步前进（pmChild.nodeSize 对 mdast child 的 position 长度）；kind 明显不对应（如 footnote/html 边角）→ 顶层块级 fallback：按 PM 顶层块序号映射 mdast 顶层块，accuracy='ancestor'。
 2. 行内 lockstep 规则：`text↔text`、`inlineCode↔带 code mark 的 text`（等长）、`strong/emphasis/link/delete↔对应 mark 的扁平 text 段`（递归 children，文本总长一致）、`image↔image（PM size 1，mdast 走完整 range）`、`break↔hardBreak`；不匹配时取最近 text 边界，accuracy='ancestor'（平局取后方）。
 3. `mdCursorToPmPos` = cursorToMdOffset → markdownOffsetToPmPos；`pmPosToMdCursor` = mdOffsetToCursor∘pmPosToMarkdownOffset（内部单次解析，公共 API 可包一层）。
 
 - [ ] **Step 1: 失败测试**（jsdom；用 `createTestEditor` 建 PM doc，`getView().state.doc` 取 doc，测试用例必须覆盖：标题/段落/嵌套列表/围栏代码块/表格/引用/行内 `**`、`` ` ``、链接、图片、CJK 全角字符、空文档、越界 pos clamp、path 失效 → 'ancestor' 且落在块首）。代表性断言：
 
-```ts
+````ts
 // @vitest-environment jsdom
 const md = '# 标题\n\n正文**加粗**继续\n\n```ts\nconst a = 1\n```\n'
 const te = await createTestEditor(md)
 const doc = te.action((ctx) => ctx.get(editorViewCtx).state.doc)
 // PM pos 在「加粗」内部 → markdown offset 必须落在源文本对应字符上
-const insideBold = /* 在 '加' 前 1 个 PM pos，通过 TextSelection near 构造 */
-expect(pmPosToMarkdownOffset(md, doc, insideBold)).toBe(md.indexOf('加'))
+const insideBold =
+  /* 在 '加' 前 1 个 PM pos，通过 TextSelection near 构造 */
+  expect(pmPosToMarkdownOffset(md, doc, insideBold)).toBe(md.indexOf('加'))
 expect(markdownOffsetToPmPos(md, doc, md.indexOf('加'))).toMatchObject({ accuracy: 'exact' })
 // 往返：任意 PM pos → offset → PM pos 相等或同义（同为 text 边界）
-```
+````
 
 - [ ] **Step 2: 红 → Step 3: 实现 lockstep → Step 4: 绿**（同 Task 1 节奏；往返用例对全文每个 offset/pos 做扫描断言：`mdCursorToPmPos(md, doc, pmPosToMdCursor(md, doc, pos))` 与原 pos 一致或两者都指向同一 text 边界）
 - [ ] **Step 5: 硬门槛 + 提交** — `feat(editor): bridge pm positions to markdown offsets`
@@ -162,6 +173,7 @@ expect(markdownOffsetToPmPos(md, doc, md.indexOf('加'))).toMatchObject({ accura
 ### Task 3: CodeMirror 6 源码模式组件
 
 **Files:**
+
 - Modify: `packages/editor/package.json`（dependencies：`@codemirror/state@^6`、`@codemirror/view@^6`、`@codemirror/commands@^6`、`@codemirror/language@^6`、`@codemirror/lang-markdown@^6`、`@codemirror/language-data@^6`、`@lezer/highlight@^6`（dev 亦可，按实际 import 归位））
 - Create: `packages/editor/src/source-editor.tsx`
 - Test: `packages/editor/src/source-editor.test.ts`
@@ -195,6 +207,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element
 ### Task 4: 模式切换集成（App + EditorHandle 扩展）
 
 **Files:**
+
 - Modify: `packages/editor/src/EditorHost.tsx`（仅 EditorHandle 扩展 + 内部用 cursor-map；插件链/同步逻辑不动）
 - Modify: `packages/editor/src/index.ts`（导出 SourceEditor、cursor-map 公共 API）
 - Modify: `packages/app/src/App.tsx`
@@ -206,7 +219,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element
 export interface EditorHandle {
   getMarkdown(): string
   flushNow(): void
-  getSelectionOffsets(): { anchor: number; head: number } | null   // 经 cursor-map
+  getSelectionOffsets(): { anchor: number; head: number } | null // 经 cursor-map
   setSelectionOffsets(anchor: number, head: number): void
   getScrollRatio(): number
 }
@@ -221,9 +234,11 @@ App 侧切换流程（唯一事实源纪律）：`toggleMode()` → ① 活动 h
 ### Task 5: R3 验收 e2e（切换 10 次 + 零编辑不写盘）
 
 **Files:**
+
 - Create: `e2e/source-mode.spec.ts`
 
 用例（只加不删）：
+
 1. 打开含标题/列表/表格/代码围栏的 fixture（e2e/fixtures 已有目录，可新增 `source-mode.md`），点击正文中间 → `Ctrl+/` 往返切换 10 次：每次断言 ① 编辑器可见文本 == 文件内容；② caret 的绝对字符 offset 不变（helper：`window.getSelection` 遍历文本节点算 offset，PM 与 CM 的 contenteditable 都适用）。
 2. 切换后零编辑 Ctrl+S：文件 mtime+size 不变（零编辑不写盘在源码模式下同样成立）。
 3. 源码模式编辑 → 切回 WYSIWYG：内容同步无丢失（flush 语义验证）。
@@ -234,6 +249,7 @@ App 侧切换流程（唯一事实源纪律）：`toggleMode()` → ① 活动 h
 ### Task 6: 代码块组件（CM6 NodeView：语言选择 / 复制 / 高亮）
 
 **Files:**
+
 - Create: `packages/editor/src/code-block-view.ts`（`$view` 挂 commonmark `codeBlockSchema`；语言表来自 `@codemirror/language-data`，按 `LanguageDescription.matchLanguages` 懒加载高亮）
 - Modify: `packages/editor/src/EditorHost.tsx`（`.use(codeBlockView)` 挂载；插件链其余不动）
 - Modify: `packages/editor/src/roundtrip.test.ts`（按 development.md 5 节登记：fence 语言保留 / 空代码块 / 无语言 fence / 内容含 ``` 的边界；仅补缺失用例，已登记的禁止改期望值）
@@ -250,6 +266,7 @@ NodeView 设计（vanilla TS，无 React/Vue）：`dom = div.md-codeblock`；hea
 ### Task 7: M2 顺手项（IPC base64 守卫 + sync.dispose flush 语义）
 
 **Files:**
+
 - Create: `electron/shared/base64.ts` + `electron/shared/base64.test.ts`
 - Modify: `electron/main/fs_io.ts`（或实际 IPC handler 文件，先读再改）、`electron/preload/index.ts`（仅当类型收窄需要）
 - Modify: `packages/editor/src/sync.ts`、`packages/editor/src/sync.test.ts`
@@ -263,6 +280,7 @@ NodeView 设计（vanilla TS，无 React/Vue）：`dom = div.md-codeblock`；hea
 ### Task 8: 文档对齐 + 里程碑收口
 
 **Files:**
+
 - Modify: `TODO.md`（M2 勾选 + 验收记录：typecheck/lint/test/e2e 实测数字；P1 表格增强标注「M2b 计划」）
 - Modify: `component-api.md`（cursor-map API、SourceEditor、mode 切换与选区/滚动语义、code block NodeView、sync.dispose 语义变更）
 - Modify: `development.md`（6 节 R3 记录 e2e 结果；R2 登记代码块 IME 结论；7 节性能基准补 M2 实测）
