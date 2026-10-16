@@ -57,9 +57,10 @@ export function applySelectionOffsets(
   const doc = view.state.doc
   const anchorPos = markdownOffsetToPmPos(markdown, doc, anchor).pos
   const headPos = markdownOffsetToPmPos(markdown, doc, head).pos
-  // md offset 落在块级边界（如段落末尾后的空位）时 TextSelection.create 会抛错，
-  // 退回到最近的合法 inline 位置，保证模式切换永不因光标恢复而崩溃。
-  const nearPos = (pos: number): number => TextSelection.near(doc.resolve(pos), -1).anchor
+  // md offset 落在块级边界（如标题行末的块间空位）时 TextSelection.create 会抛错，
+  // 按 architecture.md 3.4「最近祖先 + 块首」退化到后方块的块首（near +1），
+  // 保证模式切换永不因光标恢复而崩溃。
+  const nearPos = (pos: number): number => TextSelection.near(doc.resolve(pos), 1).anchor
   view.dispatch(
     view.state.tr.setSelection(TextSelection.create(doc, nearPos(anchorPos), nearPos(headPos))),
   )
@@ -226,7 +227,9 @@ function EditorHostInner(props: EditorHostProps) {
         const editor = get()
         if (!editor) return
         editor.action((ctx) => {
-          ;(ctx.get(editorViewCtx) as unknown as { focus(): void } | undefined)?.focus()
+          // @milkdown 的 editorViewCtx 泛型未暴露 focus，运行时是标准 ProseMirror EditorView
+          const view = ctx.get(editorViewCtx) as unknown as { focus(): void } | undefined
+          view?.focus()
         })
       },
       getScrollRatio: () => {

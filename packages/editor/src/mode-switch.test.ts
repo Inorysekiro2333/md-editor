@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { TextSelection } from '@milkdown/prose/state'
 import { describe, expect, it } from 'vitest'
+import { markdownOffsetToPmPos } from './cursor-map'
 import { applySelectionOffsets, selectionOffsetsFromView } from './EditorHost'
 import { createTestEditor } from './testing/create-test-editor'
 
@@ -60,6 +61,28 @@ describe('mode switch selection round-trip (PM side)', () => {
       applySelectionOffsets(view, md, captured.anchor, captured.head)
       expect(selectionOffsetsFromView(md, view)).toEqual(captured)
       expect(view.state.selection.anchor).toBe(pos)
+    } finally {
+      await te.destroy()
+    }
+  })
+
+  it('degrades a block-boundary offset to the next block start (architecture 3.4)', async () => {
+    // md offset 5 = 标题行末（块级边界）：既不在标题文本内，也不在段落文本内
+    const boundaryMd = '# 标题\n\n段落\n'
+    const te = await createTestEditor(boundaryMd)
+    try {
+      const view = te.getView()
+      const boundaryOffset = boundaryMd.indexOf('段落') - 1
+      applySelectionOffsets(view, boundaryMd, boundaryOffset, boundaryOffset)
+      const restored = selectionOffsetsFromView(boundaryMd, view)
+      // 恢复点必须是下一块（段落）块首，而不是前一块末尾
+      expect(view.state.selection.anchor).toBe(textPos(view.state.doc, '段'))
+      // 映射回 md offset 后落在段落文本起点
+      expect(restored.anchor).toBe(boundaryMd.indexOf('段'))
+      // 边界 offset 本身按「最近祖先」语义退化（非 exact 文本内位置）
+      expect(markdownOffsetToPmPos(boundaryMd, view.state.doc, boundaryOffset).accuracy).toBe(
+        'ancestor',
+      )
     } finally {
       await te.destroy()
     }

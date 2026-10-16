@@ -96,6 +96,10 @@ test('caret and content stay stable across 10 mode toggles', async () => {
         expect(caret).toBe(expected[mode].caret)
       }
     }
+    // 正文段落的 PM 块文本与 CM 行文本一致，跨模式 caret 必须落在同一字符位置
+    expect(expected.source).toBeDefined()
+    expect(expected.wysiwyg).toBeDefined()
+    expect(expected.source.caret).toBe(expected.wysiwyg.caret)
     await app.close()
   })
 })
