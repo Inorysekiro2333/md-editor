@@ -40,8 +40,10 @@ export function createMarkdownSync(options: MarkdownSyncOptions): MarkdownSync {
       flush()
     },
     dispose() {
+      // M2 语义变更（handoff §5）：dispose 先同步 flush pending，
+      // unmount 时不再丢 Buffer 收敛；再清理 timer。
+      flush()
       clearTimer()
-      pending = false
     },
     get pending() {
       return pending

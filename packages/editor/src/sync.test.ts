@@ -48,13 +48,25 @@ describe('createMarkdownSync', () => {
     expect(onFlush).not.toHaveBeenCalled()
   })
 
-  it('dispose cancels a pending flush', () => {
+  it('dispose flushes pending changes synchronously', () => {
     const onFlush = vi.fn()
-    const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'x', onFlush })
+    const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'final', onFlush })
 
     sync.schedule()
     sync.dispose()
+
+    expect(onFlush).toHaveBeenCalledTimes(1)
+    expect(onFlush).toHaveBeenCalledWith('final')
+    expect(sync.pending).toBe(false)
     vi.advanceTimersByTime(1000)
+    expect(onFlush).toHaveBeenCalledTimes(1)
+  })
+
+  it('dispose without pending changes does not flush', () => {
+    const onFlush = vi.fn()
+    const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'x', onFlush })
+
+    sync.dispose()
 
     expect(onFlush).not.toHaveBeenCalled()
     expect(sync.pending).toBe(false)
