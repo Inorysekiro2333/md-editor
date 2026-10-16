@@ -18,35 +18,21 @@ function withFixture<T>(run: (file: string, content: string) => Promise<T>): Pro
   return run(file, content)
 }
 
-// 光标在其所在块（PM 块节点 / CM 行）内的字符 offset。
-// 对普通段落，PM 块文本与 CM 行文本完全一致，因此该 offset 可跨模式比较。
-async function caretBlockOffset(window: Page): Promise<number> {
+interface DebugHooks {
+  pmSelection(): { anchor: number; head: number; hasFocus: boolean }
+  cmSelection(): { anchor: number; hasFocus: boolean }
+}
+
+function readHooks(window: Page): Promise<DebugHooks | null> {
   return window.evaluate(() => {
-    const selection = window.getSelection()
-    if (
-      selection === null ||
-      selection.rangeCount === 0 ||
-      selection.anchorNode === null ||
-      selection.anchorNode.nodeType !== Node.TEXT_NODE
-    )
-      return -1
-    const anchor = selection.anchorNode
-    let block: Element | null =
-      anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
-    while (block !== null) {
-      if (block.classList.contains('cm-line')) break
-      const parent = block.parentElement
-      if (parent === null || parent.classList.contains('ProseMirror')) break
-      block = parent
-    }
-    if (block === null) return -1
-    const range = document.createRange()
-    range.setStart(block, 0)
-    range.setEnd(selection.anchorNode, selection.anchorOffset)
-    return range.toString().length
+    const dbg = (window as unknown as { __mdEditorDebug?: DebugHooks }).__mdEditorDebug
+    return dbg && dbg.pmSelection && dbg.cmSelection ? dbg : null
   })
 }
-async function currentMode(window: Page): Promise<'wysiwyg' | 'source'> {
+
+async function currentMode(window: {
+  getByTestId(id: string): { textContent(): Promise<string | null> }
+}): Promise<'wysiwyg' | 'source'> {
   const label = await window.getByTestId('mode-toggle').textContent()
   return label !== null && label.includes('源码') ? 'source' : 'wysiwyg'
 }
@@ -60,11 +46,11 @@ test('caret and content stay stable across 10 mode toggles', async () => {
 
     // Milkdown create() 是异步的：过早点击会被初始化重置回文档开头（Linux CI 上必现）。
     // 等编辑器就绪后再点击；点到位以 PM 选区为准（__mdEditorDebug 调试钩子）：
-    // fixture 第一段在 PM pos 范围 [PM_PARA_START, PM_PARA_END)（heading 占 [0,6)，
-    // 段落 content 从 7 起）。DOM 文本锚点检查仅作辅助。
+    // fixture 中 heading 占 PM pos [0,6)，段落 content 占 [7,33)，段落文本的 md 起点为 8。
     const PM_PARA_START = 7
     const PM_PARA_END = 33
     await window.waitForSelector('[data-editor-ready="true"]')
+    // baseline = pmAnchor - 7：段落内相对 offset（段落 content 从 PM pos 7 起）
     let baseline = 0
     for (let i = 0; i < 25; i += 1) {
       await editor.locator('p').first().click()
@@ -74,17 +60,9 @@ test('caret and content stay stable across 10 mode toggles', async () => {
         ).__mdEditorDebug
         return dbg ? dbg.pmSelection() : null
       })
-      const inParagraph = pm !== null && pm.anchor >= PM_PARA_START && pm.anchor < PM_PARA_END
-      const domInParagraph = await window.evaluate(() => {
-        const sel = window.getSelection()
-        const pEl = document.querySelector('.ProseMirror p')
-        if (sel === null || sel.anchorNode === null || pEl === null) return false
-        if (sel.anchorNode.nodeType !== Node.TEXT_NODE) return false
-        return pEl.contains(sel.anchorNode.parentElement) && sel.anchorOffset > 0
-      })
-      if (inParagraph && domInParagraph) {
-        baseline = await caretBlockOffset(window)
-        if (baseline > 0) break
+      if (pm !== null && pm.anchor >= PM_PARA_START && pm.anchor < PM_PARA_END) {
+        baseline = pm.anchor - PM_PARA_START
+        break
       }
       await window.waitForTimeout(100)
     }
@@ -105,26 +83,22 @@ test('caret and content stay stable across 10 mode toggles', async () => {
         text = (await editor.innerText()).replace(/\r/g, '')
       }
 
-      let caret = await caretBlockOffset(window)
+      // 断言全部基于编辑器状态真值：
+      // wysiwyg = pmSelection().anchor - 7（段落内相对 offset）；
+      // source = cmSelection().anchor - 8（段落行在 CM doc 的起点 = md offset 8，
+      // cmSelection().anchor 是 CM doc 全局 offset，段落行内 offset = anchor - 8）。
+      let caret = -1
       for (let j = 0; j < 20 && caret < 0; j += 1) {
-        await window.waitForTimeout(50)
-        caret = await caretBlockOffset(window)
+        const hooks = await readHooks(window)
+        if (hooks !== null) {
+          const sel = mode === 'source' ? await hooks.cmSelection() : await hooks.pmSelection()
+          caret = (mode === 'source' ? sel.anchor - 8 : sel.anchor - PM_PARA_START) as number
+        }
+        if (caret < 0) await window.waitForTimeout(50)
       }
       if (caret < 0) {
-        const dbg = await window.evaluate(() => {
-          const sel = window.getSelection()
-          return {
-            node: sel === null || sel.anchorNode === null ? 'none' : sel.anchorNode.nodeName,
-            cls:
-              sel === null || sel.anchorNode === null
-                ? ''
-                : String((sel.anchorNode as Text).parentElement?.className),
-            offset: sel === null ? -1 : sel.anchorOffset,
-          }
-        })
-        throw new Error('caret missing in mode ' + mode + ': ' + JSON.stringify(dbg))
+        throw new Error('debug hooks unavailable in mode ' + mode)
       }
-      expect(caret).toBeGreaterThanOrEqual(0)
       if (expected[mode] === undefined) {
         expected[mode] = { text, caret }
       } else {
@@ -137,31 +111,16 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     expect(expected.wysiwyg).toBeDefined()
     expect(expected.source.caret).toBe(baseline)
     if (expected.source.caret !== expected.wysiwyg.caret) {
-      const dbg = await window.evaluate(() => {
-        const dump = () => {
-          const sel = window.getSelection()
-          if (sel === null || sel.anchorNode === null) return { anchor: 'none' }
-          const anchor = sel.anchorNode
-          const el = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
-          return {
-            nodeType: anchor.nodeType,
-            nodeName: anchor.nodeName,
-            anchorOffset: sel.anchorOffset,
-            parentClass: el?.className ?? '',
-            parentText: el?.textContent?.slice(0, 40) ?? '',
-            isCollapsed: sel.isCollapsed,
-          }
-        }
-        const pmDbg = (
-          window as unknown as {
-            __mdEditorDebug?: { pmSelection(): { anchor: number; head: number; hasFocus: boolean } }
-          }
-        ).__mdEditorDebug
-        return { wysiwyg: dump(), pmSelection: pmDbg ? pmDbg.pmSelection() : null }
-      })
+      const hooks = await readHooks(window)
       throw new Error(
         'cross-mode caret mismatch: ' +
-          JSON.stringify({ source: expected.source, wysiwyg: expected.wysiwyg, dom: dbg }),
+          JSON.stringify({
+            source: expected.source,
+            wysiwyg: expected.wysiwyg,
+            baseline,
+            pmSelection: hooks ? await hooks.pmSelection() : null,
+            cmSelection: hooks ? await hooks.cmSelection() : null,
+          }),
       )
     }
     expect(expected.source.caret).toBe(expected.wysiwyg.caret)
