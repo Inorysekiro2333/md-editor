@@ -48,13 +48,40 @@ describe('createMarkdownSync', () => {
     expect(onFlush).not.toHaveBeenCalled()
   })
 
-  it('dispose cancels a pending flush', () => {
+  it('dispose flushes pending changes synchronously', () => {
     const onFlush = vi.fn()
+    const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'final', onFlush })
+
+    sync.schedule()
+    sync.dispose()
+
+    expect(onFlush).toHaveBeenCalledTimes(1)
+    expect(onFlush).toHaveBeenCalledWith('final')
+    expect(sync.pending).toBe(false)
+    vi.advanceTimersByTime(1000)
+    expect(onFlush).toHaveBeenCalledTimes(1)
+  })
+
+  it('dispose keeps a timer re-created by onFlush re-entry', () => {
+    const onFlush = vi.fn(() => {
+      if (onFlush.mock.calls.length === 1) sync.schedule()
+    })
     const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'x', onFlush })
 
     sync.schedule()
     sync.dispose()
-    vi.advanceTimersByTime(1000)
+
+    expect(onFlush).toHaveBeenCalledTimes(1)
+    expect(sync.pending).toBe(true)
+    vi.advanceTimersByTime(300)
+    expect(onFlush).toHaveBeenCalledTimes(2)
+  })
+
+  it('dispose without pending changes does not flush', () => {
+    const onFlush = vi.fn()
+    const sync = createMarkdownSync({ delayMs: 300, serialize: () => 'x', onFlush })
+
+    sync.dispose()
 
     expect(onFlush).not.toHaveBeenCalled()
     expect(sync.pending).toBe(false)

@@ -98,14 +98,15 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [x] 表格单元格内 IME + 回车确认候选。——自动化覆盖：单元格内组合 + 提交通过。「回车确认候选」无法由 CDP 等价模拟（真实 IME 会吞掉 Enter，不产生按键事件），故以文本提交代替。
 - [x] IME 组合中不允许触发输入规则（如拼音中含 `#` 不应建标题）。——自动化覆盖：组合文本含 `#`、`-`、`1.` 提交后仍为段落文本，未触发标题/列表输入规则。
 - [ ] （公式块 IME 属 v1.1，v1 不检查。）
-- [ ] （待补）真人微软拼音实测：真实候选窗交互、候选确认按键、组合中 Ctrl+Z 回退到拼音等 IME 内部行为。
+- [x] 代码块 IME（M2 结论 2026-10-16）：自动化覆盖 e2e/ime.spec.ts「code block: pinyin burst + commit stays inside fence」全绿——CDP composition 连打 + 提交停留在 fence 内，未溢出到块外；修复代码块 NodeView 焦点路由（PM 选区进入代码块时把 DOM 焦点交给 CM，否则 IME 文本丢失）。
+- [ ] （待补）真人微软拼音实测：真实候选窗交互、候选确认按键、组合中 Ctrl+Z 回退到拼音等 IME 内部行为（含代码块内，M2 起）。
 
 ### R3 — 模式切换（手测 / e2e）
 
-- [ ] 渲染 ↔ 源码各切 10 次：内容一致、**光标所在行列一致**（对应 `cursor-map` 返回 `exact`）。
-- [ ] `ancestor` / `none` 降级路径有登记用例，且不会静默丢位置。
-- [ ] 滚动位置按相对比例恢复。
-- [ ] 切换后的撤销栈行为与 `architecture.md` ADR 一致。
+- [x] 渲染 ↔ 源码各切 10 次：内容一致、**光标所在行列一致**。—— e2e/source-mode.spec.ts「caret and content stay stable across 10 mode toggles」通过（2026-10-16，M2）：源码文本 == 文件内容，10 次切换后两模式 caret 等值。
+- [x] `ancestor` / `none` 降级路径有登记用例，且不会静默丢位置。—— cursor-map.test.ts 登记块级边界 / path 失效回退；EditorHost `applySelectionOffsets` 对块级边界空位用 `TextSelection.near(+1)` 退化到**下一块块首**（accuracy=ancestor），e2e 覆盖。
+- [x] 滚动位置按相对比例恢复。—— 最小实现 scrollTop/scrollHeight（Ruling-4）；逐块视口比例记录为已知简化，登记于 component-api.md 3.1/3.9。
+- [x] 切换后的撤销栈行为与 `architecture.md` ADR 一致。—— session-history 重放 + e2e/undo-session.spec.ts 全绿。
 
 ### R4 — 文件可靠性（手测 / e2e）
 
@@ -138,10 +139,11 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 
 ## 7. 性能基准记录
 
-| 日期       | 提交    | 包体                          | 冷启动（第二次） | 空文档内存 | 1MB 打开   | 平台/备注                                                                                                                                            |
-| ---------- | ------- | ----------------------------- | ---------------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build） | 340ms            | 408MB      | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集                                                          |
-| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build） | —                | 186MB      | 未测（M1） | win32；Get-Process electron PrivateMemorySize64 之和，第二次启动，4 个 electron 进程；与 architecture.md 5 节「私有工作集之和」口径一致，≤300MB 达标 |
+| 日期       | 提交    | 包体                                                                                        | 冷启动（第二次） | 空文档内存 | 1MB 打开   | 平台/备注                                                                                                                                            |
+| ---------- | ------- | ------------------------------------------------------------------------------------------- | ---------------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build）                                                               | 340ms            | 408MB      | 未测（M1） | win32；内存=所有进程 workingSetSize 之和；getAppMetrics 仅暴露 workingSetSize，非私有工作集                                                          |
+| 2026-10-15 | 2b4da21 | 未打包（请先执行 pnpm build）                                                               | —                | 186MB      | 未测（M1） | win32；Get-Process electron PrivateMemorySize64 之和，第二次启动，4 个 electron 进程；与 architecture.md 5 节「私有工作集之和」口径一致，≤300MB 达标 |
+| 2026-10-16 | 0ce3c19 | pnpm build:app 产物：main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB（未打包安装器） | 未测（M2）       | 未测（M2） | 未测（M2） | win32；M2 记录：全量 e2e 31 passed (35.0s)、pnpm test 169 passed；冷启动/内存留待 M3 复测                                                            |
 
 两种口径采样时刻不同（getAppMetrics 由主进程在 ready-to-show 时写入，Get-Process 为外部事后采样），数值仅供基线参考；M5 发布验收以私有工作集口径为准。
 

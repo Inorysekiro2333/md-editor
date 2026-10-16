@@ -40,8 +40,12 @@ export function createMarkdownSync(options: MarkdownSyncOptions): MarkdownSync {
       flush()
     },
     dispose() {
-      clearTimer()
-      pending = false
+      // M2 语义变更（handoff §5）：dispose 先同步 flush pending，
+      // unmount 时不再丢 Buffer 收敛；再清理 timer。
+      flush()
+      // onFlush 重入 schedule 时（flush 后重新 pending），保留新 timer，
+      // 让重入的那一轮照常收敛；否则才清理残留 timer（Task 8 清理波）。
+      if (!pending) clearTimer()
     },
     get pending() {
       return pending

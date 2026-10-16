@@ -1,4 +1,9 @@
-import { EditorHost, type EditorHandle } from '@md-editor/editor'
+import {
+  EditorHost,
+  SourceEditor,
+  type EditorHandle,
+  type SourceEditorHandle,
+} from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
@@ -21,10 +26,37 @@ export function App() {
   const setDoc = useAppStore((state) => state.setDoc)
   const externalNotice = useAppStore((state) => state.externalNotice)
   const setExternalNotice = useAppStore((state) => state.setExternalNotice)
+  const mode = useAppStore((state) => state.mode)
+  const setMode = useAppStore((state) => state.setMode)
   const [status, setStatus] = useState('未打开文件')
   const [reloadToken, setReloadToken] = useState(0)
   const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
+  const sourceHandle = useRef<SourceEditorHandle | null>(null)
+  const pendingSelection = useRef<{ anchor: number; head: number } | null>(null)
+  const pendingScrollRatio = useRef(0)
+
+  const toggleMode = useCallback(() => {
+    const current = useAppStore.getState().mode
+    if (current === 'wysiwyg') {
+      const handle = editorHandle.current
+      handle?.flushNow()
+      pendingSelection.current = handle?.getSelectionOffsets() ?? null
+      pendingScrollRatio.current = handle?.getScrollRatio() ?? 0
+      setMode('source')
+    } else {
+      const handle = sourceHandle.current
+      if (handle === null) {
+        pendingSelection.current = null
+        pendingScrollRatio.current = 0
+      } else {
+        handle.flushNow()
+        pendingSelection.current = handle.getSelectionOffsets()
+        pendingScrollRatio.current = handle.getScrollRatio()
+      }
+      setMode('wysiwyg')
+    }
+  }, [setMode])
 
   const onPasteAsset = useCallback(async (base64: string, mime: string): Promise<string> => {
     const current = useAppStore.getState().doc
@@ -134,13 +166,21 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+      if (!(event.ctrlKey || event.metaKey)) return
+      if (event.key.toLowerCase() !== 's' && event.key !== '/') return
       event.preventDefault()
+      if (event.key === '/') {
+        // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
+        // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
+        event.stopPropagation()
+        toggleMode()
+        return
+      }
       void save()
     }
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [save])
+  }, [save, toggleMode])
 
   return (
     <main className="workspace">
@@ -149,6 +189,9 @@ export function App() {
           {doc?.isDirty === true ? '未保存 · ' : ''}
           {status}
         </span>
+        <button type="button" data-testid="mode-toggle" onClick={toggleMode}>
+          编辑模式：{mode === 'wysiwyg' ? '所见即所得' : '源码'}
+        </button>
       </header>
       <p data-testid="app-info">
         {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
@@ -157,16 +200,36 @@ export function App() {
       <section className="editor-host">
         {doc === null ? (
           <p className="placeholder">正在等待文件…</p>
-        ) : (
+        ) : mode === 'wysiwyg' ? (
           <EditorHost
             key={`${doc.id}-${reloadToken}`}
             docId={doc.id}
             initialMarkdown={doc.text}
             onMarkdownChange={(markdown) => doc.applyEditorMarkdown(markdown)}
+            initialSelection={pendingSelection.current}
+            onSelectionApplied={() => {
+              pendingSelection.current = null
+            }}
             onReady={(handle) => {
               editorHandle.current = handle
             }}
             onPasteAsset={onPasteAsset}
+          />
+        ) : (
+          <SourceEditor
+            key={`${doc.id}-${reloadToken}`}
+            initialMarkdown={doc.text}
+            initialScrollRatio={pendingScrollRatio.current}
+            onMarkdownChange={(markdown) => doc.applyEditorMarkdown(markdown)}
+            onReady={(handle) => {
+              sourceHandle.current = handle
+              const pending = pendingSelection.current
+              if (pending !== null) {
+                handle.setSelectionOffsets(pending.anchor, pending.head)
+                pendingSelection.current = null
+                handle.focus()
+              }
+            }}
           />
         )}
       </section>

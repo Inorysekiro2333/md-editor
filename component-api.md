@@ -69,6 +69,11 @@ export async function writeAtomic(path: string, bytes: Buffer): Promise<WriteCre
 
 ### 2.1 preload 暴露面（渲染进程唯一通道，`electron/preload/index.ts`）
 
+doc:write / asset:save 的二进制载荷经主进程 `electron/shared/base64.ts` 守卫：
+`isValidBase64Payload(value, maxBytes)` 校验 string、base64 字符集/填充（拒绝
+全填充空串如 `'===='`）、解码字节数上限（doc:write ≤ 10MB，asset:save ≤
+20MB）；非法载荷在主进程入口干净拒绝，不触碰磁盘。
+
 ```ts
 export interface MdEditorBridge {
   showOpenDialog(): Promise<string | null>
@@ -116,6 +121,25 @@ declare global {
 
 组件内部持有 Milkdown 的 Editor 与 CodeMirror 的 EditorView，随 mode 切换；切换时通过 `cursor-map` 做光标映射，外部无需关心。
 
+```ts
+export interface EditorHandle {
+  getMarkdown(): string
+  flushNow(): void
+  getSelectionOffsets(): { anchor: number; head: number } | null // Markdown offset（未就绪时 null）
+  setSelectionOffsets(anchor: number, head: number): void
+  focus(): void
+  getScrollRatio(): number
+}
+```
+
+模式切换语义（App 层编排）：切换前 `flushNow()`（300ms 防抖收敛回 Buffer）→
+`getSelectionOffsets()` capture（**交换格式 = Markdown offset 的
+anchor/head**，内部经 `pmPosToMarkdownOffset` 投影）→ 挂载目标模式组件 →
+`setSelectionOffsets()` restore。WYSIWYG 侧 `applySelectionOffsets` 把 offset
+映射回 PM pos；offset 落在块级边界空位时 `TextSelection.near(+1)` 退化到
+**下一块块首**（accuracy=ancestor），保证切换永不因光标恢复而崩溃。滚动按
+比例恢复（scrollTop/scrollHeight；逐块视口比例记录为已知简化）。
+
 ### 3.2 防抖收敛
 
 ```ts
@@ -131,6 +155,10 @@ export function createMarkdownSync(options: {
 }
 ```
 
+dispose 语义（M2 变更）：`dispose()` 先同步 flush pending（unmount 不再丢
+Buffer 收敛）；若 `onFlush` 重入 `schedule()` 产生了新 timer，则保留至下一轮
+收敛，不再被 dispose 尾部清理吞掉。
+
 ### 3.3 输入规则补齐
 
 ```ts
@@ -144,40 +172,40 @@ preset 注册的 table 节点，不引入第二套解析器。已在 `EditorHost
 
 ### 3.4 cursor-map — 光标精确恢复（`packages/editor/src/cursor-map.ts`）
 
-纯函数模块，不碰 DOM 与 IO。语义定义见 `architecture.md` 3.4（5 条验收口径）。
+纯函数模块，不碰 DOM 与 IO（remark 层 + ProseMirror bridge 层）。语义定义见
+`architecture.md` 3.4（5 条验收口径）；remark 解析管线与 Milkdown transformer
+一致（remark-parse + remark-gfm），保证表格/删除线等 GFM 结构对应。
 
 ```ts
-export interface MdPath {
-  path: number[]
-  offset: number
-} // mdast 节点路径 + 节点内偏移
-export interface MdSelection {
-  anchor: MdPath
-  head: MdPath
+// remark 层（M2 Task 1）
+export interface MdCursor {
+  path: number[] // mdast 节点在父节点 children 中的下标路径
+  offset: number // 相对最深节点 position.start.offset 的偏移
 }
-export type RestoreResult =
-  | { restored: 'exact'; target: number }
-  | { restored: 'ancestor'; target: number }
-  | { restored: 'none'; target: null }
 
-export function pmPosToMdPath(doc: ProseMirrorNode, pos: number): MdPath | null
-export function mdPathToPmPos(doc: ProseMirrorNode, path: MdPath): RestoreResult
-export function markdownOffsetToMdPath(markdown: string, offset: number): MdPath | null
-export function mdPathToMarkdownOffset(markdown: string, path: MdPath): RestoreResult
-export function captureSelection(
-  mode: 'wysiwyg' | 'source',
-  editor: unknown,
-  markdown: string,
-): MdSelection | null
-export function restoreSelection(
-  mode: 'wysiwyg' | 'source',
-  editor: unknown,
-  markdown: string,
-  selection: MdSelection,
-): RestoreResult
+export function mdOffsetToCursor(markdown: string, offset: number): MdCursor
+export function cursorToMdOffset(markdown: string, cursor: MdCursor): number
+
+// PM bridge 层（M2 Task 2，lockstep 平行游走）
+export type CursorAccuracy = 'exact' | 'ancestor'
+export interface PositionResult {
+  pos: number
+  accuracy: CursorAccuracy
+}
+
+export function pmPosToMarkdownOffset(markdown: string, doc: PMNode, pos: number): number
+export function markdownOffsetToPmPos(markdown: string, doc: PMNode, offset: number): PositionResult
+export function pmPosToMdCursor(markdown: string, doc: PMNode, pos: number): MdCursor
+export function mdCursorToPmPos(markdown: string, doc: PMNode, cursor: MdCursor): PositionResult
 ```
 
-契约：只有 `restored: 'exact'` 才代表逐字符等价；`ancestor` / `none` 必须被调用方记录，并在切换用例里登记，不得对外宣称永远精确。
+语义要点：
+
+- 所有 offset 均为 Markdown 字符串的 UTF-16 下标；`cursor.offset` 相对最深节点起点。
+- `exact` = PM 文本区与 mdast 叶子内容区逐字符一一对应（文本 / inlineCode / 代码块 / 加粗斜体删除线链接包裹段 / 原子节点边界）。
+- `ancestor` = 结构不对应或落在边界空位时，映射到最近文本边界或块首；平局取后方锚点。`mdCursorToPmPos` 的 path 失效逐级回退最近可解析祖先块首；PM 块级边界（offset 在块间空位）恢复时由调用方用 `TextSelection.near(+1)` 退化到**下一块块首**（见 3.1 `applySelectionOffsets`）。
+- 契约：只有 `exact` 才代表逐字符等价；`ancestor` 必须在切换用例里登记，不得对外宣称永远精确。
+- 登记用例：`cursor-map.test.ts`（含全文 PM pos / Markdown offset 双向扫描）。
 
 ### 3.5 只读投影（remark）
 
@@ -267,6 +295,40 @@ export function restoreSessionHistory(
 Milkdown history key 不导出且 HistoryState 不可序列化，会话撤销以 step JSON
 重放重建撤销/重做栈（已知偏离 #6）；重放/恢复期间 recorder 抑制记录并在完成后
 重置状态，避免基线污染（已知偏离 #7）。存储为进程内 Map（会话级，非持久盘）。
+
+### 3.9 SourceEditor — CodeMirror 6 源码模式（`packages/editor/src/source-editor.tsx`）
+
+```ts
+export interface SourceEditorHandle {
+  getText(): string
+  flushNow(): void
+  getSelectionOffsets(): { anchor: number; head: number } // CM doc 内偏移 = Markdown offset
+  setSelectionOffsets(anchor: number, head: number): void // 超界 clamp
+  focus(): void
+  getScrollRatio(): number
+}
+
+export interface SourceEditorProps {
+  initialMarkdown: string // 仅 mount 读取一次
+  onMarkdownChange(markdown: string): void
+  onReady?(handle: SourceEditorHandle): void
+  initialScrollRatio?: number // 仅 mount 读取一次（滚动比例恢复）
+}
+```
+
+内部维护独立的 300ms 防抖 sync（与 EditorHost 同契约）；CM 扩展 = markdown
+语言 + language-data 懒加载高亮 + defaultHighlightStyle。
+
+### 3.10 code block NodeView（`packages/editor/src/code-block-view.ts`）
+
+自建 vanilla-TS CM6 NodeView（ADR-5：官方 `@milkdown/kit/component/code-block`
+内嵌 Vue app，禁用）。行为：
+
+- 语言 `select`（preset 列表 + 动态补登记未收录 fence 语言，外部更新恢复时同样补 option）+ 复制按钮（1.5s 后复位文案）。
+- CM 变更实时写回 PM node（Markdown Buffer 唯一事实源）；PM→CM 全量替换时保留 CM 光标/选区（偏移 clamp 到新文档末尾），不回落行首。
+- ArrowUp/ArrowDown/Escape 在块边界经 PM 选区退出（clean-room maybeEscape 语义）。
+- 高亮经 `LanguageDescription.load()` 懒加载 + Compartment 重配。
+- 焦点路由：PM 选区进入代码块而 DOM 焦点仍留在 PM 根节点时，把焦点与等价光标位交给 CM（`selectionchange` 兜底 + PM plugin），否则键入/IME 文本会写进未聚焦的 CM DOM 而丢失（fence 输入规则 / 代码块 IME e2e 回归）。
 
 ## 4. 工作台组件（`packages/app`）
 

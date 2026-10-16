@@ -7,8 +7,8 @@
 
 ## 当前状态
 
-**阶段：M0 + M1 已完成，下一步进入 M2 源码模式与块级组件。**
-下一步行动：执行 M2 —— cursor-map（光标精确恢复）、CodeMirror 6 源码模式、代码块组件。
+**阶段：M0 + M1 + M2 已完成，下一步进入 M3 工作台。**
+下一步行动：执行 M3 —— 多标签页、文件树、大纲面板。
 
 架构前提（已冻结，改动需先改 `architecture.md`）：
 
@@ -45,13 +45,13 @@
 
 ## M2 — 源码模式与块级组件（目标：2–3 周）
 
-- [ ] (P0) `cursor-map`：`pmPosToMdPath` / `mdPathToPmPos` / Markdown 偏移互转（纯函数 + 单测）
-- [ ] (P0) CodeMirror 6 源码模式：双向切换、**光标精确恢复**（`architecture.md` 3.4 五条口径）
-- [ ] (P0) 代码块组件：语言选择、复制按钮、高亮
-- [ ] (P1) 表格增强：行列增删、列宽拖拽、对齐保留
+- [x] (P0) `cursor-map`：PM pos ↔ Markdown offset ↔ mdast 路径互转（纯函数 + 单测，见 component-api.md 3.4）
+- [x] (P0) CodeMirror 6 源码模式：双向切换、**光标精确恢复**（`architecture.md` 3.4 五条口径；选区交换格式 = Markdown offset anchor/head）
+- [x] (P0) 代码块组件：语言选择、复制按钮、高亮（自建 CM6 NodeView，ADR-5 / Ruling-1）
+- [ ] (P1) 表格增强：行列增删、列宽拖拽、对齐保留 —— **M2b 计划，未开工**
 - [ ] (P2) 图片拖拽调整尺寸（v1.1 再考虑）
 
-**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。
+**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。（M2 验收记录 2026-10-16：e2e/source-mode.spec.ts 3 例全绿——10 次切换内容与 caret 稳定、跨模式 caret 等值、source 编辑带回 WYSIWYG；块级边界退化用例登记（TextSelection.near(+1) 下一块块首）；代码块 e2e + IME 自动化 1 例全绿（真人微软拼音待补）；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 169 passed (15 files) · pnpm e2e 31 passed (35.0s) · pnpm build:app main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB）
 
 ## M3 — 工作台（目标：2 周）
 
@@ -107,5 +107,9 @@
 - [ ] 性能基准记录（每个里程碑测一次并写入 `development.md` 7 节）
 - [ ] 无障碍走查（Tab 顺序、aria-label、对比度）
 - [ ] asset 写盘安全加固
-- [ ] IPC bytesBase64 入参守卫（doc:write / asset:save 畸形入参干净拒绝，M2 顺手补）
-- [ ] EditorHost 卸载时 sync.dispose 丢弃 pending flush 的兜底语义登记（当前靠 session-history 重放恢复）：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
+- [x] IPC bytesBase64 入参守卫（doc:write ≤10MB / asset:save ≤20MB，畸形入参干净拒绝，见 component-api.md 2.1；2026-10-16 完成）
+- [x] sync.dispose 兜底语义登记：dispose 先同步 flush pending，onFlush 重入 schedule 产生的新 timer 保留至下一轮收敛（packages/editor/src/sync.ts + sync.test.ts，2026-10-16 完成）：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
+
+- [ ] (P2) 代码块 CM→PM 整块替换语义：大代码块撤销粒度粗（M2 终审遗留，M3 前跟进）
+- [ ] (P2) 全局快捷键注册表：Ctrl+/ 目前 window capture 拦截，新增快捷键前先统一（M2 终审遗留）
+- [ ] (P2) M3 复测冷启动/内存并补齐 ≤300MB 口径数据（M2 性能表未测项）
