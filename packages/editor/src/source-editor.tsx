@@ -103,6 +103,17 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
     }
     onReadyRef.current?.(handle)
 
+    // e2e 调试专用，读取 CodeMirror 选区，无写能力。
+    // 与 EditorHost 的 pmSelection 合并到同一 __mdEditorDebug 对象，避免互相覆盖。
+    const debugWindow = window as unknown as { __mdEditorDebug?: Record<string, unknown> }
+    debugWindow.__mdEditorDebug = {
+      ...debugWindow.__mdEditorDebug,
+      cmSelection: () => ({
+        anchor: view.state.selection.main.anchor,
+        hasFocus: view.hasFocus,
+      }),
+    }
+
     return () => {
       sync.dispose()
       view.destroy()
