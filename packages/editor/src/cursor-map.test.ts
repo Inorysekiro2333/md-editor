@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import type { Root, RootContent } from 'mdast'
+import remarkGfm from 'remark-gfm'
+import remarkParse from 'remark-parse'
+import { unified } from 'unified'
 import type { Node as PMNode } from '@milkdown/prose/model'
 import {
   cursorToMdOffset,
@@ -318,5 +324,113 @@ describe('cursor-map PM bridge', () => {
         }
       })
     }
+  })
+})
+
+const parser = unified().use(remarkParse).use(remarkGfm)
+
+describe('cursor-map end-of-text (leaf 末尾) mapping', () => {
+  // PM：paragraph/heading（含表格单元格内段落、列表项段落）与 code_block 的内容末尾
+  // = nodeStart + nodeSize - 1；仅统计末尾 child 为 text 的块（与 md 侧文本叶子一一对应）。
+  function pmBlockTextEnds(doc: PMNode): number[] {
+    const out: number[] = []
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'code_block') {
+        if (node.content.size > 0) out.push(pos + node.nodeSize - 1)
+      } else if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+        const last = node.childCount > 0 ? node.child(node.childCount - 1) : undefined
+        if (last?.isText) out.push(pos + node.nodeSize - 1)
+      }
+      return true
+    })
+    return out
+  }
+
+  // md：remark 解析后按文档序取每个块级文本 leaf 的 value 末尾 offset。
+  // 注意：remark 的 code/tableCell position.end 包含围栏/表格分隔符，
+  // 因此文本末尾必须用最后一个 inline text/inlineCode 的 end（code 用 value 起止）。
+  function mdBlockTextEnds(md: string, node: Root | RootContent, out: number[]): void {
+    if (!('children' in node) || !Array.isArray(node.children)) return
+    for (const child of node.children as RootContent[]) {
+      if (child.type === 'paragraph' || child.type === 'heading' || child.type === 'tableCell') {
+        const stack: RootContent[] = [...(child.children as RootContent[])]
+        let lastEnd = -1
+        while (stack.length > 0) {
+          const c = stack.shift() as RootContent
+          if (
+            c.type === 'strong' ||
+            c.type === 'emphasis' ||
+            c.type === 'link' ||
+            c.type === 'delete'
+          ) {
+            stack.unshift(...(c.children as RootContent[]))
+          } else if (c.type === 'text' || c.type === 'inlineCode') {
+            lastEnd = c.position?.end.offset ?? 0
+          }
+        }
+        if (lastEnd >= 0) out.push(lastEnd)
+      } else if (child.type === 'code') {
+        const value = child.value
+        if (value) {
+          const start = child.position?.start.offset ?? 0
+          const valueStart = md.indexOf(value, start)
+          out.push(valueStart + value.length)
+        }
+      } else if ('children' in child) {
+        mdBlockTextEnds(md, child, out)
+      }
+    }
+  }
+
+  async function expectExactLeafEnds(md: string): Promise<void> {
+    const te = await createTestEditor(md)
+    try {
+      const doc = te.getView().state.doc
+      const pmEnds = pmBlockTextEnds(doc)
+      const mdEnds: number[] = []
+      mdBlockTextEnds(md, parser.parse(md), mdEnds)
+      expect(pmEnds.length, JSON.stringify(md)).toBe(mdEnds.length)
+      for (let i = 0; i < pmEnds.length; i++) {
+        expect(
+          pmPosToMarkdownOffset(md, doc, pmEnds[i]),
+          `forward pos ${pmEnds[i]} of ${JSON.stringify(md)} #${i}`,
+        ).toBe(mdEnds[i])
+        expect(
+          markdownOffsetToPmPos(md, doc, mdEnds[i]),
+          `reverse offset ${mdEnds[i]} of ${JSON.stringify(md)} #${i}`,
+        ).toEqual({ pos: pmEnds[i], accuracy: 'exact' })
+      }
+    } finally {
+      await te.destroy()
+    }
+  }
+
+  it('maps end of plain paragraph text exactly (both directions)', async () => {
+    await expectExactLeafEnds('# 标题\n\n正文。\n')
+    await expectExactLeafEnds(
+      '# 中文标题\n\n这是一个用于定位光标的正文段落，包含中文字符与标点。\n',
+    )
+  })
+
+  it('maps end of heading text exactly', async () => {
+    await expectExactLeafEnds('# 中文标题\n\n正文。\n')
+  })
+
+  it('maps end of list item text exactly', async () => {
+    await expectExactLeafEnds('- 项目一\n- 项目二\n')
+    await expectExactLeafEnds('- a\n  - b\n')
+  })
+
+  it('maps end of table cell text exactly', async () => {
+    await expectExactLeafEnds('| 名称 | 数值 |\n| ---- | ---- |\n| 表格 | 值 |\n')
+  })
+
+  it('maps end of code block value exactly', async () => {
+    await expectExactLeafEnds('```ts\nconst a = 1\n```\n\n尾。\n')
+  })
+
+  it('maps every block text end of the e2e source-mode fixture exactly', async () => {
+    const fixture = readFileSync(join(__dirname, '../../../e2e/fixtures/source-mode.md'), 'utf8')
+    await expectExactLeafEnds(fixture)
   })
 })
