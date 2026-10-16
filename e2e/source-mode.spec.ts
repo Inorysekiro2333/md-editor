@@ -99,6 +99,29 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     // 正文段落的 PM 块文本与 CM 行文本一致，跨模式 caret 必须落在同一字符位置
     expect(expected.source).toBeDefined()
     expect(expected.wysiwyg).toBeDefined()
+    if (expected.source.caret !== expected.wysiwyg.caret) {
+      const dbg = await window.evaluate(() => {
+        const dump = () => {
+          const sel = window.getSelection()
+          if (sel === null || sel.anchorNode === null) return { anchor: 'none' }
+          const anchor = sel.anchorNode
+          const el = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element)
+          return {
+            nodeType: anchor.nodeType,
+            nodeName: anchor.nodeName,
+            anchorOffset: sel.anchorOffset,
+            parentClass: el?.className ?? '',
+            parentText: el?.textContent?.slice(0, 40) ?? '',
+            isCollapsed: sel.isCollapsed,
+          }
+        }
+        return { wysiwyg: dump() }
+      })
+      throw new Error(
+        'cross-mode caret mismatch: ' +
+          JSON.stringify({ source: expected.source, wysiwyg: expected.wysiwyg, dom: dbg }),
+      )
+    }
     expect(expected.source.caret).toBe(expected.wysiwyg.caret)
     await app.close()
   })
