@@ -197,7 +197,7 @@ git commit -m "test(editor): register 50+ round-trip difference cases with fixtu
 - Consumes: 现有 `EditorHost`（`packages/editor/src/EditorHost.tsx`）与 e2e 现有打开 fixture 模式（`--open` CLI + `.ProseMirror` 选择器）。
 - Produces: e2e 输入规则矩阵全绿；如缺失则 `packages/editor` 导出 `editorInputRules`（`Milkdown` 插件数组，在 `EditorHost.tsx` 的 `.use(...)` 中追加）。
 
-- [ ] **Step 1: 写失败/探测测试**
+- [x] **Step 1: 写失败/探测测试**
 
 `e2e/input-rules.spec.ts`：对每条规则用 `page.keyboard.type` 键入触发序列，然后 `Ctrl+S` 落盘读文件断言：
 
@@ -214,16 +214,16 @@ git commit -m "test(editor): register 50+ round-trip difference cases with fixtu
 
 复用 e2e 现有 helper（`e2e/open-save.spec.ts` 的启动与保存写法），fixture 用临时文件目录。
 
-- [ ] **Step 2: 运行确认失败项**
+- [x] **Step 2: 运行确认失败项**
 
 `pnpm e2e -- e2e/input-rules.spec.ts`
 预期：Milkdown commonmark/gfm 自带规则大概率全绿；FAIL 项即为缺失规则。
 
-- [ ] **Step 3: 最小实现缺失规则**
+- [x] **Step 3: 最小实现缺失规则**
 
 仅对 FAIL 项在 `packages/editor/src/input-rules.ts` 写自定义 input rule（`@milkdown/kit/prose` 的 `InputRule`，注册进 Milkdown 插件并在 `EditorHost.tsx` 追加 `.use(editorInputRules)`）；每条缺失规则配 e2e 用例。若全绿则本步记「无需自定义规则」并只提交 e2e 矩阵。
 
-- [ ] **Step 4: 全量回归**
+- [x] **Step 4: 全量回归**
 
 `pnpm e2e`（7 例 M0 + 新增 input-rules 全绿）+ `pnpm test`。
 
