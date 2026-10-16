@@ -7,8 +7,8 @@
 
 ## 当前状态
 
-**阶段：M0 + M1 + M2 已完成，下一步进入 M3 工作台。**
-下一步行动：执行 M3 —— 多标签页、文件树、大纲面板。
+**阶段：M0 + M1 + M2 P0 已完成（源码模式与块级组件，CI 全绿）；M2 P1 表格增强未开工（M2b 计划）。**
+下一步行动：执行 M2b —— 表格增强（行列增删、列宽拖拽、对齐保留）；交接见 docs/superpowers/handoffs/2026-10-16-m2-p0-done-m2b-start.md。M3 需在 M2b 完成后启动。
 
 架构前提（已冻结，改动需先改 `architecture.md`）：
 
@@ -51,7 +51,7 @@
 - [ ] (P1) 表格增强：行列增删、列宽拖拽、对齐保留 —— **M2b 计划，未开工**
 - [ ] (P2) 图片拖拽调整尺寸（v1.1 再考虑）
 
-**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。（M2 验收记录 2026-10-16：e2e/source-mode.spec.ts 3 例全绿——10 次切换内容与 caret 稳定、跨模式 caret 等值、source 编辑带回 WYSIWYG；块级边界退化用例登记（TextSelection.near(+1) 下一块块首）；代码块 e2e + IME 自动化 1 例全绿（真人微软拼音待补）；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 169 passed (15 files) · pnpm e2e 31 passed (35.0s) · pnpm build:app main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB）
+**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。（M2 验收记录 2026-10-16，CI 修复后复核：cursor-map 边界（leaf 末尾）双向精确用例补齐（31 例），e2e 改用编辑器状态真值断言 + data-editor-ready 门控，CI run 38917832792 全绿（教训入 AGENTS.md CI/E2E 节）。原始记录：e2e/source-mode.spec.ts 3 例全绿——10 次切换内容与 caret 稳定、跨模式 caret 等值、source 编辑带回 WYSIWYG；块级边界退化用例登记（TextSelection.near(+1) 下一块块首）；代码块 e2e + IME 自动化 1 例全绿（真人微软拼音待补）；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 175 passed (15 files) · pnpm e2e 31 passed (35.0s) · pnpm build:app main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB）
 
 ## M3 — 工作台（目标：2 周）
 

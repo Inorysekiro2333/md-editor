@@ -79,6 +79,15 @@ pnpm theme:check      # 主题规范校验（M4 后可用）
 - 编辑模式取值：wysiwyg | source
 - 性能口径（权威值见 `architecture.md` 5 节）：安装包（下载体积）≤150MB · 安装后 ≤400MB · 冷启动（第二次及以后）<3s · 空文档常驻内存 ≤300MB
 
+## CI / E2E 教训（2026-10-16 复盘，必守；来源见 docs/superpowers/plans/2026-10-16-m2-source-mode.md Ledger）
+
+1. **e2e 禁止用 DOM 选区断言编辑器光标**（getSelection / range.toString）：Chromium 在块边界用元素锚点+childOffset，Linux CI 缺 CJK 字体使点击命中落点漂移，全部产生伪值。光标断言一律用编辑器状态真值：只读调试钩子 `__mdEditorDebug.pmSelection / cmSelection`（EditorHost / SourceEditor 提供，无写能力）。
+2. **Playwright evaluate 返回值经 JSON 序列化，函数无法传回 Node 侧**；页面内钩子必须在 evaluate 回调里调用、只返回数据（返回函数会静默变 undefined）。
+3. 与 Milkdown/CM 异步创建交互的 e2e 步骤，必须先等 `[data-editor-ready="true"]`（App onReady 置位）再操作；点击后用状态钩子校验到位，未到位重试（参考 e2e/source-mode.spec.ts）。
+4. 跨模式光标等值断言只在「两模式块文本相同」的块（普通段落）内合法；标题行存在 `# ` 前缀差，代码行有围栏差。
+5. 改 cursor-map 边界时，**leaf 末尾**（段落/标题/列表项/表格单元格/代码块 value 末尾）必须有双向精确用例（development.md 6 节 R3）；PM pos 语义 = nodeStart + nodeSize − 1 是内容末尾，写测试别把闭包 token 算进去。
+6. CI 只在 push main 与 PR 触发；调试分支验证必须开 PR。e2e 失败先分层定位「产品 bug / 测试竞态 / 断言伪值」，禁止靠删断言转绿；临时诊断代码（debug 钩子、dump）用后要么登记为基础设施、要么删除。
+
 ## AI 执行效率规范（2026-10-16 复盘新增）
 
 本节约束所有 AI 助手在本仓库执行多任务计划（subagent / inline 均适用），目的是消除无效开销：
