@@ -44,7 +44,7 @@
 - Consumes: `@milkdown/kit/core` 的 `Editor`、`defaultValueCtx`、`rootCtx`；`@milkdown/kit/preset/commonmark`、`gfm`；`@milkdown/kit/utils` 的 `getMarkdown`。
 - Produces: `createTestEditor(markdown: string): Promise<{ getMarkdown(): string; destroy(): void }>`——Task 1/2 的所有 round-trip 用例只经由它驱动编辑器；`roundtrip.test.ts` 的用例形如 `roundtrip(input, expectedOrIdentity)`。
 
-- [ ] **Step 1: 写 harness 冒烟测试（预期先失败/或发现 jsdom 不可行）**
+- [x] **Step 1: 写 harness 冒烟测试（预期先失败/或发现 jsdom 不可行）**
 
 `packages/editor/src/testing/create-test-editor.ts`（jsdom 版实现）：
 
@@ -117,18 +117,18 @@ describe('round-trip harness smoke', () => {
 })
 ````
 
-- [ ] **Step 2: 确认 jsdom 是否可行**
+- [x] **Step 2: 确认 jsdom 是否可行**
 
 运行 `pnpm vitest run packages/editor/src/roundtrip.test.ts --environment jsdom`（若仓库无 jsdom 依赖，先 `pnpm add -Dw jsdom`——这是测试环境依赖，不是 Markdown 内核，不违反铁律 3；记录进「已知偏离与登记」）。
 
 - 若 5 用例全绿：harness 定案为 jsdom，继续 Task 1。
 - 若 jsdom 失败（Editor.create 抛错/需要真实布局）：删除 jsdom 版 harness，改走 Playwright 方案——在 `packages/editor` 增加开发专用 `window.__md_debug`（`packages/editor/src/dev-hook.ts`，仅 `import.meta.env.DEV` 下暴露 `{ getMarkdown, setMarkdown }`，经 `e2e` 驱动），在 `component-api.md` 3.1 登记。harness 用例改写为 Playwright spec `e2e/roundtrip.spec.ts`（批量用例循环执行，打开一页编辑器 → 喂入 markdown → 读出序列化）。无论哪条路，最终 harness 方案写进 `development.md` 5 节（新增小节「round-trip harness」）。
 
-- [ ] **Step 3: 让 harness 稳定**
+- [x] **Step 3: 让 harness 稳定**
 
 连续跑 3 遍用例命令确认无 flake（全绿 ×3）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add packages/editor/src/roundtrip.test.ts packages/editor/src/testing/ packages/editor/package.json package.json pnpm-lock.yaml
@@ -259,7 +259,7 @@ git commit -m "feat(editor): verify and register markdown input rules"
 
 `pnpm test` + `pnpm e2e`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add packages/editor/src/ e2e/undo-session.spec.ts
@@ -353,3 +353,4 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 ## 执行顺序
 
 Task 0 → 1 → 2 → 3 → 4 → 5（需人工手测协作）→ 6 → 7。Task 5 IME 手测需要真人参与微软拼音输入；若由执行者自测则用本机输入法完成并如实记录。每个 Task 结束：勾选计划 checkbox、跑 M0 e2e 7 例确认全绿、给用户简报。
+
