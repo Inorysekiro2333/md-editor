@@ -311,3 +311,10 @@ NodeView 设计（vanilla TS，无 React/Vue）：`dom = div.md-codeblock`；hea
 - Task 7: complete — commits e7a42ea（base64 守卫）+ a0724f2（dispose flush）— review Approved（166/166，15 files，typecheck 0）。偏离：① 旧 dispose 取消语义用例按新语义改写；② 全量门槛用 pnpm test（裸 vitest run 会误收集 e2e/）。Parked 非阻塞（Task 8 清理波）：base64.test.ts:30 重复断言；base64.ts:11 全填充串 "====" 可过校验（解码为空，无安全影响）；sync.ts:46-48 onFlush 重入 schedule 会被 dispose 尾部 clearTimer 吞掉（当前调用方不触发）。
 - Task 8: complete — commits 4a700fc+0ce3c19（清理波 6 条全处理）+ 28f1b87（TODO/component-api/development 对齐）— 终验：typecheck 0 · lint 过 · test 169/169 (15 files) · e2e 31/31 (35.0s) · build:app main 57.74KB / preload 2.08KB / renderer 1795.90KB。额外：修复 Task 6 遗留代码块焦点路由回归（fence 输入规则丢字 + IME 丢字），ime.spec.ts pre 选择器更新为 .md-codeblock .cm-content。
 - Final review: 可合并（03ce82d..732da1e）。typecheck 0 · test 169/169 · e2e 31/31 · build:app main 57.74KB / preload 2.08KB / renderer 1795.90KB。P1 无；3 条 P2 已登记进 TODO.md 持续性任务区。
+
+- M2 CI 自查修复（2026-10-16，合入 main 21619f2..26c07e1）：
+  - cursor-map 边界：原子叶子（hardbreak/image/html）边界锚点改记 exact（0f165ca），新增 6 组 leaf 末尾双向用例 + 全 fixture 块末往返断言（cursor-map 25→31 用例）。
+  - e2e 稳定性：data-editor-ready 门控（App onReady 置位）、caretBlockOffset 仅认文本节点锚点、ime code block 等待 CM NodeView 就绪（cdd17e6）。
+  - 断言重构：Playwright evaluate 无法传回函数（JSON 序列化剥函数），__mdEditorDebug 钩子改在页面上下文内调用；caret 断言全部改为 PM/CM state 真值（26c07e1）。
+  - 根因记录：Linux CI 无 CJK 字体，点击命中测试落点不稳定（段首/段尾），DOM 测量产生伪值；PM/CM 恢复链路本身自洽正确。__mdEditorDebug 为只读调试钩子（pmSelection/cmSelection，无写能力），已留作 e2e 基础设施。
+  - 终态：CI run 38917832792 全绿（check + windows/ubuntu/macos build）。
