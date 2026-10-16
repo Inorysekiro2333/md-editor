@@ -8,12 +8,16 @@ import { Fragment, type Node as ProseNode } from '@milkdown/kit/prose/model'
  * - 解析层：remark-gfm 只把「有定义」的 `[^label]` 解析为 footnoteReference，
  *   未定义引用会留在 text 节点里并在序列化时被转义。这里在解析后把 text 中
  *   残留的 `[^label]` 补转换为 footnoteReference，保证未定义引用可往返。
+ * - 语义统一（评审修正）：解析与键入对 `[^label]` 一律按引用处理；
+ *   「行首 `[^label]:` 可能是正在键入的定义」仅由键入规则的
+ *   atBlockStart/nextChar 条件识别，解析层不受前瞻影响（段落中部的
+ *   `Text[^1]:` 在两层都解析为活引用 + 字面冒号）。
+ * - 转义保真（评审补充）：mdast text 节点的 position 起点已越过反斜杠，
+ *   无法用「源 != 值」检测转义；改为把源切片做去转义对齐（deescaped === value），
+ *   并记录被转义的字符位——字面 `\[^1]` 保持转义，与活引用同段也可精确区分。
+ *   仅当源切片无法对齐（如实体解码混排）时整段保守跳过转换。
  * - 编辑层：WYSIWYG 键入 `[^label]` 自动转换为引用节点；文档顶层段落形如
  *   `[^label]: 内容` 自动转换为脚注定义块，避免被序列化转义。
- *
- * 已知局限（R1 登记）：`\[^1]`（转义的字面方括号）在 remark 解析后无法与
- * 未定义引用区分；解析时通过「源文本 != 文本值」检测转义并整段跳过转换，
- * 但键入侧的未转换文本仍可能被序列化转义（见 component-api.md 已知局限）。
  */
 
 interface MdNode {
@@ -22,20 +26,42 @@ interface MdNode {
   children?: MdNode[]
   identifier?: string
   label?: string
+  position?: {
+    start?: { offset?: number }
+    end?: { offset?: number }
+  }
 }
 
-const FOOTNOTE_REF_PATTERN = /\[\^([^\]\s]+)\](?!:)/g
+const FOOTNOTE_REF_PATTERN = /\[\^([^\]\s]+)\]/g
 const DEFINITION_PATTERN = /^\[\^([^\]\s]+)\]: (.*)$/s
+const ASCII_PUNCTUATION = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/
 
-/** 把 text 值按 `[^label]` 拆分；检测到源文本含转义时整段跳过。 */
-function splitFootnoteRefs(text: string, hadEscape: boolean): MdNode[] {
-  if (hadEscape) return [{ type: 'text', value: text }]
+/** 把 text 值按 `[^label]` 拆分；源切片可对齐时精确识别转义并保留字面方括号。 */
+function splitFootnoteRefs(text: string, sourceSlice: string): MdNode[] {
+  const escapedAt = new Set<number>()
+  let deescaped = ''
+  let valueIndex = 0
+  for (let si = 0; si < sourceSlice.length; si++) {
+    const ch = sourceSlice[si]
+    if (ch === '\\' && si + 1 < sourceSlice.length && ASCII_PUNCTUATION.test(sourceSlice[si + 1])) {
+      escapedAt.add(valueIndex)
+      deescaped += sourceSlice[si + 1]
+      valueIndex++
+      si++
+      continue
+    }
+    deescaped += ch
+    valueIndex++
+  }
+  // 对齐失败（实体解码等场景）：无法定位转义位，保守整段跳过转换
+  if (deescaped !== text) return [{ type: 'text', value: text }]
   const nodes: MdNode[] = []
   let last = 0
   for (const match of text.matchAll(FOOTNOTE_REF_PATTERN)) {
     const label = match[1]
     const start = match.index
     if (label === undefined) continue
+    if (escapedAt.has(start)) continue
     if (start > last) nodes.push({ type: 'text', value: text.slice(last, start) })
     nodes.push({ type: 'footnoteReference', identifier: label, label })
     last = start + match[0].length
@@ -44,19 +70,18 @@ function splitFootnoteRefs(text: string, hadEscape: boolean): MdNode[] {
   return nodes
 }
 
-function hasSourceEscape(node: MdNode, source: string): boolean {
-  const withPos = node as { start?: { offset?: number }; end?: { offset?: number } }
-  const start = withPos.start?.offset
-  const end = withPos.end?.offset
-  if (start === undefined || end === undefined || start < 0 || end > source.length) return false
-  return source.slice(start, end) !== node.value
-}
-
 function walkFootnoteRefs(node: MdNode, source: string): void {
   if (!node.children) return
   node.children = node.children.flatMap((child) => {
     if (child.type === 'text' && typeof child.value === 'string') {
-      return splitFootnoteRefs(child.value, hasSourceEscape(child, source))
+      const pos = child.position
+      const start = pos?.start?.offset
+      const end = pos?.end?.offset
+      const slice =
+        start !== undefined && end !== undefined && start >= 0 && end <= source.length
+          ? source.slice(start, end)
+          : ''
+      return splitFootnoteRefs(child.value, slice)
     }
     walkFootnoteRefs(child, source)
     return [child]

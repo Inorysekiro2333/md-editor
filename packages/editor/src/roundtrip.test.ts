@@ -396,4 +396,32 @@ describe('round-trip footnotes', () => {
       'Para[^1]\n\n[^1]: first\n\n    second\n',
     )
   })
+
+  // footnote-escaped-ref
+  // Registered boundary (R1): escaped literal `\[^1]` is NOT a footnote — the
+  // parse-side source-slice alignment marks the bracket as escaped, conversion
+  // is skipped and remark-stringify re-escapes it; round-trip is byte-identical.
+  it('footnote-escaped-ref', async () => {
+    expect(await roundtrip('see \\[^1]\n')).toBe('see \\[^1]\n')
+  })
+  // footnote-escaped-and-live-same-paragraph
+  // Registered normalization (R1): the escaped `\[^1]` and the live `[^1]`
+  // live in one text node ending with whitespace. Milkdown's text serializer
+  // outputs "no-markdown-char + trailing space" text verbatim, so the escape
+  // is dropped and the escaped literal becomes a live reference on output.
+  // Reparsing this output resolves both as live references and is stable from
+  // then on. (Parse side keeps the literal escaped correctly; the loss happens
+  // only in this serializer fast path.)
+  it('footnote-escaped-and-live-same-paragraph', async () => {
+    expect(await roundtrip('see \\[^1] and live [^1]\n\n[^1]: note\n')).toBe(
+      'see [^1] and live [^1]\n\n[^1]: note\n',
+    )
+  })
+  // footnote-ref-followed-by-colon
+  // Registered boundary (R1): mid-paragraph `Text[^1]:` is not a definition
+  // block; parse and typing now agree — the `[^1]` becomes a live reference
+  // and the colon stays literal text, so the round-trip is byte-identical.
+  it('footnote-ref-followed-by-colon', async () => {
+    expect(await roundtrip('Text[^1]:\n')).toBe('Text[^1]:\n')
+  })
 })
