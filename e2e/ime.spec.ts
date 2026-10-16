@@ -104,31 +104,72 @@ test('code block: pinyin burst + commit stays inside fence', async () => {
   await app.close()
 })
 
+// 撤销到指定干净状态：文本精确匹配且无标题/列表结构残留
+async function undoUntil(window: Page, editor: ReturnType<Page['locator']>, expected: string) {
+  const clean = async () => {
+    const text = ((await editor.textContent()) ?? '').replace(/\s+/g, '')
+    const structural = await editor.locator('ul, ol, h1').count()
+    return text === expected && structural === 0
+  }
+  for (let i = 0; i < 20; i += 1) {
+    if (await clean()) return
+    await window.keyboard.press('Control+z')
+  }
+  throw new Error(`undo did not reach expected state: ${expected}`)
+}
+
+// 点击段落最左侧把光标放到块首（输入规则只在块首触发）
+async function clickParagraphStart(editor: ReturnType<Page['locator']>) {
+  await editor
+    .locator('p')
+    .first()
+    .click({ position: { x: 3, y: 12 } })
+}
+
 test('composition containing "#" does not trigger heading rule', async () => {
   const { app, window, editor } = await openDoc('正文\n')
-  await commitIn(window, editor, ['#', '# biao', '# 标题文字'], '# 标题文字')
+
+  // 反向对照：同样文本非组合普通键入必须触发标题规则
+  await clickParagraphStart(editor)
+  await window.keyboard.type('# 标题文字')
+  await expect(editor.locator('h1')).toContainText('标题文字')
+  await undoUntil(window, editor, '正文')
+
+  // 组合路径：块首组合，中间态包含规则触发序列 "# "
+  const session = await window.context().newCDPSession(window)
+  await imeCommit(session, ['#', '# ', '# 标题', '# 标题文字'], '# 标题文字')
   await expect(editor.locator('p').first()).toContainText('# 标题文字')
   expect(await editor.locator('h1').count()).toBe(0)
 
-  await window.keyboard.press('Control+z')
-  await expect(editor.locator('p').first()).toContainText('正文')
+  await undoUntil(window, editor, '正文')
   await app.close()
 })
 
 test('composition containing "-" and "1." does not trigger list rules', async () => {
   const { app, window, editor } = await openDoc('第一段\n\n第二段\n')
-  await editor.locator('p').first().click()
-  await window.keyboard.press('End')
   const session = await window.context().newCDPSession(window)
-  await imeCommit(session, ['-', '- lian', '- 连字符'], '- 连字符')
+
+  // 反向对照 1：同样文本非组合普通键入必须触发 bullet 规则
+  await clickParagraphStart(editor)
+  await window.keyboard.type('- 连字符')
+  await expect(editor.locator('li')).toContainText('连字符')
+  await undoUntil(window, editor, '第一段第二段')
+
+  // 组合路径 1：块首组合，中间态包含规则触发序列 "- "
+  await imeCommit(session, ['-', '- ', '- 连字符'], '- 连字符')
   await expect(editor.locator('p').first()).toContainText('- 连字符')
-
-  await editor.locator('p').nth(1).click()
-  await window.keyboard.press('End')
-  await imeCommit(session, ['1.', '1. di'], '1. 第一')
-  await expect(editor.locator('p').nth(1)).toContainText('1. 第一')
-
   expect(await editor.locator('ul').count()).toBe(0)
+
+  // 反向对照 2：同样文本非组合普通键入必须触发 ordered 规则
+  await clickParagraphStart(editor)
+  await window.keyboard.type('1. 第一')
+  await expect(editor.locator('ol')).toContainText('第一')
+  await undoUntil(window, editor, '第一段第二段')
+
+  // 组合路径 2：块首组合，中间态包含规则触发序列 "1. "
+  await imeCommit(session, ['1.', '1. ', '1. 第一'], '1. 第一')
+  await expect(editor.locator('p').first()).toContainText('1. 第一')
   expect(await editor.locator('ol').count()).toBe(0)
+
   await app.close()
 })
