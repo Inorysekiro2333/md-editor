@@ -6,6 +6,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
+import { editorInputRules } from './input-rules'
 import { createMarkdownSync } from './sync'
 
 export interface EditorHandle {
@@ -57,6 +58,7 @@ function EditorHostInner(props: EditorHostProps) {
           })
         })
         .use(commonmark)
+        .use(editorInputRules)
         .use(gfm)
         .use(history)
         .use(listener),

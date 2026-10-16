@@ -115,6 +115,17 @@ declare global {
 
 组件内部持有 Milkdown 的 Editor 与 CodeMirror 的 EditorView，随 mode 切换；切换时通过 `cursor-map` 做光标映射，外部无需关心。
 
+### 3.3 输入规则补齐
+
+```ts
+export const editorInputRules: MilkdownPlugin
+```
+
+由 `$prose` 封装的插件（当前含一个 Enter 键位规则）：在段落末尾键入
+`| a | b |` 后按 Enter，将该段替换为 GFM 表格（首行即表头）。复用 gfm
+preset 注册的 table 节点，不引入第二套解析器。已在 `EditorHost.tsx`
+插件链中追加 `.use(editorInputRules)`，无需业务方手动挂载。
+
 ### 3.2 防抖收敛
 
 ```ts
