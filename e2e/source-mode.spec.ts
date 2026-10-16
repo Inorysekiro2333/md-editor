@@ -59,19 +59,30 @@ test('caret and content stay stable across 10 mode toggles', async () => {
     await expect(editor).toContainText('中文标题')
 
     // Milkdown create() 是异步的：过早点击会被初始化重置回文档开头（Linux CI 上必现）。
-    // 等编辑器就绪后再点击；点到位：anchor 必须是 TEXT_NODE 且落在第一个段落内且 offset>0，否则重试。
+    // 等编辑器就绪后再点击；点到位以 PM 选区为准（__mdEditorDebug 调试钩子）：
+    // fixture 第一段在 PM pos 范围 [PM_PARA_START, PM_PARA_END)（heading 占 [0,6)，
+    // 段落 content 从 7 起）。DOM 文本锚点检查仅作辅助。
+    const PM_PARA_START = 7
+    const PM_PARA_END = 33
     await window.waitForSelector('[data-editor-ready="true"]')
     let baseline = 0
     for (let i = 0; i < 25; i += 1) {
       await editor.locator('p').first().click()
-      const inParagraph = await window.evaluate(() => {
+      const pm = await window.evaluate(() => {
+        const dbg = (
+          window as unknown as { __mdEditorDebug?: { pmSelection(): { anchor: number } } }
+        ).__mdEditorDebug
+        return dbg ? dbg.pmSelection() : null
+      })
+      const inParagraph = pm !== null && pm.anchor >= PM_PARA_START && pm.anchor < PM_PARA_END
+      const domInParagraph = await window.evaluate(() => {
         const sel = window.getSelection()
         const pEl = document.querySelector('.ProseMirror p')
         if (sel === null || sel.anchorNode === null || pEl === null) return false
         if (sel.anchorNode.nodeType !== Node.TEXT_NODE) return false
         return pEl.contains(sel.anchorNode.parentElement) && sel.anchorOffset > 0
       })
-      if (inParagraph) {
+      if (inParagraph && domInParagraph) {
         baseline = await caretBlockOffset(window)
         if (baseline > 0) break
       }
@@ -141,7 +152,12 @@ test('caret and content stay stable across 10 mode toggles', async () => {
             isCollapsed: sel.isCollapsed,
           }
         }
-        return { wysiwyg: dump() }
+        const pmDbg = (
+          window as unknown as {
+            __mdEditorDebug?: { pmSelection(): { anchor: number; head: number; hasFocus: boolean } }
+          }
+        ).__mdEditorDebug
+        return { wysiwyg: dump(), pmSelection: pmDbg ? pmDbg.pmSelection() : null }
       })
       throw new Error(
         'cross-mode caret mismatch: ' +
