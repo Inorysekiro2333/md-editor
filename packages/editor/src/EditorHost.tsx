@@ -34,6 +34,7 @@ export interface EditorHandle {
   flushNow(): void
   getSelectionOffsets(): { anchor: number; head: number } | null
   setSelectionOffsets(anchor: number, head: number): void
+  focus(): void
   getScrollRatio(): number
 }
 
@@ -56,7 +57,12 @@ export function applySelectionOffsets(
   const doc = view.state.doc
   const anchorPos = markdownOffsetToPmPos(markdown, doc, anchor).pos
   const headPos = markdownOffsetToPmPos(markdown, doc, head).pos
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, anchorPos, headPos)))
+  // md offset 落在块级边界（如段落末尾后的空位）时 TextSelection.create 会抛错，
+  // 退回到最近的合法 inline 位置，保证模式切换永不因光标恢复而崩溃。
+  const nearPos = (pos: number): number => TextSelection.near(doc.resolve(pos), -1).anchor
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(doc, nearPos(anchorPos), nearPos(headPos))),
+  )
 }
 
 export interface EditorHostProps {
@@ -65,10 +71,21 @@ export interface EditorHostProps {
   onMarkdownChange(markdown: string): void
   onReady?(handle: EditorHandle): void
   onPasteAsset?: OnPasteAsset
+  // 模式切换后的光标恢复：editor 异步创建完成后再应用并聚焦
+  initialSelection?: { anchor: number; head: number } | null
+  onSelectionApplied?(): void
 }
 
 function EditorHostInner(props: EditorHostProps) {
-  const { docId, initialMarkdown, onMarkdownChange, onReady, onPasteAsset } = props
+  const {
+    docId,
+    initialMarkdown,
+    onMarkdownChange,
+    onReady,
+    onPasteAsset,
+    initialSelection,
+    onSelectionApplied,
+  } = props
   const handleRef = useRef<EditorHandle | null>(null)
   const initialMarkdownRef = useRef(initialMarkdown)
   const onMarkdownChangeRef = useRef(onMarkdownChange)
@@ -76,6 +93,10 @@ function EditorHostInner(props: EditorHostProps) {
   const restoringRef = useRef(false)
   const baseMarkdownRef = useRef(initialMarkdown)
   const onPasteAssetRef = useRef(onPasteAsset)
+  // 只在 mount 后 editor 创建完成时应用一次（模式切换的光标恢复）
+  const initialSelectionRef = useRef(initialSelection)
+  const selectionAppliedRef = useRef(false)
+  const onSelectionAppliedRef = useRef(onSelectionApplied)
 
   useEffect(() => {
     onPasteAssetRef.current = onPasteAsset
@@ -113,7 +134,7 @@ function EditorHostInner(props: EditorHostProps) {
           ctx.set(defaultValueCtx, initialMarkdown)
           ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin, pastePlugin])
           ctx.update(pasteRulesCtx, (rules) => [...rules, pasteRule])
-          ctx.get(listenerCtx).markdownUpdated((ctx) => {
+          ctx.get(listenerCtx).markdownUpdated(() => {
             sync.schedule()
             // 每次文档更新即刷新会话撤销栈记录（卸载时 editor 可能已被 Milkdown 销毁）；
             // 基线永远是当前会话 record 的 baseMarkdown，恢复重放期间被 restoringRef 抑制，
@@ -162,6 +183,22 @@ function EditorHostInner(props: EditorHostProps) {
   }, [get, loading, docId])
 
   useEffect(() => {
+    if (loading) return
+    const editor = get()
+    if (!editor || selectionAppliedRef.current) return
+    const pending = initialSelectionRef.current
+    if (pending !== null && pending !== undefined) {
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        applySelectionOffsets(view, getMarkdown()(ctx), pending.anchor, pending.head)
+        view.focus()
+      })
+    }
+    selectionAppliedRef.current = true
+    onSelectionAppliedRef.current?.()
+  }, [get, loading])
+
+  useEffect(() => {
     const handle: EditorHandle = {
       getMarkdown: () => {
         const editor = get()
@@ -185,12 +222,21 @@ function EditorHostInner(props: EditorHostProps) {
           applySelectionOffsets(view, getMarkdown()(ctx), anchor, head)
         })
       },
+      focus: () => {
+        const editor = get()
+        if (!editor) return
+        editor.action((ctx) => {
+          ;(ctx.get(editorViewCtx) as unknown as { focus(): void } | undefined)?.focus()
+        })
+      },
       getScrollRatio: () => {
         const editor = get()
         if (!editor) return 0
         return editor.action((ctx) => {
           // @milkdown 的 editorViewCtx 泛型未暴露 scrollDOM，运行时是标准 ProseMirror EditorView
-          const dom = (ctx.get(editorViewCtx) as unknown as { scrollDOM: HTMLElement }).scrollDOM
+          const dom = (ctx.get(editorViewCtx) as unknown as { scrollDOM: HTMLElement } | undefined)
+            ?.scrollDOM
+          if (dom === undefined) return 0
           return dom.scrollHeight === 0 ? 0 : dom.scrollTop / dom.scrollHeight
         })
       },

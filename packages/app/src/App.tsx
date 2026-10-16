@@ -170,12 +170,15 @@ export function App() {
       if (event.key.toLowerCase() !== 's' && event.key !== '/') return
       event.preventDefault()
       if (event.key === '/') {
+        // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
+        // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
+        event.stopPropagation()
         toggleMode()
         return
       }
       void save()
     }
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [save, toggleMode])
 
@@ -203,13 +206,12 @@ export function App() {
             docId={doc.id}
             initialMarkdown={doc.text}
             onMarkdownChange={(markdown) => doc.applyEditorMarkdown(markdown)}
+            initialSelection={pendingSelection.current}
+            onSelectionApplied={() => {
+              pendingSelection.current = null
+            }}
             onReady={(handle) => {
               editorHandle.current = handle
-              const pending = pendingSelection.current
-              if (pending !== null) {
-                handle.setSelectionOffsets(pending.anchor, pending.head)
-                pendingSelection.current = null
-              }
             }}
             onPasteAsset={onPasteAsset}
           />
@@ -225,6 +227,7 @@ export function App() {
               if (pending !== null) {
                 handle.setSelectionOffsets(pending.anchor, pending.head)
                 pendingSelection.current = null
+                handle.focus()
               }
             }}
           />
