@@ -1,5 +1,16 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { cursorToMdOffset, mdOffsetToCursor } from './cursor-map'
+import type { Node as PMNode } from '@milkdown/prose/model'
+import {
+  cursorToMdOffset,
+  type CursorAccuracy,
+  mdCursorToPmPos,
+  mdOffsetToCursor,
+  markdownOffsetToPmPos,
+  pmPosToMarkdownOffset,
+  pmPosToMdCursor,
+} from './cursor-map'
+import { createTestEditor } from './testing/create-test-editor'
 
 describe('mdOffsetToCursor', () => {
   it('maps offset inside a heading text to {path, offset}', () => {
@@ -61,5 +72,227 @@ describe('cursorToMdOffset', () => {
     // path [0,0,1,0,0,5] 越界（paragraph 只有 text child）→ 最近祖先 paragraph 块首 = 8
     expect(cursorToMdOffset(md, { path: [0, 0, 1, 0, 0, 5], offset: 2 })).toBe(8)
     expect(cursorToMdOffset('', { path: [0], offset: 1 })).toBe(0)
+  })
+  it('clamps offset beyond node end for a valid path (review follow-up)', () => {
+    // '# 标题'：heading>text 为有效 path，offset 99 超出 text end（4）→ clamp 到 4
+    expect(cursorToMdOffset('# 标题', { path: [0, 0], offset: 99 })).toBe(4)
+    expect(cursorToMdOffset('# 标题', { path: [0], offset: 99 })).toBe(4)
+  })
+})
+
+function textPos(doc: PMNode, text: string): number {
+  let found = -1
+  doc.descendants((node, pos) => {
+    if (found === -1 && node.isText && node.text === text) {
+      found = pos
+      return false
+    }
+    return true
+  })
+  return found
+}
+
+function atomPos(doc: PMNode, typeName: string): number {
+  let found = -1
+  doc.descendants((node, pos) => {
+    if (found === -1 && !node.isText && node.type.name === typeName) {
+      found = pos
+      return false
+    }
+    return true
+  })
+  return found
+}
+
+describe('cursor-map PM bridge', () => {
+  const planMd = '# 标题\n\n正文**加粗**继续\n\n```ts\nconst a = 1\n```\n'
+  const inlineMd = '前`code`中[链接](https://x.y)后\n\n![图](https://x.y/a.png)尾\n\na  \nb\n'
+  const tableMd = '| h1 | h2 |\n| --- | --- |\n| 1 | 2 |\n'
+  const scanFixtures = [
+    planMd,
+    '- a\n  - b\n',
+    '> 引用\n> - b\n',
+    tableMd,
+    inlineMd,
+    '~~删除~~与后续\n',
+    '<div>块</div>\n\n段<b>行内</b>尾\n',
+    '',
+  ]
+
+  async function withDoc(md: string, fn: (doc: PMNode) => void): Promise<void> {
+    const te = await createTestEditor(md)
+    try {
+      fn(te.getView().state.doc)
+    } finally {
+      await te.destroy()
+    }
+  }
+
+  it('exports CursorAccuracy type values', () => {
+    const accuracy: CursorAccuracy = 'ancestor'
+    expect(['exact', 'ancestor']).toContain(accuracy)
+  })
+
+  it('maps positions inside heading/bold/fence text exactly', async () => {
+    await withDoc(planMd, (doc) => {
+      expect(pmPosToMarkdownOffset(planMd, doc, textPos(doc, '标题'))).toBe(planMd.indexOf('标题'))
+      const boldPos = textPos(doc, '加粗')
+      expect(pmPosToMarkdownOffset(planMd, doc, boldPos)).toBe(planMd.indexOf('加'))
+      expect(pmPosToMarkdownOffset(planMd, doc, boldPos + 1)).toBe(planMd.indexOf('加') + 1)
+      expect(markdownOffsetToPmPos(planMd, doc, planMd.indexOf('加'))).toEqual({
+        pos: boldPos,
+        accuracy: 'exact',
+      })
+      expect(pmPosToMarkdownOffset(planMd, doc, textPos(doc, 'const a = 1'))).toBe(
+        planMd.indexOf('const a = 1'),
+      )
+    })
+  })
+
+  it('maps inline code, link, image and hardbreak', async () => {
+    await withDoc(inlineMd, (doc) => {
+      expect(pmPosToMarkdownOffset(inlineMd, doc, textPos(doc, 'code'))).toBe(
+        inlineMd.indexOf('code'),
+      )
+      const linkPos = textPos(doc, '链接')
+      expect(pmPosToMarkdownOffset(inlineMd, doc, linkPos)).toBe(inlineMd.indexOf('链接'))
+      expect(markdownOffsetToPmPos(inlineMd, doc, inlineMd.indexOf('链接'))).toEqual({
+        pos: linkPos,
+        accuracy: 'exact',
+      })
+      const imgPos = atomPos(doc, 'image')
+      expect(pmPosToMarkdownOffset(inlineMd, doc, imgPos)).toBe(inlineMd.indexOf('![图'))
+      const hbPos = atomPos(doc, 'hardbreak')
+      // break 起点 = 'a' 之后的 '  \n'（offset 55）；'b' 起点 = 58
+      expect(pmPosToMarkdownOffset(inlineMd, doc, hbPos)).toBe(55)
+      expect(markdownOffsetToPmPos(inlineMd, doc, 58)).toEqual({
+        pos: hbPos + 1,
+        accuracy: 'exact',
+      })
+    })
+  })
+
+  it('maps nested list and blockquote', async () => {
+    const listMd = '- a\n  - b\n'
+    await withDoc(listMd, (doc) => {
+      const bPos = textPos(doc, 'b')
+      expect(bPos).toBe(8)
+      expect(pmPosToMarkdownOffset(listMd, doc, bPos)).toBe(listMd.indexOf('b'))
+      expect(markdownOffsetToPmPos(listMd, doc, listMd.indexOf('b'))).toEqual({
+        pos: bPos,
+        accuracy: 'exact',
+      })
+    })
+    const quoteMd = '> 引用\n> - b\n'
+    await withDoc(quoteMd, (doc) => {
+      expect(pmPosToMarkdownOffset(quoteMd, doc, textPos(doc, '引用'))).toBe(
+        quoteMd.indexOf('引用'),
+      )
+      expect(pmPosToMarkdownOffset(quoteMd, doc, textPos(doc, 'b'))).toBe(quoteMd.indexOf('b'))
+    })
+  })
+
+  it('maps table cells', async () => {
+    await withDoc(tableMd, (doc) => {
+      expect(pmPosToMarkdownOffset(tableMd, doc, textPos(doc, 'h1'))).toBe(tableMd.indexOf('h1'))
+      expect(pmPosToMarkdownOffset(tableMd, doc, textPos(doc, '2'))).toBe(tableMd.indexOf('2', 20))
+      expect(markdownOffsetToPmPos(tableMd, doc, tableMd.indexOf('2', 20))).toMatchObject({
+        accuracy: 'exact',
+      })
+    })
+  })
+
+  it('maps strike-through text (mdast delete)', async () => {
+    const md = '~~删除~~与后续\n'
+    await withDoc(md, (doc) => {
+      expect(pmPosToMarkdownOffset(md, doc, textPos(doc, '删除'))).toBe(md.indexOf('删除'))
+    })
+  })
+
+  it('handles empty document', async () => {
+    await withDoc('', (doc) => {
+      for (let pos = 0; pos <= doc.content.size; pos++) {
+        expect(pmPosToMarkdownOffset('', doc, pos)).toBe(0)
+      }
+      expect(markdownOffsetToPmPos('', doc, 0)).toMatchObject({ pos: 0 })
+    })
+  })
+
+  it('clamps out-of-range pos and offset', async () => {
+    await withDoc(planMd, (doc) => {
+      expect(pmPosToMarkdownOffset(planMd, doc, -5)).toBe(0)
+      expect(pmPosToMarkdownOffset(planMd, doc, 10 ** 6)).toBe(planMd.length)
+      expect(markdownOffsetToPmPos(planMd, doc, -5)).toEqual({ pos: 0, accuracy: 'ancestor' })
+      expect(markdownOffsetToPmPos(planMd, doc, 10 ** 6)).toEqual({
+        pos: doc.content.size,
+        accuracy: 'ancestor',
+      })
+    })
+  })
+
+  it('maps invalid cursor path to ancestor block start', async () => {
+    const md = '# 标题\n\n正文\n'
+    await withDoc(md, (doc) => {
+      expect(mdCursorToPmPos(md, doc, { path: [9], offset: 3 })).toEqual({
+        pos: 0,
+        accuracy: 'ancestor',
+      })
+      expect(mdCursorToPmPos(md, doc, { path: [0, 5], offset: 1 })).toEqual({
+        pos: 0,
+        accuracy: 'ancestor',
+      })
+    })
+    const listMd = '- a\n  - b\n'
+    await withDoc(listMd, (doc) => {
+      // 深层 path 失效 → 最近祖先 'b' 段落块首（PM pos 8）
+      expect(mdCursorToPmPos(listMd, doc, { path: [0, 0, 1, 0, 0, 5], offset: 2 })).toMatchObject({
+        pos: 8,
+      })
+    })
+  })
+
+  it('composes pmPosToMdCursor / mdCursorToPmPos', async () => {
+    await withDoc(planMd, (doc) => {
+      const boldPos = textPos(doc, '加粗')
+      const cursor = pmPosToMdCursor(planMd, doc, boldPos)
+      expect(cursorToMdOffset(planMd, cursor)).toBe(planMd.indexOf('加'))
+      expect(mdCursorToPmPos(planMd, doc, cursor)).toEqual({ pos: boldPos, accuracy: 'exact' })
+      expect(cursorToMdOffset(planMd, pmPosToMdCursor(planMd, doc, 0))).toBe(0)
+    })
+  })
+
+  it('round-trips every PM pos through md cursor for all fixtures', async () => {
+    for (const md of scanFixtures) {
+      await withDoc(md, (doc) => {
+        for (let pos = 0; pos <= doc.content.size; pos++) {
+          const cursor = pmPosToMdCursor(md, doc, pos)
+          const back = mdCursorToPmPos(md, doc, cursor)
+          const off = pmPosToMarkdownOffset(md, doc, pos)
+          const sameOrSameBoundary =
+            back.pos === pos || pmPosToMarkdownOffset(md, doc, back.pos) === off
+          expect(sameOrSameBoundary, 'pos ' + pos + ' of ' + JSON.stringify(md)).toBe(true)
+        }
+      })
+    }
+  })
+
+  it('scans every markdown offset for all fixtures', async () => {
+    for (const md of scanFixtures) {
+      await withDoc(md, (doc) => {
+        for (let off = 0; off <= md.length; off++) {
+          const pr = markdownOffsetToPmPos(md, doc, off)
+          expect(pr.pos).toBeGreaterThanOrEqual(0)
+          expect(pr.pos).toBeLessThanOrEqual(doc.content.size)
+          // 与 cursor 组合入口一致
+          expect(pr.pos).toBe(mdCursorToPmPos(md, doc, mdOffsetToCursor(md, off)).pos)
+          if (pr.accuracy === 'exact') {
+            expect(
+              pmPosToMarkdownOffset(md, doc, pr.pos),
+              'offset ' + off + ' of ' + JSON.stringify(md),
+            ).toBe(off)
+          }
+        }
+      })
+    }
   })
 })
