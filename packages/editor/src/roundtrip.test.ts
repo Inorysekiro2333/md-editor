@@ -1,7 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { createTestEditor } from './testing/create-test-editor'
-
-// @vitest-environment jsdom
 
 async function roundtrip(input: string): Promise<string> {
   const editor = await createTestEditor(input)
