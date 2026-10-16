@@ -302,9 +302,6 @@ describe('round-trip links-images', () => {
   it('link-bold', async () => {
     expect(await roundtrip('see [**b**](u) now\n')).toBe('see **[b](u)** now\n')
   })
-})
-
-describe('round-trip hr', () => {
   // ref-link
   // Registered normalization (R1): Reference links are inlined; definitions are dropped.
   it('ref-link', async () => {
@@ -312,6 +309,9 @@ describe('round-trip hr', () => {
       'see [t](https://example.com) now\n',
     )
   })
+})
+
+describe('round-trip hr', () => {
   // hr-dashes
   // Registered normalization (R1): Thematic breaks normalize to `***`.
   it('hr-dashes', async () => {
