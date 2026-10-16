@@ -30,6 +30,8 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
   // 与 EditorHost 同契约：initialMarkdown 只在 mount 时读取一次，
   // onMarkdownChange 上抛后由 App 更新 Buffer，父组件重渲染不得重建编辑器。
   const initialMarkdownRef = useRef(initialMarkdown)
+  // R3 parked finding 修复：滚动初值只在 mount 读取一次，运行期变化不得重建 view / 重置 doc
+  const initialScrollRatioRef = useRef(initialScrollRatio)
   const onMarkdownChangeRef = useRef(props.onMarkdownChange)
   const onReadyRef = useRef(props.onReady)
 
@@ -72,8 +74,8 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
     viewRef.current = view
 
     // Ruling-4：滚动恢复采用 scrollTop/scrollHeight 比例的最小版本。
-    if (initialScrollRatio != null && view.scrollDOM.scrollHeight > 0) {
-      view.scrollDOM.scrollTop = initialScrollRatio * view.scrollDOM.scrollHeight
+    if (initialScrollRatioRef.current != null && view.scrollDOM.scrollHeight > 0) {
+      view.scrollDOM.scrollTop = initialScrollRatioRef.current * view.scrollDOM.scrollHeight
     }
 
     const handle: SourceEditorHandle = {
@@ -106,7 +108,8 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
       view.destroy()
       viewRef.current = null
     }
-  }, [initialScrollRatio, sync])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅 mount 一次；initialScrollRatio 按约定只读初值
+  }, [sync])
 
   return <div ref={hostRef} className="md-source-editor" />
 }

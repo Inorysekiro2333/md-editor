@@ -12,6 +12,9 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { getMarkdown } from '@milkdown/kit/utils'
+import { markdownOffsetToPmPos, pmPosToMarkdownOffset } from './cursor-map'
+import type { Node as PMNode } from '@milkdown/prose/model'
+import { TextSelection, type Transaction } from '@milkdown/prose/state'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
@@ -29,6 +32,31 @@ import { createMarkdownSync } from './sync'
 export interface EditorHandle {
   getMarkdown(): string
   flushNow(): void
+  getSelectionOffsets(): { anchor: number; head: number } | null
+  setSelectionOffsets(anchor: number, head: number): void
+  getScrollRatio(): number
+}
+
+export function selectionOffsetsFromView(
+  markdown: string,
+  view: { state: { doc: PMNode; selection: { anchor: number; head: number } } },
+): { anchor: number; head: number } {
+  return {
+    anchor: pmPosToMarkdownOffset(markdown, view.state.doc, view.state.selection.anchor),
+    head: pmPosToMarkdownOffset(markdown, view.state.doc, view.state.selection.head),
+  }
+}
+
+export function applySelectionOffsets(
+  view: { state: { doc: PMNode; tr: Transaction }; dispatch(tr: Transaction): void },
+  markdown: string,
+  anchor: number,
+  head: number,
+): void {
+  const doc = view.state.doc
+  const anchorPos = markdownOffsetToPmPos(markdown, doc, anchor).pos
+  const headPos = markdownOffsetToPmPos(markdown, doc, head).pos
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, anchorPos, headPos)))
 }
 
 export interface EditorHostProps {
@@ -140,6 +168,32 @@ function EditorHostInner(props: EditorHostProps) {
         return editor ? editor.action(getMarkdown()) : initialMarkdownRef.current
       },
       flushNow: () => sync.flushNow(),
+      getSelectionOffsets: () => {
+        const editor = get()
+        if (!editor) return null
+        return editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          const markdown = getMarkdown()(ctx)
+          return selectionOffsetsFromView(markdown, view)
+        })
+      },
+      setSelectionOffsets: (anchor, head) => {
+        const editor = get()
+        if (!editor) return
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          applySelectionOffsets(view, getMarkdown()(ctx), anchor, head)
+        })
+      },
+      getScrollRatio: () => {
+        const editor = get()
+        if (!editor) return 0
+        return editor.action((ctx) => {
+          // @milkdown 的 editorViewCtx 泛型未暴露 scrollDOM，运行时是标准 ProseMirror EditorView
+          const dom = (ctx.get(editorViewCtx) as unknown as { scrollDOM: HTMLElement }).scrollDOM
+          return dom.scrollHeight === 0 ? 0 : dom.scrollTop / dom.scrollHeight
+        })
+      },
     }
     handleRef.current = handle
     onReady?.(handle)

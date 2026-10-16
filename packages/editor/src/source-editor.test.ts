@@ -90,6 +90,27 @@ describe('SourceEditor', () => {
     expect(onMarkdownChange).toHaveBeenCalledWith('abcd')
   })
 
+  it('does not recreate view or reset doc when initialScrollRatio prop changes at runtime', () => {
+    renderSourceEditor('# hello', 0)
+    const firstHandle = handle
+    typeText('x', 7)
+    act(() => {
+      root.render(
+        createElement(SourceEditor, {
+          initialMarkdown: '# hello',
+          onMarkdownChange,
+          onReady: (h) => {
+            handle = h
+          },
+          initialScrollRatio: 0.9,
+        }),
+      )
+    })
+    expect(handle).toBe(firstHandle)
+    expect(handle?.getText()).toBe('# hellox')
+    expect(onMarkdownChange).not.toHaveBeenCalled()
+  })
+
   it('getScrollRatio returns 0 when scrollHeight is 0', () => {
     renderSourceEditor('abc')
     expect(handle?.getScrollRatio()).toBe(0)
