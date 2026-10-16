@@ -185,6 +185,24 @@ function EditorHostInner(props: EditorHostProps) {
     }
   }, [get, loading, docId])
 
+  // e2e 调试专用，读取 PM 选区，无写能力
+  useEffect(() => {
+    if (loading) return
+    const editor = get()
+    if (!editor) return
+    ;(window as unknown as { __mdEditorDebug?: unknown }).__mdEditorDebug = {
+      pmSelection: () =>
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          return {
+            anchor: view.state.selection.anchor,
+            head: view.state.selection.head,
+            hasFocus: view.hasFocus(),
+          }
+        }),
+    }
+  }, [get, loading])
+
   useEffect(() => {
     if (loading) return
     const editor = get()
