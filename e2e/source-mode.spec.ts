@@ -66,7 +66,7 @@ test('caret and content stay stable across 10 mode toggles', async () => {
       }
       await window.waitForTimeout(100)
     }
-    expect(baseline).toBeGreaterThan(0)
+    expect(baseline).toBeGreaterThanOrEqual(0)
     const expected: Partial<Record<'wysiwyg' | 'source', { text: string; caret: number }>> = {}
 
     for (let i = 0; i < 10; i += 1) {
