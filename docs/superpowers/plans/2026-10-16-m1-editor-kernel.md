@@ -284,23 +284,23 @@ git commit -m "feat(editor): keep undo stack across editor remounts in session"
   - `EditorHost` props 新增 `onPasteAsset?: (base64: string, mime: string) => Promise<string>`；app 侧实现为调 `window.mdEditor.saveAsset(path, base64, ext)` 返回相对路径。
   - preload 新增 `saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>`（通道 `asset:save`），主进程写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>` 并返回 `assets/xxx.png` 相对路径；ext 白名单 `png|jpg|jpeg|gif|webp`；docPath 为 null（未保存文档）时返回错误（v1 行为：提示先保存文档）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `paste.test.ts`（jsdom）：`htmlToMarkdown('<h1>标题</h1><p><strong>加粗</strong> 与 <a href="https://e.com">链接</a></p><ul><li>项</li></ul>')` 断言 `# 标题\n\n**加粗** 与 [链接](https://e.com)\n\n- 项\n` 形态（按实际输出登记）；URL 粘贴断言选中文字变 `[文字](url)`（transformPasted 单元测试）。`e2e/paste.spec.ts`：`DataTransfer` 注入 `text/html` 剪贴板 → 断言序列化结果；图片粘贴用 `ClipboardEvent` 注入 png File → mock 主进程返回相对路径 → 断言文档出现 `![](assets/xxx.png)` 且磁盘出现文件。
 
-- [ ] **Step 2: 确认失败 → 实现**
+- [x] **Step 2: 确认失败 → 实现**
 
 `paste.ts` 实现 `htmlToMarkdown` + Milkdown 插件（`prosemirror-view` EditorProps：`transformPasted`/`handlePaste`，注册进 `EditorHost`）；preload/main/`channels.ts` 同步加 `asset:save`（handler 用现有 `fs_io.writeAtomic` 写入，路径 join + 扩展名校验）。
 
-- [ ] **Step 3: 跑绿 + 全量回归 + 安全断言**
+- [x] **Step 3: 跑绿 + 全量回归 + 安全断言**
 
 `pnpm test`、`pnpm e2e`（M0 7 例 + 新增全绿）；确认 `e2e/shell.spec.ts` 的无 Node 断言仍绿。
 
-- [ ] **Step 4: 文档同步**
+- [x] **Step 4: 文档同步**
 
 `component-api.md` 2.1 加 `saveAsset`、7 节 IPC 表加 `asset:save` 行。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add packages/editor/ packages/app/ electron/ component-api.md e2e/paste.spec.ts
@@ -336,10 +336,10 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 - Modify: `component-api.md`、`DESIGN.md`（新视觉仅当有，如任务列表 checkbox 样式）
 - 修改: 计划文末「已知偏离与登记」表
 
-- [ ] **Step 1:** 全量命令逐一跑绿并记录输出摘要：`pnpm typecheck` → `pnpm lint` → `pnpm test` → `pnpm e2e` → `pnpm build:app`。
-- [ ] **Step 2:** TODO.md M1 每条勾选 + 验收记录（round-trip 用例数 ≥50、长文档 3 篇、IME 手测结论、各命令输出摘要）。
-- [ ] **Step 3:** component-api.md 与最终实现对齐核对（3 节导出、7 节 IPC 表）；DESIGN.md 如有新视觉 token 登记。
-- [ ] **Step 4:** 提交全部文档 `docs: close out m1 editor kernel milestone`。
+- [x] **Step 1:** 全量命令逐一跑绿并记录输出摘要：`pnpm typecheck` → `pnpm lint` → `pnpm test` → `pnpm e2e` → `pnpm build:app`。
+- [x] **Step 2:** TODO.md M1 每条勾选 + 验收记录（round-trip 用例数 ≥50、长文档 3 篇、IME 手测结论、各命令输出摘要）。
+- [x] **Step 3:** component-api.md 与最终实现对齐核对（3 节导出、7 节 IPC 表）；DESIGN.md 如有新视觉 token 登记。
+- [x] **Step 4:** 提交全部文档 `docs: close out m1 editor kernel milestone`。
 - [ ] **Step 5:** `git tag m1-editor-kernel` 并向用户交总结（完成情况、逐条验收、偏离清单、未验证项）。
 
 ---
@@ -361,6 +361,7 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 | 10     | Task 6 评估结论：Milkdown gfm preset 已内置 footnote schema；补 packages/editor/src/footnotes.ts（remark 未定义引用补丁 + $prose 键入规则）                               | 未引入第二套解析器，复用 gfm 注册的 footnote_reference/footnote_definition 节点                          | 2026-10-16 |
 | 11     | 脚注新增 e2e/footnote.spec.ts 2 例（键入往返 + 解析渲染），component-api.md 新增 3.6 节；未新增 DESIGN.md token（沿用 sup/dl 默认语义，无新视觉变量）                     | Task 6 计划只写「e2e 键入验证」，解析渲染用例为补充回归                                                  | 2026-10-16 |
 | 12     | 评审修正：移除 `[^label]` 解析前瞻，解析/键入统一按活引用处理（`Text[^1]:` 两层对称）；转义检测改为源切片去转义对齐；混合场景「转义+活引用同段尾随空格」按实际输出登记 R1 | roundtrip.test.ts 新增 3 例（转义/混合/引用后冒号）；Milkdown text 序列化 fast path 丢转义为已知登记差异 | 2026-10-16 |
+| 13     | asset:save 无大小上限/magic bytes 校验，M1 收窄为信任本机剪贴板                                                                                                           | TODO.md 持续性任务已登记（M4 导出前补齐），不阻塞 M1 收口                                                | 2026-10-16 |
 
 ## 执行顺序
 

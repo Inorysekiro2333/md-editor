@@ -7,8 +7,8 @@
 
 ## 当前状态
 
-**阶段：M0 已完成，下一步进入 M1 编辑内核。**
-下一步行动：执行 M1 —— Milkdown 编辑内核（preset/输入规则、GFM、round-trip 差异登记用例、IME 专项验证）。
+**阶段：M0 + M1 已完成，下一步进入 M2 源码模式与块级组件。**
+下一步行动：执行 M2 —— cursor-map（光标精确恢复）、CodeMirror 6 源码模式、代码块组件。
 
 架构前提（已冻结，改动需先改 `architecture.md`）：
 
@@ -33,15 +33,15 @@
 
 ## M1 — 编辑内核（目标：3–4 周）
 
-- [ ] (P0) Milkdown preset 与输入规则：`#`、`>`、`-`、`1.`、代码围栏、表格管道
-- [ ] (P0) GFM：表格、任务列表、删除线
-- [ ] (P0) round-trip 差异登记用例集（不少于 50 用例 + 3 篇真实长文档），进 CI
-- [ ] (P0) 中文 IME 专项验证（标题 / 列表 / 表格）
-- [ ] (P1) 会话级撤销栈持久化
-- [ ] (P1) 粘贴处理：HTML → Markdown、URL → 链接、图片粘贴存盘
+- [x] (P0) Milkdown preset 与输入规则：`#`、`>`、`-`、`1.`、代码围栏、表格管道
+- [x] (P0) GFM：表格、任务列表、删除线
+- [x] (P0) round-trip 差异登记用例集（不少于 50 用例 + 3 篇真实长文档），进 CI
+- [x] (P0) 中文 IME 专项验证（标题 / 列表 / 表格；CDP Input.imeSetComposition 自动化模拟 6 例，真人微软拼音候选窗/确认键/组合内撤销待补）
+- [x] (P1) 会话级撤销栈持久化
+- [x] (P1) 粘贴处理：HTML → Markdown、URL → 链接、图片粘贴存盘
 - [x] (P2) 脚注（GFM 扩展，非规范本体；Milkdown gfm 内置 schema + 未定义引用解析/键入规则补丁，见 component-api.md 3.6）
 
-**验收**：round-trip 用例全绿；Typora 日常写作 80% 场景不卡壳。
+**验收**：round-trip 用例全绿；Typora 日常写作 80% 场景不卡壳。（M1 验收记录 2026-10-16：roundtrip.test.ts 71 例全绿（规范化差异逐条登记，含转义/表格对齐）；长文档 fixture 3 篇（long-doc-1/2/3）round-trip 全绿；IME 为 CDP Input.imeSetComposition 自动化模拟 6 例（标题/列表/表格/代码块连打、组合内 # - 1. 不触发规则）全绿，真人微软拼音候选窗/确认键/组合内撤销待补；会话撤销 e2e 1 例 + 单测兜底；粘贴 HTML/URL/图片 e2e 2 例；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 119 passed (10 files) · pnpm e2e 27 passed (25.3s) · pnpm build:app main/preload/renderer 三段构建成功，renderer 1,397.35 kB）
 
 ## M2 — 源码模式与块级组件（目标：2–3 周）
 

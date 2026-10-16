@@ -186,7 +186,7 @@ export function parseOutline(markdown: string): OutlineNode[] // 大纲：标题
 export function countWords(markdown: string, opts?: { cjk?: boolean }): number
 ```
 
-两者都是纯函数，供状态栏与大纲面板使用；不参与编辑内核。
+两者都是纯函数，供状态栏与大纲面板使用；不参与编辑内核。（M3 计划 API，当前尚未实现，实现时以本节签名为准）
 
 ### 3.6 脚注（GFM 扩展）
 
@@ -222,6 +222,51 @@ export const footnoteInputRules: MilkdownPlugin // ProseMirror 键入规则
    序列化会转义为 `\[^1]`；继续键入后续字符会自动转回引用节点。
 3. 键入侧定义块转换只识别文档顶层段落；blockquote/列表内的定义仍可从
    Markdown 解析得到（走 remark-gfm），但不会被键入规则自动创建。
+
+### 3.7 粘贴处理（`packages/editor/src/paste.ts`）
+
+```ts
+export type OnPasteAsset = (base64: string, mime: string) => Promise<string> // 调用方回调：保存剪贴板图片，返回 Markdown 相对路径
+export type PasteRule = {
+  run(slice: Slice, view: EditorView, isPlainText: boolean): Slice
+  priority?: number
+}
+export function getHtmlToMarkdown(): Promise<(html: string) => string> // 离屏 Milkdown 管线 HTML → Markdown（同一 schema，无第二套转换器）
+export function createPasteRule(): PasteRule // 有选中文本 + 纯文本 URL → [文字](url)
+export function createPastePlugin(getOnPasteAsset: () => OnPasteAsset | undefined): Plugin // 剪贴板图片文件 → onPasteAsset → 插入 ![](相对路径)
+```
+
+`text/html` 粘贴由 ProseMirror 默认 DOMParser（同一 schema）处理；图片存盘经
+`asset:save` IPC（见 7 节，`electron/preload` 的 `saveAsset`）。三者均已在
+`EditorHost.tsx` 插件链挂载，无需业务方手动接线。
+
+### 3.8 会话级撤销持久化（`packages/editor/src/session-history.ts`）
+
+```ts
+export interface SerializedTransaction {
+  steps: unknown[]
+  time: number
+}
+export interface SessionHistoryRecord {
+  baseMarkdown: string
+  transactions: SerializedTransaction[]
+}
+export const sessionRecorderKey: PluginKey<SerializedTransaction[]>
+export const sessionRecorderPlugin: Plugin<SerializedTransaction[]>
+export function saveHistory(docId: string, record: SessionHistoryRecord): void
+export function loadHistory(docId: string): SessionHistoryRecord | null
+export function clearHistory(docId: string): void
+export function buildSessionHistory(state: EditorState, baseMarkdown: string): SessionHistoryRecord
+export function restoreSessionHistory(
+  record: SessionHistoryRecord,
+  view: EditorView,
+  options?: RestoreSessionOptions,
+): void
+```
+
+Milkdown history key 不导出且 HistoryState 不可序列化，会话撤销以 step JSON
+重放重建撤销/重做栈（已知偏离 #6）；重放/恢复期间 recorder 抑制记录并在完成后
+重置状态，避免基线污染（已知偏离 #7）。存储为进程内 Map（会话级，非持久盘）。
 
 ## 4. 工作台组件（`packages/app`）
 
