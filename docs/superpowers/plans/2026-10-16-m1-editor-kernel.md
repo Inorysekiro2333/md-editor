@@ -323,8 +323,8 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 
 ### Task 6: 脚注（P2 决策点 + 实现/延期登记）
 
-- [ ] **Step 1:** 评估 Milkdown 生态是否有现成 footnote preset；**没有现成且需手写 NodeView+序列化插件时，向用户请示**：实现（估 1–2 天，含 round-trip 用例）或延期（在 v1 发布说明注明「脚注延期至 v1.1」并更新 TODO.md）。用户答复前不阻塞 Task 7 收尾——默认路径：若前 5 个 Task 已超 3 天工作量则延期并登记。
-- [ ] **Step 2（实现路径时）:** 按 development.md 5 节流程：注册 footnote 节点 → roundtrip.test.ts 加 `[^1]` 定义/引用/多引用/未定义引用 用例 → e2e 键入验证 → 提交 `feat(editor): support gfm footnotes`。
+- [x] **Step 1:** 评估结论：Milkdown gfm preset（7.22.3）已内置 footnoteReference/footnoteDefinition schema 与 remark-gfm 解析；用户已裁定实现。gfm 未覆盖「未定义引用」与 WYSIWYG 键入，由 packages/editor/src/footnotes.ts 补齐（remark 解析补丁 + $prose 键入规则，未引入第二套解析器）。
+- [x] **Step 2（实现路径时）:** 按 development.md 5 节流程：注册 footnote 节点（gfm 内置 + footnotes.ts 补丁）→ roundtrip.test.ts 加 6 例（基本/多引用/未定义/嵌套/文字标签/多段定义）→ e2e/footnote.spec.ts 2 例（键入 + 解析渲染）→ 提交 `feat(editor): support gfm footnotes`。
 - [ ] **Step 2（延期路径时）:** TODO.md M1 脚注条目标注延期 + v1 发布说明登记占位（`docs/` 或 README release notes 节），提交 `docs: defer footnotes to v1.1 with release note`。
 
 ### Task 7: 收尾——全量验收 + 文档对齐 + 打标
@@ -346,18 +346,20 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 
 ## 已知偏离与登记
 
-| #      | 偏离                                                                                                                                          | 说明                                                                               | 日期       |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
-| （空） |                                                                                                                                               |                                                                                    |            |
-| 1      | 新增 devDependency jsdom ^30.1.2（Task 0）                                                                                                    | 测试环境依赖，非 Markdown 内核，不违反铁律 3                                       | 2026-10-16 |
-| 2      | 冒烟用例 2 例期望值按 Milkdown 实际序列化登记（bullet `-`→`*`、表格分隔行最小化）                                                             | 铁律 1 差异登记要求，已注释登记                                                    | 2026-10-16 |
-| 3      | round-trip 用例实现为 `roundtrip(input)` + 内联 `toBe(expected)`（计划原写 `roundtrip(input, expectedOrIdentity)`）                           | 语义等价，精确断言不变                                                             | 2026-10-16 |
-| 4      | fixtures 加入 .prettierignore                                                                                                                 | 保护测试数据字节级原样（expected 快照含列宽 padding）                              | 2026-10-16 |
-| 5      | 表格管道 Enter 规则 Milkdown/gfm 未覆盖，补自定义 keymap 规则（editorInputRules）                                                             | 仅复用 gfm 已注册 table 节点，未引入第二套解析器                                   | 2026-10-16 |
-| 6      | Milkdown history key 不导出、HistoryState 不可序列化，会话撤销改用 step JSON 重放重建撤销栈                                                   | 撤销/重做语义未减弱（e2e + 单测兜底）；显式依赖 @milkdown/prose@7.22.3 与 kit 同源 | 2026-10-16 |
-| 7      | 重放/恢复期间抑制 recorder 记录，恢复后重置 recorder 状态                                                                                     | 修复评审发现的基线污染缺陷，非计划内但属正确性修复                                 | 2026-10-16 |
-| 8      | IME 验证改为 CDP Input.imeSetComposition 自动化模拟（用户授权免真人实测），e2e/ime.spec.ts 6 例；真人微软拼音候选窗/确认键/组合内撤销标记待补 | 保真度边界已在 development.md R2 如实登记                                          | 2026-10-16 |
-| 9      | IME 提交信息为 test(e2e)/fix(e2e)（计划写 docs(development)）                                                                                 | 实际产出含 e2e 用例与断言修复，不只是文档                                          | 2026-10-16 |
+| #      | 偏离                                                                                                                                                  | 说明                                                                               | 日期       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
+| （空） |                                                                                                                                                       |                                                                                    |            |
+| 1      | 新增 devDependency jsdom ^30.1.2（Task 0）                                                                                                            | 测试环境依赖，非 Markdown 内核，不违反铁律 3                                       | 2026-10-16 |
+| 2      | 冒烟用例 2 例期望值按 Milkdown 实际序列化登记（bullet `-`→`*`、表格分隔行最小化）                                                                     | 铁律 1 差异登记要求，已注释登记                                                    | 2026-10-16 |
+| 3      | round-trip 用例实现为 `roundtrip(input)` + 内联 `toBe(expected)`（计划原写 `roundtrip(input, expectedOrIdentity)`）                                   | 语义等价，精确断言不变                                                             | 2026-10-16 |
+| 4      | fixtures 加入 .prettierignore                                                                                                                         | 保护测试数据字节级原样（expected 快照含列宽 padding）                              | 2026-10-16 |
+| 5      | 表格管道 Enter 规则 Milkdown/gfm 未覆盖，补自定义 keymap 规则（editorInputRules）                                                                     | 仅复用 gfm 已注册 table 节点，未引入第二套解析器                                   | 2026-10-16 |
+| 6      | Milkdown history key 不导出、HistoryState 不可序列化，会话撤销改用 step JSON 重放重建撤销栈                                                           | 撤销/重做语义未减弱（e2e + 单测兜底）；显式依赖 @milkdown/prose@7.22.3 与 kit 同源 | 2026-10-16 |
+| 7      | 重放/恢复期间抑制 recorder 记录，恢复后重置 recorder 状态                                                                                             | 修复评审发现的基线污染缺陷，非计划内但属正确性修复                                 | 2026-10-16 |
+| 8      | IME 验证改为 CDP Input.imeSetComposition 自动化模拟（用户授权免真人实测），e2e/ime.spec.ts 6 例；真人微软拼音候选窗/确认键/组合内撤销标记待补         | 保真度边界已在 development.md R2 如实登记                                          | 2026-10-16 |
+| 9      | IME 提交信息为 test(e2e)/fix(e2e)（计划写 docs(development)）                                                                                         | 实际产出含 e2e 用例与断言修复，不只是文档                                          | 2026-10-16 |
+| 10     | Task 6 评估结论：Milkdown gfm preset 已内置 footnote schema；补 packages/editor/src/footnotes.ts（remark 未定义引用补丁 + $prose 键入规则）           | 未引入第二套解析器，复用 gfm 注册的 footnote_reference/footnote_definition 节点    | 2026-10-16 |
+| 11     | 脚注新增 e2e/footnote.spec.ts 2 例（键入往返 + 解析渲染），component-api.md 新增 3.6 节；未新增 DESIGN.md token（沿用 sup/dl 默认语义，无新视觉变量） | Task 6 计划只写「e2e 键入验证」，解析渲染用例为补充回归                            | 2026-10-16 |
 
 ## 执行顺序
 

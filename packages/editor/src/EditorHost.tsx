@@ -14,6 +14,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
+import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
 import { editorInputRules } from './input-rules'
 import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
@@ -100,6 +101,8 @@ function EditorHostInner(props: EditorHostProps) {
         .use(commonmark)
         .use(editorInputRules)
         .use(gfm)
+        .use(footnoteUndefinedRefPlugin)
+        .use(footnoteInputRules)
         .use(history)
         .use(listener),
     [docId],

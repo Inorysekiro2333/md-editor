@@ -188,6 +188,38 @@ export function countWords(markdown: string, opts?: { cjk?: boolean }): number
 
 两者都是纯函数，供状态栏与大纲面板使用；不参与编辑内核。
 
+### 3.6 脚注（GFM 扩展）
+
+脚注由 Milkdown gfm preset 内置的 `footnote_reference`（行内原子节点，
+DOM 形态 `sup[data-type="footnote_reference"]`）与 `footnote_definition`
+（块级节点，DOM 形态 `dl[data-type="footnote_definition"]`）承担，
+序列化/解析走 remark（mdast `footnoteReference`/`footnoteDefinition`），
+不引入第二套解析器。`packages/editor` 补齐两块 gfm preset 未覆盖的能力：
+
+```ts
+export const footnoteUndefinedRefPlugin: MilkdownPlugin // remark 解析补丁
+export const footnoteInputRules: MilkdownPlugin // ProseMirror 键入规则
+```
+
+- `footnoteUndefinedRefPlugin`：remark-gfm 只解析「有定义」的 `[^label]`；
+  未定义引用留在 text 节点并在序列化时被转义。该插件在解析后把 text 中残留的
+  `[^label]` 补转换为 footnoteReference，保证未定义引用可往返（多引用、
+  嵌套强调/链接均由 gfm schema 原生支持）。
+- `footnoteInputRules`：WYSIWYG 键入/粘贴时，段落内完整 `[^label]` 自动转为
+  引用节点；文档顶层段落形如 `[^label]: 内容` 自动转为定义块——否则序列化时
+  会被当作普通文本转义，破坏 Buffer 往返。
+
+两者已在 `EditorHost.tsx` 插件链（gfm 之后）与测试 harness 中挂载。
+
+已知局限（round-trip 差异已在 `roundtrip.test.ts` 登记）：
+
+1. 转义的字面 `\[^1]`：解析侧通过「源文本 != 文本值」检测转义并跳过转换，
+   但检测不到的极端组合可能被转成活引用。
+2. 行首悬空 `[^1]`（后无任何字符且尚未写定义）暂停键入超过 300ms 时，
+   序列化会转义为 `\[^1]`；继续键入后续字符会自动转回引用节点。
+3. 键入侧定义块转换只识别文档顶层段落；blockquote/列表内的定义仍可从
+   Markdown 解析得到（走 remark-gfm），但不会被键入规则自动创建。
+
 ## 4. 工作台组件（`packages/app`）
 
 | 组件             | Props（摘要）                                                 | 说明                                         |

@@ -3,6 +3,7 @@ import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { getMarkdown } from '@milkdown/kit/utils'
+import { footnoteInputRules, footnoteUndefinedRefPlugin } from '../footnotes'
 import { prosePluginsCtx } from '@milkdown/kit/core'
 import { sessionRecorderPlugin } from '../session-history'
 import type { EditorView } from '@milkdown/prose/view'
@@ -31,6 +32,8 @@ export async function createTestEditor(
     .use(commonmark)
     .use(gfm)
     .use(history)
+    .use(footnoteUndefinedRefPlugin)
+    .use(footnoteInputRules)
   await editor.create()
   return {
     getMarkdown: () => editor.action(getMarkdown()),

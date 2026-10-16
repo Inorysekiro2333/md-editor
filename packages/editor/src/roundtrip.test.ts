@@ -364,3 +364,36 @@ describe('round-trip long-docs', () => {
     })
   }
 })
+
+describe('round-trip footnotes', () => {
+  // footnote-basic
+  // Registered normalization (R1): footnote reference renders as `sup` and round-trips.
+  it('footnote-basic', async () => {
+    expect(await roundtrip('Para[^1]\n\n[^1]: note\n')).toBe('Para[^1]\n\n[^1]: note\n')
+  })
+  // footnote-multi-ref
+  it('footnote-multi-ref', async () => {
+    expect(await roundtrip('a[^1] b[^1]\n\n[^1]: note\n')).toBe('a[^1] b[^1]\n\n[^1]: note\n')
+  })
+  // footnote-undefined-ref
+  // Registered normalization (R1): reference without definition stays inline.
+  it('footnote-undefined-ref', async () => {
+    expect(await roundtrip('see [^missing]\n')).toBe('see [^missing]\n')
+  })
+  // footnote-definition-nested
+  it('footnote-definition-nested', async () => {
+    expect(await roundtrip('Para[^1]\n\n[^1]: note *em* and [link](https://example.com)\n')).toBe(
+      'Para[^1]\n\n[^1]: note *em* and [link](https://example.com)\n',
+    )
+  })
+  // footnote-word-label
+  it('footnote-word-label', async () => {
+    expect(await roundtrip('Para[^note]\n\n[^note]: 说明\n')).toBe('Para[^note]\n\n[^note]: 说明\n')
+  })
+  // footnote-multi-para
+  it('footnote-multi-para', async () => {
+    expect(await roundtrip('Para[^1]\n\n[^1]: first\n\n    second\n')).toBe(
+      'Para[^1]\n\n[^1]: first\n\n    second\n',
+    )
+  })
+})

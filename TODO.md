@@ -39,7 +39,7 @@
 - [ ] (P0) 中文 IME 专项验证（标题 / 列表 / 表格）
 - [ ] (P1) 会话级撤销栈持久化
 - [ ] (P1) 粘贴处理：HTML → Markdown、URL → 链接、图片粘贴存盘
-- [ ] (P2) 脚注（GFM 扩展，非规范本体；若延期需在 v1 发布说明注明）
+- [x] (P2) 脚注（GFM 扩展，非规范本体；Milkdown gfm 内置 schema + 未定义引用解析/键入规则补丁，见 component-api.md 3.6）
 
 **验收**：round-trip 用例全绿；Typora 日常写作 80% 场景不卡壳。
 
