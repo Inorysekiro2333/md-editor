@@ -362,6 +362,7 @@ git commit -m "feat(editor): paste html as markdown, urls as links, images to as
 | 11     | 脚注新增 e2e/footnote.spec.ts 2 例（键入往返 + 解析渲染），component-api.md 新增 3.6 节；未新增 DESIGN.md token（沿用 sup/dl 默认语义，无新视觉变量）                     | Task 6 计划只写「e2e 键入验证」，解析渲染用例为补充回归                                                  | 2026-10-16 |
 | 12     | 评审修正：移除 `[^label]` 解析前瞻，解析/键入统一按活引用处理（`Text[^1]:` 两层对称）；转义检测改为源切片去转义对齐；混合场景「转义+活引用同段尾随空格」按实际输出登记 R1 | roundtrip.test.ts 新增 3 例（转义/混合/引用后冒号）；Milkdown text 序列化 fast path 丢转义为已知登记差异 | 2026-10-16 |
 | 13     | asset:save 无大小上限/magic bytes 校验，M1 收窄为信任本机剪贴板                                                                                                           | TODO.md 持续性任务已登记（M4 导出前补齐），不阻塞 M1 收口                                                | 2026-10-16 |
+| 14     | 终审停靠项（P3 ipc bytesBase64 守卫、P3 dispose 丢 pending flush、P4 component-api.md 位于仓库根）                                                                        | 已登记 TODO 持续性任务/偏离表，M2 收口                                                                   | 2026-10-16 |
 
 ## 执行顺序
 

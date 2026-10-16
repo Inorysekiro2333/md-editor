@@ -106,4 +106,6 @@
 - [~] round-trip 差异用例扩充（每新增节点类型必须同步登记）
 - [ ] 性能基准记录（每个里程碑测一次并写入 `development.md` 7 节）
 - [ ] 无障碍走查（Tab 顺序、aria-label、对比度）
-- [ ] asset 写盘安全加固：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
+- [ ] asset 写盘安全加固
+- [ ] IPC bytesBase64 入参守卫（doc:write / asset:save 畸形入参干净拒绝，M2 顺手补）
+- [ ] EditorHost 卸载时 sync.dispose 丢弃 pending flush 的兜底语义登记（当前靠 session-history 重放恢复）：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
