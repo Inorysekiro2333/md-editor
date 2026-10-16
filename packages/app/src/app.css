@@ -51,3 +51,53 @@ body {
   outline: none;
   line-height: 1.7;
 }
+
+.md-codeblock {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.md-codeblock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--codeblock-header-bg);
+  font-size: 0.875rem;
+}
+
+.md-codeblock-lang {
+  max-width: 160px;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.md-codeblock-copy {
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.md-codeblock-copy:hover,
+.md-codeblock-lang:hover {
+  color: var(--fg);
+}
+
+.md-codeblock-body .cm-editor {
+  background: transparent;
+}
+
+.md-codeblock-body .cm-content {
+  font-family: var(--font-code);
+  font-size: var(--fs-code, 0.9rem);
+}

@@ -27,6 +27,7 @@ import {
   saveHistory,
   sessionRecorderPlugin,
 } from './session-history'
+import { codeBlockView } from './code-block-view'
 import { createMarkdownSync } from './sync'
 
 export interface EditorHandle {
@@ -149,6 +150,7 @@ function EditorHostInner(props: EditorHostProps) {
           })
         })
         .use(commonmark)
+        .use(codeBlockView)
         .use(editorInputRules)
         .use(gfm)
         .use(footnoteUndefinedRefPlugin)

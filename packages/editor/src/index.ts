@@ -11,6 +11,7 @@ export {
   pmPosToMdCursor,
   type PositionResult,
 } from './cursor-map'
+export { codeBlockView, CodeBlockNodeView } from './code-block-view'
 export { createMarkdownSync, type MarkdownSync, type MarkdownSyncOptions } from './sync'
 export { editorInputRules } from './input-rules'
 export { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'

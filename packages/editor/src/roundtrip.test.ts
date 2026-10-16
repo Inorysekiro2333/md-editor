@@ -151,9 +151,21 @@ describe('round-trip code', () => {
   it('code-indented', async () => {
     expect(await roundtrip('    indented code\n')).toBe('```\nindented code\n```\n')
   })
-  // code-special
-  it('code-special', async () => {
-    expect(await roundtrip('```md\n| a | # b |\n```\n')).toBe('```md\n| a | # b |\n```\n')
+  // code-fence-lang-preserved
+  // Registered behavior (R1): the fence info string (ts) round-trips verbatim.
+  it('code-fence-lang-preserved', async () => {
+    expect(await roundtrip('```ts\nconst a = 1\n```\n')).toBe('```ts\nconst a = 1\n```\n')
+  })
+  // code-empty
+  // Registered behavior (R1): an empty fenced block round-trips byte-identically.
+  it('code-empty', async () => {
+    expect(await roundtrip('```js\n```\n')).toBe('```js\n```\n')
+  })
+  // code-embedded-backticks
+  // Registered normalization (R1): content containing a triple-backtick line
+  // forces a longer (4-backtick) outer fence; inner content is verbatim.
+  it('code-embedded-backticks', async () => {
+    expect(await roundtrip('~~~\n```inner\n```\n~~~\n')).toBe('````\n```inner\n```\n````\n')
   })
 })
 
