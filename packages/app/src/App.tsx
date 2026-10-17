@@ -1,4 +1,5 @@
 import {
+  clearHistory,
   EditorHost,
   SourceEditor,
   type EditorHandle,
@@ -49,6 +50,7 @@ export function App() {
   const [reloadToken, setReloadToken] = useState(0)
   const [cursorOffset, setCursorOffset] = useState<number | null>(null)
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null)
+  const [pendingExternalPath, setPendingExternalPath] = useState<string | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
@@ -196,11 +198,13 @@ export function App() {
           }),
         )
         setExternalNotice(null)
+        setPendingExternalPath(null)
         setStatus(`已打开 ${path}`)
         setReloadToken((token) => token + 1)
       } catch (error) {
         console.error('[app] openFile failed', error)
         setExternalNotice(null)
+        setPendingExternalPath(null)
         setStatus(`打开失败：${toStatusMessage(error)}`)
       }
     },
@@ -278,11 +282,12 @@ export function App() {
       const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
       if (current === null || current.path !== path) return
       if (current.isDirty) {
-        setExternalNotice('文件已被外部修改，请另存以免覆盖')
+        setPendingExternalPath(path)
         return
       }
       try {
         const content = await ipc.readFile(path)
+        clearHistory(current.id)
         current.setExternalText(content.text, content.base64)
         setReloadToken((token) => token + 1)
         setExternalNotice(null)
@@ -293,6 +298,34 @@ export function App() {
       }
     })
     return unsubscribe
+  }, [setExternalNotice])
+
+  const confirmExternalReload = useCallback(() => {
+    const path = pendingExternalPath
+    if (path === null) return
+    setPendingExternalPath(null)
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null || current.path !== path) return
+    void (async () => {
+      try {
+        const content = await ipc.readFile(path)
+        clearHistory(current.id)
+        current.setExternalText(content.text, content.base64)
+        setReloadToken((token) => token + 1)
+        setExternalNotice(null)
+        setStatus('已自动重载外部修改')
+      } catch (error) {
+        console.error('[app] reload external change failed', error)
+        setStatus(`打开失败：${toStatusMessage(error)}`)
+      }
+    })()
+  }, [pendingExternalPath, setExternalNotice])
+
+  const cancelExternalKeep = useCallback(() => {
+    setPendingExternalPath(null)
+    setExternalNotice('已保留我的修改；请尽快另存或关闭该文件')
+    setStatus('已保留我的修改；请尽快另存或关闭该文件')
   }, [setExternalNotice])
 
   useEffect(() => {
@@ -492,6 +525,14 @@ export function App() {
           cancelLabel="取消"
           onConfirm={confirmPendingClose}
           onCancel={() => setPendingClose(null)}
+        />
+      ) : pendingExternalPath !== null ? (
+        <Modal
+          message="文件已被外部修改，请选择重载外部内容或保留我的修改"
+          confirmLabel="重载外部内容"
+          cancelLabel="保留我的修改"
+          onConfirm={confirmExternalReload}
+          onCancel={cancelExternalKeep}
         />
       ) : null}
     </main>

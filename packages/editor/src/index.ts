@@ -25,3 +25,4 @@ export {
 export { tableToolbar, tableToolbarPluginKey } from './table-toolbar'
 export { createCursorNotifyPlugin, type CursorNotifyState } from './cursor-notify'
 export { parseOutline, type OutlineItem } from './outline'
+export { clearHistory } from './session-history'
