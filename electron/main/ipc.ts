@@ -5,6 +5,8 @@ import { isValidBase64Payload, ASSET_SAVE_MAX_BYTES, DOC_WRITE_MAX_BYTES } from 
 import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
 import { createFileWatcher } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
+import { loadSession, saveSession } from './session'
+import { join } from 'node:path'
 
 export interface IpcRegistry {
   dispose(): Promise<void>
@@ -13,15 +15,25 @@ export interface IpcRegistry {
 export function registerIpc(
   getWindow: () => BrowserWindow | null,
   confirmClose: () => void,
+  hasCliOpen: boolean,
 ): IpcRegistry {
   let credential: WriteCredential | null = null
   const watchers = new Map<string, FSWatcher>()
   let workspaceWatcher: FSWatcher | null = null
 
+  const sessionPath = (): string => join(app.getPath('userData'), 'session.json')
+
   ipcMain.handle(CHANNELS.appInfo, () => ({
     version: app.getVersion(),
     electron: process.versions.electron ?? '',
+    hasCliOpen,
   }))
+
+  ipcMain.handle(CHANNELS.sessionSave, async (_event, payload: string) => {
+    await saveSession(payload, sessionPath())
+  })
+
+  ipcMain.handle(CHANNELS.sessionLoad, () => loadSession(sessionPath()))
 
   ipcMain.handle(CHANNELS.docRead, (_event, path: string) => readFile(path))
 
@@ -119,6 +131,8 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.confirmClose)
       ipcMain.removeHandler(CHANNELS.assetSave)
       ipcMain.removeHandler(CHANNELS.openWorkspace)
+      ipcMain.removeHandler(CHANNELS.sessionSave)
+      ipcMain.removeHandler(CHANNELS.sessionLoad)
     },
   }
 }

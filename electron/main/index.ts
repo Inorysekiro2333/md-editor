@@ -54,7 +54,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     installCsp()
     const closeGuardEnabled = process.env.MD_EDITOR_NO_CLOSE_GUARD !== '1'
-    ipcRegistry = registerIpc(() => mainWindow, confirmWindowClose)
+    ipcRegistry = registerIpc(() => mainWindow, confirmWindowClose, openPathFromCli() !== null)
     mainWindow = createMainWindow(closeGuardEnabled)
     mainWindow.once('ready-to-show', () => {
       console.log(`[startup] ready ${Date.now() - STARTED_AT}`)

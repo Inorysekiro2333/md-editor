@@ -12,6 +12,8 @@ export const CHANNELS = {
   openWorkspace: 'workspace:open',
   workspaceTree: 'workspace:tree',
   workspaceUpdate: 'workspace:update',
+  sessionSave: 'session:save',
+  sessionLoad: 'session:load',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

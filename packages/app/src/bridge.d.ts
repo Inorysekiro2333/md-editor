@@ -3,6 +3,20 @@ import type { FileContent, MdEditorBridge, WriteCredential } from './bridge'
 export interface AppInfo {
   version: string
   electron: string
+  hasCliOpen: boolean
+}
+
+export interface SessionTabSnapshot {
+  path: string
+  dirty: boolean
+  text: string
+}
+
+export interface SessionSnapshot {
+  version: number
+  savedAt: number
+  activePath: string | null
+  tabs: SessionTabSnapshot[]
 }
 
 export interface FileContent {
@@ -33,6 +47,8 @@ export interface WorkspaceUpdate {
 
 export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
+  saveSession(payload: string): Promise<void>
+  loadSession(): Promise<SessionSnapshot | null>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>

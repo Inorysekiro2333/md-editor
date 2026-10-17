@@ -28,6 +28,7 @@ async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc
   return registerIpc(
     () => windowStub as never,
     () => {},
+    false,
   )
 }
 
@@ -80,7 +81,7 @@ describe('ipc watcher registry', () => {
   it('confirmClose notifies the registered callback', async () => {
     const onConfirmClose = vi.fn()
     const { registerIpc } = await import('./ipc')
-    registerIpc(() => windowStub as never, onConfirmClose)
+    registerIpc(() => windowStub as never, onConfirmClose, false)
     const confirm = registered.get(CHANNELS.confirmClose) as IpcHandler
     confirm(null)
     expect(onConfirmClose).toHaveBeenCalledTimes(1)

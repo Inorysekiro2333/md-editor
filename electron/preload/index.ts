@@ -5,6 +5,20 @@ import { CHANNELS } from '../shared/channels'
 export interface AppInfo {
   version: string
   electron: string
+  hasCliOpen: boolean
+}
+
+export interface SessionTabSnapshot {
+  path: string
+  dirty: boolean
+  text: string
+}
+
+export interface SessionSnapshot {
+  version: number
+  savedAt: number
+  activePath: string | null
+  tabs: SessionTabSnapshot[]
 }
 
 export interface FileContent {
@@ -35,6 +49,8 @@ export interface WorkspaceUpdate {
 
 export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
+  saveSession(payload: string): Promise<void>
+  loadSession(): Promise<SessionSnapshot | null>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
@@ -52,6 +68,8 @@ export interface MdEditorBridge {
 
 const bridge: MdEditorBridge = {
   getAppInfo: () => ipcRenderer.invoke(CHANNELS.appInfo) as Promise<AppInfo>,
+  saveSession: (payload) => ipcRenderer.invoke(CHANNELS.sessionSave, payload) as Promise<void>,
+  loadSession: () => ipcRenderer.invoke(CHANNELS.sessionLoad) as Promise<SessionSnapshot | null>,
   readFile: (path) => ipcRenderer.invoke(CHANNELS.docRead, path) as Promise<FileContent>,
   writeFile: (path, bytesBase64) =>
     ipcRenderer.invoke(CHANNELS.docWrite, path, bytesBase64) as Promise<WriteCredential>,

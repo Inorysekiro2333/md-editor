@@ -91,3 +91,18 @@ describe('MdDocument', () => {
     expect(doc.bytesForSave()).toBe(encodeUtf8Base64('\uFEFF# hello world\n'))
   })
 })
+
+it('starts dirty from init with snapshot text over disk content (ADR-7 restore)', () => {
+  const doc = new MdDocument({
+    id: 'doc-restore',
+    path: 'C:/notes/a.md',
+    text: 'edited in memory\n',
+    originalBytesBase64: encodeUtf8Base64('on disk\n'),
+    eol: 'lf',
+    hasBom: false,
+    dirty: true,
+  })
+  expect(doc.isDirty).toBe(true)
+  expect(doc.text).toBe('edited in memory\n')
+  expect(decodeUtf8Base64(doc.bytesForSave()!)).toBe('edited in memory\n')
+})

@@ -54,7 +54,11 @@ export function App() {
   const [findOpen, setFindOpen] = useState(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
-  const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
+  const [info, setInfo] = useState<{
+    version: string
+    electron: string
+    hasCliOpen: boolean
+  } | null>(null)
   const [workspaceNodes, setWorkspaceNodes] = useState<WorkspaceNode[] | null>(null)
   const workspaceDirRef = useRef<string | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
@@ -267,6 +271,70 @@ export function App() {
       .getAppInfo()
       .then(setInfo)
       .catch(() => setInfo(null))
+  }, [])
+
+  // ADR-7 崩溃恢复：仅当本次启动不带 --open 时，从 userData session.json 逐 tab 还原。
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const appInfo = await ipc.getAppInfo()
+        if (appInfo.hasCliOpen || cancelled) return
+        const snapshot = await ipc.loadSession()
+        if (snapshot === null || cancelled || snapshot.version !== 1) return
+        let restored = 0
+        for (const tab of snapshot.tabs) {
+          if (cancelled) return
+          // 文件缺失 → 跳过该 tab；openDoc 保证同 path 去重。
+          const content = await ipc.readFile(tab.path).catch(() => null)
+          if (content === null) continue
+          const hasSnapshotText = typeof tab.text === 'string'
+          useAppStore.getState().openDoc(
+            new MdDocument({
+              id: `${tab.path}#${Date.now()}`,
+              path: tab.path,
+              text: tab.dirty && hasSnapshotText ? tab.text : content.text,
+              originalBytesBase64: content.base64, // 还原时以磁盘内容为 original
+              eol: content.eol,
+              hasBom: content.hasBom,
+              dirty: tab.dirty && hasSnapshotText,
+            }),
+          )
+          await ipc.watchFile(tab.path)
+          restored += 1
+        }
+        if (cancelled || restored === 0) return
+        setReloadToken((token) => token + 1)
+        setStatus('已恢复未保存的会话')
+      } catch (error) {
+        console.error('[app] session restore failed', error)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ADR-7 周期快照：每 5s，存在 dirty doc 时写入 userData session.json。
+  useEffect(() => {
+    const saveSnapshot = async (): Promise<void> => {
+      const state = useAppStore.getState()
+      if (!state.docs.some((doc) => doc.isDirty)) return
+      const active = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+      const payload = JSON.stringify({
+        version: 1,
+        savedAt: Date.now(),
+        activePath: active?.path ?? null,
+        tabs: state.docs
+          .filter((doc) => doc.path !== null)
+          .map((doc) => ({ path: doc.path, dirty: doc.isDirty, text: doc.text })),
+      })
+      await ipc.saveSession(payload).catch(() => {})
+    }
+    const timer = window.setInterval(() => {
+      void saveSnapshot()
+    }, 5000)
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {

@@ -6,6 +6,8 @@ export interface MdDocumentInit {
   path: string | null
   text: string
   originalBytesBase64: string
+  /** ADR-7 崩溃恢复：以快照文本 + dirty 初始构造。 */
+  dirty?: boolean
   eol: 'lf' | 'crlf'
   hasBom: boolean
 }
@@ -28,6 +30,7 @@ export class MdDocument {
   constructor(private readonly init: MdDocumentInit) {
     this.currentText = init.text
     this.originalBytes = init.originalBytesBase64
+    this.dirty = init.dirty ?? false
   }
 
   get id(): string {
