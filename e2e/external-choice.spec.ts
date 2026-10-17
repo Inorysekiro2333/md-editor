@@ -17,12 +17,19 @@ function launchApp(file: string) {
 }
 
 // 断言只用编辑器状态真值 __mdEditorDebug.getMarkdown（AGENTS 教训 1/2）。
+// Ruling-8 定位：重挂载后旧闭包 hook 指向已 destroy 的 editor（editorViewCtx not found），
+// expect.poll 遇 throw 直接失败。捕获后返回 null 让 poll 继续重试，直到新 editor 重绑 hook
+// —— 属等待逻辑加固，不改断言语义（断言仍要求精确文本）。
 async function readMarkdown(window: Page): Promise<string | null> {
-  return window.evaluate(() => {
-    const dbg = (window as unknown as { __mdEditorDebug?: { getMarkdown?: () => string } })
-      .__mdEditorDebug
-    return dbg?.getMarkdown ? dbg.getMarkdown() : null
-  })
+  try {
+    return await window.evaluate(() => {
+      const dbg = (window as unknown as { __mdEditorDebug?: { getMarkdown?: () => string } })
+        .__mdEditorDebug
+      return dbg?.getMarkdown ? dbg.getMarkdown() : null
+    })
+  } catch {
+    return null
+  }
 }
 
 test('dirty external change offers keep or reload choice', async () => {
