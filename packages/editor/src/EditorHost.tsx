@@ -29,6 +29,7 @@ import {
 } from './session-history'
 import { codeBlockView } from './code-block-view'
 import { createMarkdownSync } from './sync'
+import { tableToolbar } from './table-toolbar'
 
 export interface EditorHandle {
   getMarkdown(): string
@@ -153,6 +154,7 @@ function EditorHostInner(props: EditorHostProps) {
         .use(codeBlockView)
         .use(editorInputRules)
         .use(gfm)
+        .use(tableToolbar)
         .use(footnoteUndefinedRefPlugin)
         .use(footnoteInputRules)
         .use(history)
@@ -191,6 +193,7 @@ function EditorHostInner(props: EditorHostProps) {
     const editor = get()
     if (!editor) return
     ;(window as unknown as { __mdEditorDebug?: unknown }).__mdEditorDebug = {
+      getMarkdown: () => editor.action(getMarkdown()),
       pmSelection: () =>
         editor.action((ctx) => {
           const view = ctx.get(editorViewCtx)

@@ -1,4 +1,5 @@
 import { editorViewCtx, defaultValueCtx, Editor, rootCtx } from '@milkdown/kit/core'
+import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
@@ -20,6 +21,7 @@ export interface TestEditor {
 export async function createTestEditor(
   markdown: string,
   extraPlugins: Plugin[] = [],
+  milkdownPlugins: MilkdownPlugin[] = [],
 ): Promise<TestEditor> {
   const root = document.createElement('div')
   document.body.appendChild(root)
@@ -34,6 +36,7 @@ export async function createTestEditor(
     .use(history)
     .use(footnoteUndefinedRefPlugin)
     .use(footnoteInputRules)
+    .use(milkdownPlugins)
   await editor.create()
   return {
     getMarkdown: () => editor.action(getMarkdown()),

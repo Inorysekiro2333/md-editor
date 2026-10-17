@@ -22,3 +22,4 @@ export {
   type OnPasteAsset,
   type PasteRule,
 } from './paste'
+export { tableToolbar, tableToolbarPluginKey } from './table-toolbar'
