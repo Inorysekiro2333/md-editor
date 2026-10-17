@@ -89,6 +89,7 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [ ] `pnpm test` 全绿，其中 `roundtrip.test.ts` 必须全绿。
 - [ ] 三篇基准长文档：**零编辑保存不写盘**——保存前后文件哈希与 mtime 均不变。
 - [ ] 编辑后的序列化差异逐条登记在 `roundtrip.test.ts`；未登记的差异视为回归。
+- [x] 表格行列增删 / 列宽拖拽的序列化差异登记（M2b，2026-10-17）：单测在 `packages/editor/src/table-commands.test.ts`（单元格 padding、空行单元格 `|    |    |`、新行继承列对齐、新列复制相邻列对齐 `:-`），e2e 在 `e2e/table.spec.ts`（colwidth 不序列化、列宽拖拽不落盘、净编辑为零 Ctrl+S 跳过写盘）。
 
 ### R2 — 中文 IME（手测）
 

@@ -330,6 +330,46 @@ export interface SourceEditorProps {
 - 高亮经 `LanguageDescription.load()` 懒加载 + Compartment 重配。
 - 焦点路由：PM 选区进入代码块而 DOM 焦点仍留在 PM 根节点时，把焦点与等价光标位交给 CM（`selectionchange` 兜底 + PM plugin），否则键入/IME 文本会写进未聚焦的 CM DOM 而丢失（fence 输入规则 / 代码块 IME e2e 回归）。
 
+### 3.11 table-commands（`packages/editor/src/table-commands.ts`）
+
+```ts
+export type TableCommand = (
+  ctx: Ctx,
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void,
+) => boolean
+
+export const addRowAbove: TableCommand
+export const addRowBelow: TableCommand
+export const addColumnLeft: TableCommand
+export const addColumnRight: TableCommand
+export const deleteTableRow: TableCommand
+export const deleteTableColumn: TableCommand
+```
+
+- 光标在表格单元格内时基于 `selectedRect` 定位；全部命令**单事务 dispatch**（一次撤销恢复完整状态）。
+- 行列新增命令成功后把光标移入新行 / 新列（Ruling-2，Typora 行为）；`deleteTableRow` 后光标保持原列。
+- 对齐保留：`addRow*` 复用 gfm `addRowWithAlignment`（新行继承表头列对齐）；`addColumn*` 复制相邻列对齐（新列为左对齐 `:-`）。序列化差异逐条登记在 `table-commands.test.ts`（R1 注释 + `toBe` 精确断言）。
+- 保护语义：光标不在表格内时全部返回 false；`deleteTableRow` 在表头行（`rect.top === 0`）或表只剩表头时返回 false（**表头行禁删**）；`deleteTableColumn` 在 `map.width <= 1` 时返回 false（**单列禁删列**）。
+- 列宽（colwidth）是 prosemirror-tables 视图层属性，**不持久化进 Markdown**；拖拽列宽后净编辑为零时 Ctrl+S 按铁律 1 跳过写盘（e2e/table.spec.ts 登记该保真性质）。
+
+### 3.12 table-toolbar（`packages/editor/src/table-toolbar.ts`）
+
+自建 vanilla TS 悬浮工具栏（ADR-5 同理：Milkdown 官方 table-block 为 Vue 实现，禁用），以 `$prose` 插件注册到 PM 编辑器。光标进入表格单元格时显示于该表格上方，离开表格 / 编辑器不可编辑时隐藏。按钮 `mousedown` 阻止默认以保护编辑器选区。
+
+6 个按钮的 `data-testid` 与对应命令：
+
+| data-testid                | 命令                |
+| -------------------------- | ------------------- |
+| `table-toolbar-row-above`  | `addRowAbove`       |
+| `table-toolbar-row-below`  | `addRowBelow`       |
+| `table-toolbar-col-left`   | `addColumnLeft`     |
+| `table-toolbar-col-right`  | `addColumnRight`    |
+| `table-toolbar-row-delete` | `deleteTableRow`    |
+| `table-toolbar-col-delete` | `deleteTableColumn` |
+
+e2e 通过只读调试钩子 `__mdEditorDebug.getMarkdown()`（EditorHost 注册，无写能力）断言序列化结果。
+
 ## 4. 工作台组件（`packages/app`）
 
 | 组件             | Props（摘要）                                                 | 说明                                         |
