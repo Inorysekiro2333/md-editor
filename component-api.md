@@ -79,7 +79,7 @@ export interface MdEditorBridge {
   showOpenDialog(): Promise<string | null>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
-  getAppInfo(): Promise<AppInfo> // { version, electron }
+  getAppInfo(): Promise<AppInfo> // { version, electron, hasCliOpen }
   watchFile(path: string): Promise<void> // M0 单文件；M3 扩 workspace:watch
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string> // M1 粘贴图片存盘（asset:save）
   onExternalModified(handler: (path: string) => void): () => void
@@ -407,6 +407,81 @@ interface AppState {
 }
 ```
 
+### 4.2 M3 工作台登记（多标签 / 文件树 / 大纲 / 会话恢复）
+
+#### appStore tabs 契约（`packages/app/src/state/appStore.ts`)
+
+```ts
+interface AppState {
+  docs: MdDocument[]
+  activeDocId: string | null
+  mode: 'wysiwyg' | 'source'
+  externalNotice: string | null
+  openDoc(doc: MdDocument): void // 同 path 已存在 → 激活既有 tab，不重复打开
+  closeDoc(id: string): void // 关活跃 tab → 激活左邻（index-1）；已最左回落右邻；清空 → null
+  setActiveDoc(id: string): void
+  setMode(mode: EditorMode): void
+  setExternalNotice(notice: string | null): void
+}
+```
+
+- 关闭流程（App 层）：dirty tab → `pendingClose` Modal（「放弃更改」确认）；确认后 `closeDoc` + `unwatchFile(path)`。dirty 外部修改同理走 `pendingExternalPath` Modal（重载 / 保留我的，二者互斥）。
+- 关窗守卫：主进程 `close` 事件 preventDefault → 事件 `app:close-guard` → 渲染进程全库干净时立即 `app:confirm-close`，否则弹确认 Modal；确认后主进程 `confirmWindowClose()` 放行下一次 close（一次性标志）；`before-quit → markQuitting()` 旁路退出流程。env `MD_EDITOR_NO_CLOSE_GUARD=1` 禁用守卫（e2e 用）。
+
+#### 文件树（WorkspaceNode / visibleRange）
+
+```ts
+interface WorkspaceNode {
+  name: string
+  path: string
+  type: 'dir' | 'file'
+  children?: WorkspaceNode[]
+}
+function visibleRange(
+  scrollTop: number,
+  viewportHeight: number,
+  rowHeight: number,
+  total: number,
+  overscan?: number,
+): { start: number; end: number }
+```
+
+- `walkWorkspace`（`electron/main/workspace.ts`）：忽略目录（`node_modules` / `.git` 等）、只收 `.md`、目录优先排序；`workspace:open` → walk 全量推 `workspace:tree`，再起 chokidar watcher（100ms 批量）；重复调用关旧 watcher 再开新。
+- 增量：`workspace:update` `{ added, removed }` — added 走渲染进程 `insertIntoTree` 按相对路径插入节点（缺失的中间目录一并创建、目录优先排序）；removed 全量重拉。
+- FileTree 虚拟滚动：ROW_HEIGHT 24px、overscan 8；`visibleRange` 以首个可见行为锚点，上下各扩 overscan 行，末端 clamp 到 total。
+
+#### 大纲（OutlineItem / parseOutline / cursor-notify）
+
+- `parseOutline(markdown): OutlineItem[]`（`packages/editor/src/outline.ts`，纯 remark 函数，禁 PM doc 派生）：只收 root 顶层 heading（引述、列表等容器内不算；fenced code 内 `#` 行 remark 识别为 code，天然不算）；ATX 与 setext 均收。`OutlineItem = { level, text, offset, textOffset }`，`offset` = mdast `position.start.offset`（含 `# ` 标记），`textOffset` = ATX 为 `offset + level + 1`、setext 为 `offset`；`text` 为 inline 纯文本递归拼接（inline code 取 value 原样）。
+- 点击定位 → `setSelectionOffsets(textOffset)`；OutlinePanel 200ms 节流跟随光标高亮（`data-active`）。
+- cursor-notify（`packages/editor/src/cursor-notify.ts`，PM 插件）：选区或文档变化都视为光标变化；150ms 节流（leading 立即发射 + trailing 补发最终位置）；回调收到经 `pmPosToMarkdownOffset` 投影的 Markdown offset（Buffer 坐标）；buffer 发射时经 `getNotify()` 现取，避免闭包旧值。SourceEditor 走 CM `updateListener` 直接回传（CM anchor 已是 md offset，不经过 getBufferText）。
+
+#### 查找替换（finder）
+
+`computeMatches` / `compileFindRegex` / `buildReplacedText` 契约与 **ADR-6 偏离**（PM ReplaceStep → Buffer 单次 `replaceText` + `reloadToken` 重挂载）见 4.0 节，此处不重复；实现与 13 个单测在 `packages/app/src/find/finder.ts`（+ `finder.test.ts`）。
+
+#### M3 新增 IPC 通道（同步 7 节表）
+
+| 通道                | 方向      | payload                | 说明                                                           |
+| ------------------- | --------- | ---------------------- | -------------------------------------------------------------- |
+| `watch:unwatch`     | 渲染 → 主 | `{ path }`             | 关闭单文件监听；幂等；path 非 string / 空串拒绝 `invalid path` |
+| `workspace:open`    | 渲染 → 主 | `{ dir }`              | 打开工作区（walk + watcher；重复调用关旧开新）                 |
+| `workspace:tree`    | 主 → 渲染 | `WorkspaceNode[]`      | 全量树                                                         |
+| `workspace:update`  | 主 → 渲染 | `{ added, removed }`   | chokidar 100ms 批量增量                                        |
+| `app:close-guard`   | 主 → 渲染 | —                      | 关窗守卫请求（见上）                                           |
+| `app:confirm-close` | 渲染 → 主 | —                      | 放弃更改确认 → 放行关窗                                        |
+| `session:save`      | 渲染 → 主 | `string`（JSON ≤ 5MB） | writeAtomic 写 `userData/session.json`                         |
+| `session:load`      | 渲染 → 主 | —                      | 快照；缺失 / 损坏 → `null`                                     |
+| `session:remove`    | 渲染 → 主 | —                      | 删快照；`fs.rm` force，不存在时 no-op                          |
+
+`app:info` 返回值新增 `hasCliOpen: boolean`（`registerIpc` 第三参：本次启动 `--open` CLI 是否已消费，用于禁用会话恢复）。
+
+#### 会话快照失效语义（ADR-7）
+
+- 5s interval：存在 dirty doc → `session:save` `{ version: 1, savedAt, activePath, tabs }`（`tabs` 过滤 `path = null` 的未命名文档）；全库干净且此前有过 dirty（`hadDirtyRef` 门控）→ `session:remove`。
+- 另两处主动失效：保存成功 `markSaved` 后、关闭 dirty tab（含「放弃更改」）后——全库干净即 remove。
+- 恢复（仅 mount 时 `hasCliOpen === false` 才执行）：`version === 1` 校验；逐 tab `readFile`，缺失跳过；`dirty && text` 用快照文本（磁盘内容作 original），否则用磁盘内容；restore 后按 `snapshot.activePath` 激活对应 tab。
+
 ## 5. 导出管线（`packages/export`）
 
 ```ts
@@ -448,15 +523,24 @@ export function validateTheme(css: string): ThemeIssue[] // theme:check 与运�
 
 | 通道 / 事件            | 方向      | payload                         | 说明                                                                                               |
 | ---------------------- | --------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `app:info`             | 渲染 → 主 | —                               | 返回 `{ version, electron }`（M0 已实现）                                                          |
+| `app:info`             | 渲染 → 主 | —                               | 返回 `{ version, electron, hasCliOpen }`（M3 加 hasCliOpen）                                       |
 | `doc:read`             | 渲染 → 主 | `{ path }`                      | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息）                                          |
 | `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }`         | 原子写；返回 `WriteCredential`                                                                     |
 | `asset:save`           | 渲染 → 主 | `{ docPath, bytesBase64, ext }` | 写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>`；返回 `assets/xxx.ext` 相对路径（M1 已实现） |
-| `watch:file`           | 渲染 → 主 | `{ path }`                      | 替换当前监听目标（M3 扩展为工作区级）                                                              |
+| `watch:file`           | 渲染 → 主 | `{ path }`                      | 监听单文件（幂等；M3 起多文件并存，配对 `watch:unwatch`）                                          |
 | `app:open-file`        | 主 → 渲染 | `path: string`                  | `--open` CLI 触发（M0 已实现）                                                                     |
 | `fs:external-modified` | 主 → 渲染 | `path: string`                  | 非自身写入的变更                                                                                   |
+| `watch:unwatch`        | 渲染 → 主 | `{ path }`                      | 关闭单文件监听（幂等；M3 已实现）                                                                  |
+| `workspace:open`       | 渲染 → 主 | `{ dir }`                       | 打开工作区：walk 全量 + chokidar 增量（M3 已实现）                                                 |
+| `workspace:tree`       | 主 → 渲染 | `WorkspaceNode[]`               | 工作区全量树（M3 已实现）                                                                          |
+| `workspace:update`     | 主 → 渲染 | `{ added, removed }`            | 100ms 批量增量（M3 已实现）                                                                        |
+| `app:close-guard`      | 主 → 渲染 | —                               | 关窗守卫请求；确认走 `app:confirm-close`（M3 已实现）                                              |
+| `app:confirm-close`    | 渲染 → 主 | —                               | 放弃更改确认 → 放行关窗（M3 已实现）                                                               |
+| `session:save`         | 渲染 → 主 | `string`（JSON ≤ 5MB）          | 原子写 `userData/session.json`（ADR-7，M3 已实现）                                                 |
+| `session:load`         | 渲染 → 主 | —                               | 读快照；缺失/损坏 → `null`（ADR-7，M3 已实现）                                                     |
+| `session:remove`       | 渲染 → 主 | —                               | 删快照；不存在时 no-op（ADR-7，M3 已实现）                                                         |
 | `export:pdf`           | 渲染 → 主 | `{ html, target }`              | `webContents.printToPDF()`（M4 计划）                                                              |
 | `export:html`          | 渲染 → 主 | `{ content, target }`           | 写自包含 HTML（M4 计划）                                                                           |
-| `menu:command`         | 主 → 渲染 | `{ id: string }`                | 原生菜单/快捷键转发（M3 计划）                                                                     |
+| `menu:command`         | 主 → 渲染 | `{ id: string }`                | 原生菜单/快捷键转发（计划项，M3 未实现）                                                           |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。

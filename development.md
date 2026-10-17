@@ -90,6 +90,7 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [ ] 三篇基准长文档：**零编辑保存不写盘**——保存前后文件哈希与 mtime 均不变。
 - [ ] 编辑后的序列化差异逐条登记在 `roundtrip.test.ts`；未登记的差异视为回归。
 - [x] 表格行列增删 / 列宽拖拽的序列化差异登记（M2b，2026-10-17）：单测在 `packages/editor/src/table-commands.test.ts`（单元格 padding、空行单元格 `|    |    |`、新行继承列对齐、新列复制相邻列对齐 `:-`），e2e 在 `e2e/table.spec.ts`（colwidth 不序列化、列宽拖拽不改 Buffer / 不标脏，零净变更保存跳过写盘）。
+- [x] 查找替换偏离 ADR-6 的登记位置 = component-api.md §4.0 + finder 单测（`packages/app/src/find/finder.test.ts`）；契约另在 component-api.md 4.2 节指引（M3，2026-10-17）。
 
 ### R2 — 中文 IME（手测）
 
