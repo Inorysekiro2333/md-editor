@@ -99,6 +99,18 @@ describe('table-commands', () => {
     }
   })
 
+  it('addRowAbove refuses to insert above the header row', async () => {
+    await setup(ALIGNED)
+    try {
+      placeCursor(editor, 'a')
+      expect(runCommand(addRowAbove)).toBe(false)
+      // Ruling-5 (2026-10-17): header row is protected like deleteTableRow.
+      expect(editor.getMarkdown()).toBe(SERIALIZED_ALIGNED)
+    } finally {
+      await editor.destroy()
+    }
+  })
+
   it('addColumnRight copies neighbor alignment as left-align', async () => {
     await setup(ALIGNED)
     try {

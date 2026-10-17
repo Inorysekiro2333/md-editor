@@ -163,9 +163,13 @@ test('column resize keeps markdown and disk content unchanged', async () => {
 
   // 等防抖收敛窗口（拖拽 setNodeMarkup 也是一次文档事务）
   await window.waitForTimeout(600)
-  // Ctrl+S 后磁盘仍为初始序列化值
+  // Ruling-6：colwidth 是序列化净零变更，listener 不发射 → Buffer 不标脏，
+  // 铁律 1 生效：状态栏「无改动，已跳过写盘」，磁盘逐字保留原始 CONTENT
+  //（拖拽前写入的未规范化内容，对齐规范化不静默落盘）。
   await window.keyboard.press('Control+s')
-  await expect(window.getByTestId('status')).toContainText('已保存', { timeout: 10_000 })
-  expect(readFileSync(file, 'utf8')).toBe(SERIALIZED)
+  await expect(window.getByTestId('status')).toContainText('无改动，已跳过写盘', {
+    timeout: 10_000,
+  })
+  expect(readFileSync(file, 'utf8')).toBe(CONTENT)
   await app.close()
 })

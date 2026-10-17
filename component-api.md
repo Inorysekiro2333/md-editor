@@ -351,7 +351,7 @@ export const deleteTableColumn: TableCommand
 - 行列新增命令成功后把光标移入新行 / 新列（Ruling-2，Typora 行为）；`deleteTableRow` 后光标保持原列。
 - 对齐保留：`addRow*` 复用 gfm `addRowWithAlignment`（新行继承表头列对齐）；`addColumn*` 复制相邻列对齐（新列为左对齐 `:-`）。序列化差异逐条登记在 `table-commands.test.ts`（R1 注释 + `toBe` 精确断言）。
 - 保护语义：光标不在表格内时全部返回 false；`deleteTableRow` 在表头行（`rect.top === 0`）或表只剩表头时返回 false（**表头行禁删**）；`deleteTableColumn` 在 `map.width <= 1` 时返回 false（**单列禁删列**）。
-- 列宽（colwidth）是 prosemirror-tables 视图层属性，**不持久化进 Markdown**；拖拽列宽后净编辑为零时 Ctrl+S 按铁律 1 跳过写盘（e2e/table.spec.ts 登记该保真性质）。
+- 列宽（colwidth）是 prosemirror-tables 视图层属性，**不持久化进 Markdown**；列宽拖拽不改 Buffer、不标脏（序列化不变的文档不触发 markdownUpdated），Ctrl+S 按铁律 1「零净变更保存跳过写盘」（e2e/table.spec.ts 登记该保真性质）。
 
 ### 3.12 table-toolbar（`packages/editor/src/table-toolbar.ts`）
 

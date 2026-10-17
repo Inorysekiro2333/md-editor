@@ -138,7 +138,11 @@ function EditorHostInner(props: EditorHostProps) {
           ctx.set(defaultValueCtx, initialMarkdown)
           ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin, pastePlugin])
           ctx.update(pasteRulesCtx, (rules) => [...rules, pasteRule])
-          ctx.get(listenerCtx).markdownUpdated(() => {
+          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
+            // Ruling-6 (2026-10-17): colwidth resize changes the PM doc but
+            // never serializes into Markdown; treat a serialization-equal
+            // update as a no-op - do not dirty the Buffer or save history.
+            if (markdown === prevMarkdown) return
             sync.schedule()
             // 每次文档更新即刷新会话撤销栈记录（卸载时 editor 可能已被 Milkdown 销毁）；
             // 基线永远是当前会话 record 的 baseMarkdown，恢复重放期间被 restoringRef 抑制，

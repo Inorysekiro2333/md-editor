@@ -69,8 +69,11 @@ function columnSelection(state: EditorState, col: number): CellSelection {
 
 export const addRowAbove: TableCommand = (ctx, state, dispatch) => {
   if (!isInTable(state)) return false
-  if (!dispatch) return true
   const rect = selectedRect(state)
+  // Ruling-5 (2026-10-17): refuse to insert above the header row, same
+  // guard semantics as deleteTableRow (header row is protected).
+  if (rect.top === 0) return false
+  if (!dispatch) return true
   const rowPos = rowPosAt(rect, rect.top)
   const tr = addRowWithAlignment(ctx, state.tr, rect, rect.top)
   cursorIntoRow(tr, rowPos)
