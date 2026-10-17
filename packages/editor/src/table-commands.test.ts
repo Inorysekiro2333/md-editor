@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { TextSelection } from '@milkdown/prose/state'
+import { selectedRect } from '@milkdown/prose/tables'
 import { describe, expect, it } from 'vitest'
 import {
   addColumnLeft,
@@ -62,6 +63,29 @@ describe('table-commands', () => {
     }
   })
 
+  it('addRowBelow moves the cursor into the new row', async () => {
+    await setup(ALIGNED)
+    try {
+      placeCursor(editor, '1')
+      expect(runCommand(addRowBelow)).toBe(true)
+      // Ruling-2 (2026-10-17): row insertion commands move the cursor into the
+      // first cell of the newly inserted row in the same transaction.
+      expect(editor.getMarkdown()).toBe(
+        '| a  |  b |\n| :- | -: |\n| 1  |  2 |\n|    |    |\n| 3  |  4 |\n',
+      )
+      const rect = selectedRect(editor.getView().state)
+      expect(rect.top).toBe(2)
+      expect(rect.left).toBe(0)
+      const cell = editor
+        .getView()
+        .state.doc.nodeAt(rect.tableStart + rect.map.positionAt(rect.top, rect.left, rect.table))
+      expect(cell?.type.name).toBe('table_cell')
+      expect(cell?.textContent).toBe('')
+    } finally {
+      await editor.destroy()
+    }
+  })
+
   it('addRowAbove inserts an aligned row above the cursor row', async () => {
     await setup(ALIGNED)
     try {
@@ -90,6 +114,29 @@ describe('table-commands', () => {
     }
   })
 
+  it('addColumnRight moves the cursor into the new column', async () => {
+    await setup(ALIGNED)
+    try {
+      placeCursor(editor, '1')
+      expect(runCommand(addColumnRight)).toBe(true)
+      // Ruling-2 (2026-10-17): column insertion commands move the cursor into
+      // the new column cell of the cursor row in the same transaction.
+      expect(editor.getMarkdown()).toBe(
+        '| a  |    |  b |\n| :- | :- | -: |\n| 1  |    |  2 |\n| 3  |    |  4 |\n',
+      )
+      const rect = selectedRect(editor.getView().state)
+      expect(rect.top).toBe(1)
+      expect(rect.left).toBe(1)
+      const cell = editor
+        .getView()
+        .state.doc.nodeAt(rect.tableStart + rect.map.positionAt(rect.top, rect.left, rect.table))
+      expect(cell?.type.name).toBe('table_cell')
+      expect(cell?.textContent).toBe('')
+    } finally {
+      await editor.destroy()
+    }
+  })
+
   it('addColumnLeft copies neighbor alignment as left-align', async () => {
     await setup(ALIGNED)
     try {
@@ -111,6 +158,21 @@ describe('table-commands', () => {
       placeCursor(editor, '3')
       expect(runCommand(deleteTableRow)).toBe(true)
       expect(editor.getMarkdown()).toBe('| a  |  b |\n| :- | -: |\n| 1  |  2 |\n')
+    } finally {
+      await editor.destroy()
+    }
+  })
+
+  it('deleteTableRow keeps the cursor column after deletion', async () => {
+    await setup(ALIGNED)
+    try {
+      placeCursor(editor, '4')
+      expect(runCommand(deleteTableRow)).toBe(true)
+      expect(editor.getMarkdown()).toBe('| a  |  b |\n| :- | -: |\n| 1  |  2 |\n')
+      // Ruling-2 扩展（2026-10-17）：行删除后光标保持原列，不折叠到 col 0。
+      const rect = selectedRect(editor.getView().state)
+      expect(rect.top).toBe(1)
+      expect(rect.left).toBe(1)
     } finally {
       await editor.destroy()
     }

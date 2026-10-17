@@ -11,6 +11,7 @@ import { history } from '@milkdown/kit/plugin/history'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
+import { columnResizingPlugin } from '@milkdown/kit/preset/gfm'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { markdownOffsetToPmPos, pmPosToMarkdownOffset } from './cursor-map'
 import type { Node as PMNode } from '@milkdown/prose/model'
@@ -154,6 +155,7 @@ function EditorHostInner(props: EditorHostProps) {
         .use(codeBlockView)
         .use(editorInputRules)
         .use(gfm)
+        .use(columnResizingPlugin)
         .use(tableToolbar)
         .use(footnoteUndefinedRefPlugin)
         .use(footnoteInputRules)
