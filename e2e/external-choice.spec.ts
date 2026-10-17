@@ -70,3 +70,48 @@ test('dirty external change offers keep or reload choice', async () => {
 
   await app.close()
 })
+
+test('dirty background external change asks after activation', async () => {
+  test.setTimeout(60_000)
+  const dir = mkdtempSync(join(tmpdir(), 'md-editor-choice-background-'))
+  const activeFile = join(dir, 'active.md')
+  const backgroundFile = join(dir, 'background.md')
+  writeFileSync(activeFile, CONTENT)
+  writeFileSync(backgroundFile, CONTENT)
+  const app = await launchApp(activeFile)
+  const window = await app.firstWindow()
+  await window.waitForSelector('[data-editor-ready="true"]')
+
+  // 打开第二个 tab 并编辑成 dirty，再把活跃 tab 切回第一个，使目标成为后台。
+  await app.evaluate(({ BrowserWindow }, path) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.send('app:open-file', path)
+  }, backgroundFile)
+  const tabs = window.locator('[data-testid="tab"]')
+  await expect(tabs).toHaveCount(2)
+  await expect(tabs.nth(1)).toHaveAttribute('data-active', 'true')
+
+  await window.locator('.ProseMirror').click()
+  await window.keyboard.press('Control+End')
+  await window.keyboard.type('typedB')
+  await expect(tabs.nth(1)).toHaveAttribute('data-dirty', 'true')
+
+  await tabs.nth(0).locator('.tab-title').click()
+  await expect(tabs.nth(0)).toHaveAttribute('data-active', 'true')
+  await expect(window.locator('[data-editor-ready="true"]')).toHaveCount(1)
+
+  // 外部改后台 dirty 文件：不得打断当前活跃 tab。
+  writeFileSync(backgroundFile, EXTERNAL)
+  await window.waitForTimeout(1500)
+  await expect(window.locator('[data-testid="modal"]')).toHaveCount(0)
+
+  // 激活后台 tab 后，pending 二选一 modal 才出现；取消仍保留用户内容。
+  await tabs.nth(1).locator('.tab-title').click()
+  const modal = window.locator('[data-testid="modal"]')
+  await expect(modal).toBeVisible({ timeout: 10_000 })
+  await window.locator('[data-testid="modal-cancel"]').click()
+  await expect(modal).toHaveCount(0)
+  await expect.poll(() => readMarkdown(window), { timeout: 10_000 }).toContain('typedB')
+  await expect(window.locator('[data-testid="status"]')).toContainText('已保留我的修改')
+
+  await app.close()
+})

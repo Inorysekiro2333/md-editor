@@ -30,6 +30,19 @@ function toStatusMessage(error: unknown): string {
   return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw
 }
 
+function addPathToSet(paths: ReadonlySet<string>, path: string): Set<string> {
+  const next = new Set(paths)
+  next.add(path)
+  return next
+}
+
+function removePathFromSet(paths: ReadonlySet<string>, path: string): ReadonlySet<string> {
+  if (!paths.has(path)) return paths
+  const next = new Set(paths)
+  next.delete(path)
+  return next
+}
+
 function tabTitle(path: string | null): string {
   if (path === null) return '未命名'
   const segments = path.split(/[\\/]/)
@@ -50,7 +63,9 @@ export function App() {
   const [reloadToken, setReloadToken] = useState(0)
   const [cursorOffset, setCursorOffset] = useState<number | null>(null)
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null)
-  const [pendingExternalPath, setPendingExternalPath] = useState<string | null>(null)
+  const [pendingExternalPaths, setPendingExternalPaths] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  )
   const [findOpen, setFindOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
@@ -69,6 +84,14 @@ export function App() {
   const pendingScrollRatio = useRef(0)
   // 大纲高亮的 200ms 节流（编辑器侧插件已 150ms 节流，这里挡住高频 setState）
   const cursorEmitRef = useRef({ last: 0, timer: null as number | null })
+  const addPendingExternalPath = useCallback((path: string) => {
+    setPendingExternalPaths((paths) => addPathToSet(paths, path))
+  }, [])
+
+  const removePendingExternalPath = useCallback((path: string) => {
+    setPendingExternalPaths((paths) => removePathFromSet(paths, path))
+  }, [])
+
   const onCursorChange = useCallback((offset: number) => {
     const now = Date.now()
     const { last, timer } = cursorEmitRef.current
@@ -91,6 +114,13 @@ export function App() {
   useEffect(() => {
     setCursorOffset(null)
   }, [activeDocId, reloadToken])
+
+  const activePendingExternalPath =
+    activeDoc?.path !== undefined &&
+    activeDoc.path !== null &&
+    pendingExternalPaths.has(activeDoc.path)
+      ? activeDoc.path
+      : null
 
   const jumpToOutlineItem = useCallback(
     (item: OutlineItem) => {
@@ -211,13 +241,11 @@ export function App() {
           }),
         )
         setExternalNotice(null)
-        setPendingExternalPath(null)
         setStatus(`已打开 ${path}`)
         setReloadToken((token) => token + 1)
       } catch (error) {
         console.error('[app] openFile failed', error)
         setExternalNotice(null)
-        setPendingExternalPath(null)
         setStatus(`打开失败：${toStatusMessage(error)}`)
       }
     },
@@ -244,35 +272,43 @@ export function App() {
       console.error('[app] save failed', error)
       setStatus('保存失败，请重试')
     }
-  }, [])
+  }, [invalidateSnapshotIfClean])
 
-  const closeTab = useCallback((target: { id: string; path: string | null; isDirty: boolean }) => {
-    if (target.isDirty) {
-      setPendingClose({ kind: 'tab', id: target.id })
-      return
-    }
-    useAppStore.getState().closeDoc(target.id)
-    if (target.path !== null) {
-      void ipc.unwatchFile(target.path).catch(() => {})
-    }
-    void invalidateSnapshotIfClean()
-  }, [])
+  const closeTab = useCallback(
+    (target: { id: string; path: string | null; isDirty: boolean }) => {
+      if (target.isDirty) {
+        setPendingClose({ kind: 'tab', id: target.id })
+        return
+      }
+      useAppStore.getState().closeDoc(target.id)
+      if (target.path !== null) {
+        void ipc.unwatchFile(target.path).catch(() => {})
+        removePendingExternalPath(target.path)
+      }
+      void invalidateSnapshotIfClean()
+    },
+    [invalidateSnapshotIfClean, removePendingExternalPath],
+  )
 
   const confirmPendingClose = useCallback(() => {
     const pending = pendingClose
     if (pending === null) return
-    if (pending.kind === 'tab') {
-      const target = useAppStore.getState().docs.find((doc) => doc.id === pending.id)
-      useAppStore.getState().closeDoc(pending.id)
-      if (target?.path !== undefined && target.path !== null) {
-        void ipc.unwatchFile(target.path).catch(() => {})
+    void (async () => {
+      if (pending.kind === 'tab') {
+        const target = useAppStore.getState().docs.find((doc) => doc.id === pending.id)
+        useAppStore.getState().closeDoc(pending.id)
+        if (target?.path !== undefined && target.path !== null) {
+          await ipc.unwatchFile(target.path).catch(() => {})
+          removePendingExternalPath(target.path)
+        }
+      } else {
+        await ipc.confirmClose()
+        return
       }
-    } else {
-      void ipc.confirmClose()
-    }
-    void invalidateSnapshotIfClean()
-    setPendingClose(null)
-  }, [pendingClose])
+      void invalidateSnapshotIfClean()
+      setPendingClose(null)
+    })()
+  }, [invalidateSnapshotIfClean, pendingClose, removePendingExternalPath])
 
   useEffect(() => {
     setEditorReady(false)
@@ -373,33 +409,44 @@ export function App() {
   }, [openFile])
 
   useEffect(() => {
-    const unsubscribe = ipc.onExternalModified(async (path) => {
-      const state = useAppStore.getState()
-      const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
-      if (current === null || current.path !== path) return
-      if (current.isDirty) {
-        setPendingExternalPath(path)
-        return
-      }
-      try {
-        const content = await ipc.readFile(path)
-        clearHistory(current.id)
-        current.setExternalText(content.text, content.base64)
-        setReloadToken((token) => token + 1)
-        setExternalNotice(null)
-        setStatus('已自动重载外部修改')
-      } catch (error) {
-        console.error('[app] reload external change failed', error)
-        setStatus(`打开失败：${toStatusMessage(error)}`)
-      }
+    const unsubscribe = ipc.onExternalModified((path) => {
+      void (async () => {
+        const state = useAppStore.getState()
+        const target = state.docs.find((doc) => doc.path === path)
+        if (target === undefined) return
+        const isActive = target.id === state.activeDocId
+        if (target.isDirty) {
+          addPendingExternalPath(path)
+          return
+        }
+        try {
+          const content = await ipc.readFile(path)
+          // readFile 期间用户可能已编辑；不能把脏 Buffer 覆盖掉。
+          if (target.isDirty) {
+            addPendingExternalPath(path)
+            return
+          }
+          clearHistory(target.id)
+          target.setExternalText(content.text, content.base64)
+          if (isActive) {
+            setReloadToken((token) => token + 1)
+            setExternalNotice(null)
+            setStatus('已自动重载外部修改')
+          }
+          void invalidateSnapshotIfClean()
+        } catch (error) {
+          console.error('[app] reload external change failed', error)
+          setStatus(`打开失败：${toStatusMessage(error)}`)
+        }
+      })()
     })
     return unsubscribe
-  }, [setExternalNotice])
+  }, [addPendingExternalPath, invalidateSnapshotIfClean, setExternalNotice])
 
   const confirmExternalReload = useCallback(() => {
-    const path = pendingExternalPath
+    const path = activePendingExternalPath
     if (path === null) return
-    setPendingExternalPath(null)
+    removePendingExternalPath(path)
     const state = useAppStore.getState()
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
     if (current === null || current.path !== path) return
@@ -411,18 +458,26 @@ export function App() {
         setReloadToken((token) => token + 1)
         setExternalNotice(null)
         setStatus('已自动重载外部修改')
+        void invalidateSnapshotIfClean()
       } catch (error) {
         console.error('[app] reload external change failed', error)
         setStatus(`打开失败：${toStatusMessage(error)}`)
       }
     })()
-  }, [pendingExternalPath, setExternalNotice])
+  }, [
+    activePendingExternalPath,
+    invalidateSnapshotIfClean,
+    removePendingExternalPath,
+    setExternalNotice,
+  ])
 
   const cancelExternalKeep = useCallback(() => {
-    setPendingExternalPath(null)
+    const path = activePendingExternalPath
+    if (path === null) return
+    removePendingExternalPath(path)
     setExternalNotice('已保留我的修改；请尽快另存或关闭该文件')
     setStatus('已保留我的修改；请尽快另存或关闭该文件')
-  }, [setExternalNotice])
+  }, [activePendingExternalPath, removePendingExternalPath, setExternalNotice])
 
   useEffect(() => {
     const unsubscribe = ipc.onCloseGuardRequest(() => {
@@ -622,7 +677,7 @@ export function App() {
           onConfirm={confirmPendingClose}
           onCancel={() => setPendingClose(null)}
         />
-      ) : pendingExternalPath !== null ? (
+      ) : activePendingExternalPath !== null ? (
         <Modal
           message="文件已被外部修改，请选择重载外部内容或保留我的修改"
           confirmLabel="重载外部内容"
