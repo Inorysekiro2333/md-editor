@@ -63,7 +63,7 @@
 - [x] (P1) 外部修改检测（重载 / 保留我的 二选一）
 - [ ] (P2) 文件树内新建/重命名/删除（移入 v1.1）
 
-**验收**：打开 10k 文件文件夹小于 3s；万行文档滚动不卡顿。（M3 验收记录 2026-10-17：10k 文件 walk 实测 32.8ms（阈值 15s，workspace 单测实测）；万行滚动——Milkdown 渲染惰性口径（视口外不渲染 Mermaid/KaTeX）属 v1.1，M3 未加逐帧滚动断言；全量门禁：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 241 passed · pnpm build:app 成功 · pnpm e2e 43 passed 全绿。）
+**验收**：打开 10k 文件文件夹小于 3s；万行文档滚动不卡顿。（M3 验收记录 2026-10-17：10k 文件 walk 实测 32.8ms（阈值 15s，workspace 单测实测）；万行滚动——Milkdown 渲染惰性口径（视口外不渲染 Mermaid/KaTeX）属 v1.1，M3 未加逐帧滚动断言；全量门禁：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 243 passed (25 files) · pnpm build:app 成功 · pnpm e2e 44 passed 全绿（含终审 fix round 2 后复核）。）
 
 ## M4 — 主题与导出（目标：1–2 周）
 
