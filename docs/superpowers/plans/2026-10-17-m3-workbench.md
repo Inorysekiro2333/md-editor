@@ -245,4 +245,6 @@
 - Task 1: complete — commit fc134cd — review fix round 1（见下行）。偏离：关窗守卫退出路径经 `before-quit` → `markQuitting()` 旁路（app.quit 不被守卫拦截）；e2e evaluate 用字面量 `'app:open-file'`（Playwright evaluate 序列化不携带模块引用）。
 
 - Task 2: complete — commit cd6113a — walk（忽略目录/md 过滤/目录优先排序）+ chokidar 100ms 批量 add/unlink + FileTree 虚拟滚动（24px/overscan 8）+ IPC 三处 + --open-dir；10k 文件 walk 实测 32.8ms（阈值 15s）；全量 test 209 passed / typecheck / lint / e2e 38 passed 全绿。偏离：无（added 走渲染进程插入节点，removed 走全量重拉，均按计划语义）。
+
+- Task 3: complete — commit 889a8f4 — parseOutline（remark root 顶层，ATX/setext，精确 offset 经真实 position 校准）+ cursor-notify 插件（150ms leading/trailing 节流，pmPosToMarkdownOffset 投影）+ EditorHost（prosePluginsCtx 注册）与 SourceEditor（updateListener 直接回传）接线 + App OutlinePanel（200ms 节流高亮 data-active）+ e2e outline.spec.ts；全量 test 220 passed / typecheck / lint / e2e 39 passed 全绿。偏离：SourceEditor 未用 getBufferText（CM anchor 已是 md offset，契约保留）；cursor-notify 测试需先跨过编辑器创建时事务的节流窗口再断言增量。
 - fix round 1: 评审 4 findings — 1 Important 已修（appStore closeDoc 关中间活跃 tab 改激活左邻 index-1，appStore.test.ts 补中间位置用例）；2 Minor 已修（ipc watchFile/unwatchFile 入参 path 非 string/空串干净拒绝 `invalid path` + 单测）；1 Minor parked finding（后台 tab 外部修改事件不分叉处理，仅活跃 tab 生效）留给 Task 5 一并处理。
