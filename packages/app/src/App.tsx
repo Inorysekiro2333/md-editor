@@ -302,6 +302,9 @@ export function App() {
           removePendingExternalPath(target.path)
         }
       } else {
+        // Ruling-11：放弃更改并关闭窗口前立即失效快照，避免崩溃后复活已放弃内容。
+        await ipc.removeSession().catch(() => {})
+        hadDirtyRef.current = false
         await ipc.confirmClose()
         return
       }
