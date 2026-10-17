@@ -26,9 +26,12 @@ export interface MdEditorBridge {
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
+  unwatchFile(path: string): Promise<void>
+  confirmClose(): Promise<void>
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
+  onCloseGuardRequest(handler: () => void): () => void
 }
 
 const bridge: MdEditorBridge = {
@@ -49,6 +52,8 @@ const bridge: MdEditorBridge = {
     return ipcRenderer.invoke(CHANNELS.assetSave, docPath, bytesBase64, ext) as Promise<string>
   },
   watchFile: (path) => ipcRenderer.invoke(CHANNELS.watchFile, path) as Promise<void>,
+  unwatchFile: (path) => ipcRenderer.invoke(CHANNELS.unwatchFile, path) as Promise<void>,
+  confirmClose: () => ipcRenderer.invoke(CHANNELS.confirmClose) as Promise<void>,
   onExternalModified: (handler) => {
     const listener = (_event: unknown, changed: string): void => handler(changed)
     ipcRenderer.on(CHANNELS.externalModified, listener)
@@ -61,6 +66,13 @@ const bridge: MdEditorBridge = {
     ipcRenderer.on(CHANNELS.openFile, listener)
     return () => {
       ipcRenderer.removeListener(CHANNELS.openFile, listener)
+    }
+  },
+  onCloseGuardRequest: (handler) => {
+    const listener = (): void => handler()
+    ipcRenderer.on(CHANNELS.closeGuardRequest, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.closeGuardRequest, listener)
     }
   },
 }

@@ -1,3 +1,5 @@
+process.env.MD_EDITOR_NO_CLOSE_GUARD ??= '1'
+
 import { defineConfig } from '@playwright/test'
 
 export default defineConfig({

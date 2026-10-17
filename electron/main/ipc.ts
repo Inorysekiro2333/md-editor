@@ -9,9 +9,12 @@ export interface IpcRegistry {
   dispose(): Promise<void>
 }
 
-export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry {
+export function registerIpc(
+  getWindow: () => BrowserWindow | null,
+  confirmClose: () => void,
+): IpcRegistry {
   let credential: WriteCredential | null = null
-  let watcher: FSWatcher | null = null
+  const watchers = new Map<string, FSWatcher>()
 
   ipcMain.handle(CHANNELS.appInfo, () => ({
     version: app.getVersion(),
@@ -53,21 +56,38 @@ export function registerIpc(getWindow: () => BrowserWindow | null): IpcRegistry 
   )
 
   ipcMain.handle(CHANNELS.watchFile, async (_event, path: string) => {
-    await watcher?.close()
-    watcher = await createFileWatcher({
+    // 同 path 幂等：已存在 watcher 直接返回，避免重复监听。
+    if (watchers.has(path)) return
+    const watcher = await createFileWatcher({
       path,
       getCredential: () => credential,
       onChange: (changed) => getWindow()?.webContents.send(CHANNELS.externalModified, changed),
     })
+    watchers.set(path, watcher)
+  })
+
+  ipcMain.handle(CHANNELS.unwatchFile, async (_event, path: string) => {
+    const watcher = watchers.get(path)
+    if (watcher === undefined) return
+    watchers.delete(path)
+    await watcher.close()
+  })
+
+  ipcMain.handle(CHANNELS.confirmClose, () => {
+    confirmClose()
   })
 
   return {
     async dispose() {
-      await watcher?.close()
+      const closing = [...watchers.values()].map((watcher) => watcher.close())
+      watchers.clear()
+      await Promise.all(closing)
       ipcMain.removeHandler(CHANNELS.appInfo)
       ipcMain.removeHandler(CHANNELS.docRead)
       ipcMain.removeHandler(CHANNELS.docWrite)
       ipcMain.removeHandler(CHANNELS.watchFile)
+      ipcMain.removeHandler(CHANNELS.unwatchFile)
+      ipcMain.removeHandler(CHANNELS.confirmClose)
       ipcMain.removeHandler(CHANNELS.assetSave)
     },
   }

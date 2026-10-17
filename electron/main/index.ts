@@ -2,7 +2,7 @@ import { app, BrowserWindow, session } from 'electron'
 import { writeFileSync } from 'node:fs'
 import { registerIpc, type IpcRegistry } from './ipc'
 import { buildCsp } from './security'
-import { createMainWindow } from './window'
+import { confirmWindowClose, createMainWindow, markQuitting } from './window'
 import { CHANNELS } from '../shared/channels'
 
 const STARTED_AT = Date.now()
@@ -47,8 +47,9 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     installCsp()
-    ipcRegistry = registerIpc(() => mainWindow)
-    mainWindow = createMainWindow()
+    const closeGuardEnabled = process.env.MD_EDITOR_NO_CLOSE_GUARD !== '1'
+    ipcRegistry = registerIpc(() => mainWindow, confirmWindowClose)
+    mainWindow = createMainWindow(closeGuardEnabled)
     mainWindow.once('ready-to-show', () => {
       console.log(`[startup] ready ${Date.now() - STARTED_AT}`)
       const probePath = probeMemoryPathFromCli()
@@ -67,12 +68,13 @@ if (!app.requestSingleInstanceLock()) {
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createMainWindow()
+        mainWindow = createMainWindow(closeGuardEnabled)
       }
     })
   })
 
   app.on('before-quit', () => {
+    markQuitting()
     void ipcRegistry?.dispose()
   })
 
