@@ -19,6 +19,18 @@ export interface WriteCredential {
   writtenAtMs: number
 }
 
+export interface WorkspaceNode {
+  name: string
+  path: string
+  type: 'dir' | 'file'
+  children?: WorkspaceNode[]
+}
+
+export interface WorkspaceUpdate {
+  added: string[]
+  removed: string[]
+}
+
 export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
   readFile(path: string): Promise<FileContent>
@@ -27,6 +39,10 @@ export interface MdEditorBridge {
   unwatchFile(path: string): Promise<void>
   confirmClose(): Promise<void>
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
+  openWorkspace(dir: string): Promise<void>
+  onOpenWorkspace(handler: (dir: string) => void): () => void
+  onWorkspaceTree(handler: (nodes: WorkspaceNode[]) => void): () => void
+  onWorkspaceUpdate(handler: (update: WorkspaceUpdate) => void): () => void
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void

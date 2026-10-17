@@ -9,6 +9,9 @@ export const CHANNELS = {
   closeGuardRequest: 'app:close-guard',
   confirmClose: 'app:confirm-close',
   assetSave: 'asset:save',
+  openWorkspace: 'workspace:open',
+  workspaceTree: 'workspace:tree',
+  workspaceUpdate: 'workspace:update',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

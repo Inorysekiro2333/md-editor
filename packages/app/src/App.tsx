@@ -8,7 +8,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
+import { FileTree, insertIntoTree } from './ui/FileTree'
 import { Modal } from './ui/Modal'
+import type { WorkspaceNode } from './bridge'
 
 const ASSET_EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
@@ -46,6 +48,8 @@ export function App() {
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
   const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
+  const [workspaceNodes, setWorkspaceNodes] = useState<WorkspaceNode[] | null>(null)
+  const workspaceDirRef = useRef<string | null>(null)
   const editorHandle = useRef<EditorHandle | null>(null)
   const sourceHandle = useRef<SourceEditorHandle | null>(null)
   const pendingSelection = useRef<{ anchor: number; head: number } | null>(null)
@@ -231,6 +235,38 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    const unsubscribe = ipc.onOpenWorkspace((dir) => {
+      workspaceDirRef.current = dir
+      void ipc.openWorkspace(dir)
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    const unsubscribeTree = ipc.onWorkspaceTree((nodes) => {
+      setWorkspaceNodes(nodes)
+    })
+    const unsubscribeUpdate = ipc.onWorkspaceUpdate(({ added, removed }) => {
+      if (removed.length > 0) {
+        // 目录被清空等结构性变化：重新 openWorkspace 拉全量树，避免主进程树 diff。
+        const dir = workspaceDirRef.current
+        if (dir !== null) void ipc.openWorkspace(dir)
+        return
+      }
+      if (added.length > 0) {
+        const dir = workspaceDirRef.current
+        setWorkspaceNodes((nodes) =>
+          dir === null || nodes === null ? nodes : insertIntoTree(nodes, added, dir),
+        )
+      }
+    })
+    return () => {
+      unsubscribeTree()
+      unsubscribeUpdate()
+    }
+  }, [])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey)) return
       if (event.key.toLowerCase() !== 's' && event.key !== '/') return
@@ -287,50 +323,59 @@ export function App() {
         {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
       </p>
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
-      <section className="editor-host" data-editor-ready={editorReady ? 'true' : undefined}>
-        {activeDoc === null ? (
-          <p className="placeholder">正在等待文件…</p>
-        ) : mode === 'wysiwyg' ? (
-          <EditorHost
-            key={`${activeDoc.id}-${reloadToken}`}
-            docId={activeDoc.id}
-            initialMarkdown={activeDoc.text}
-            onMarkdownChange={(markdown) => {
-              activeDoc.applyEditorMarkdown(markdown)
-              bumpDirtyTick((tick) => tick + 1)
-            }}
-            initialSelection={pendingSelection.current}
-            onSelectionApplied={() => {
-              pendingSelection.current = null
-            }}
-            onReady={(handle) => {
-              editorHandle.current = handle
-              setEditorReady(true)
-            }}
-            onPasteAsset={onPasteAsset}
-          />
-        ) : (
-          <SourceEditor
-            key={`${activeDoc.id}-${reloadToken}`}
-            initialMarkdown={activeDoc.text}
-            initialScrollRatio={pendingScrollRatio.current}
-            onMarkdownChange={(markdown) => {
-              activeDoc.applyEditorMarkdown(markdown)
-              bumpDirtyTick((tick) => tick + 1)
-            }}
-            onReady={(handle) => {
-              sourceHandle.current = handle
-              setEditorReady(true)
-              const pending = pendingSelection.current
-              if (pending !== null) {
-                handle.setSelectionOffsets(pending.anchor, pending.head)
+      <div className="main-row">
+        <aside className="sidebar">
+          {workspaceNodes === null ? (
+            <p className="sidebar-empty">打开文件夹以浏览 Markdown 文件</p>
+          ) : (
+            <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
+          )}
+        </aside>
+        <section className="editor-host" data-editor-ready={editorReady ? 'true' : undefined}>
+          {activeDoc === null ? (
+            <p className="placeholder">正在等待文件…</p>
+          ) : mode === 'wysiwyg' ? (
+            <EditorHost
+              key={`${activeDoc.id}-${reloadToken}`}
+              docId={activeDoc.id}
+              initialMarkdown={activeDoc.text}
+              onMarkdownChange={(markdown) => {
+                activeDoc.applyEditorMarkdown(markdown)
+                bumpDirtyTick((tick) => tick + 1)
+              }}
+              initialSelection={pendingSelection.current}
+              onSelectionApplied={() => {
                 pendingSelection.current = null
-                handle.focus()
-              }
-            }}
-          />
-        )}
-      </section>
+              }}
+              onReady={(handle) => {
+                editorHandle.current = handle
+                setEditorReady(true)
+              }}
+              onPasteAsset={onPasteAsset}
+            />
+          ) : (
+            <SourceEditor
+              key={`${activeDoc.id}-${reloadToken}`}
+              initialMarkdown={activeDoc.text}
+              initialScrollRatio={pendingScrollRatio.current}
+              onMarkdownChange={(markdown) => {
+                activeDoc.applyEditorMarkdown(markdown)
+                bumpDirtyTick((tick) => tick + 1)
+              }}
+              onReady={(handle) => {
+                sourceHandle.current = handle
+                setEditorReady(true)
+                const pending = pendingSelection.current
+                if (pending !== null) {
+                  handle.setSelectionOffsets(pending.anchor, pending.head)
+                  pendingSelection.current = null
+                  handle.focus()
+                }
+              }}
+            />
+          )}
+        </section>
+      </div>
       {pendingClose !== null ? (
         <Modal
           message={

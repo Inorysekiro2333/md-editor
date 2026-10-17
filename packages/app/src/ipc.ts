@@ -1,4 +1,10 @@
-import type { FileContent, MdEditorBridge, WriteCredential } from './bridge'
+import type {
+  FileContent,
+  MdEditorBridge,
+  WorkspaceNode,
+  WorkspaceUpdate,
+  WriteCredential,
+} from './bridge'
 
 export interface Ipc {
   getAppInfo(): Promise<{ version: string; electron: string }>
@@ -8,6 +14,10 @@ export interface Ipc {
   unwatchFile(path: string): Promise<void>
   confirmClose(): Promise<void>
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
+  openWorkspace(dir: string): Promise<void>
+  onOpenWorkspace(handler: (dir: string) => void): () => void
+  onWorkspaceTree(handler: (nodes: WorkspaceNode[]) => void): () => void
+  onWorkspaceUpdate(handler: (update: WorkspaceUpdate) => void): () => void
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
@@ -22,6 +32,10 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     unwatchFile: (path) => bridge.unwatchFile(path),
     confirmClose: () => bridge.confirmClose(),
     saveAsset: (docPath, bytes, ext) => bridge.saveAsset(docPath, bytes, ext),
+    openWorkspace: (dir) => bridge.openWorkspace(dir),
+    onOpenWorkspace: (handler) => bridge.onOpenWorkspace(handler),
+    onWorkspaceTree: (handler) => bridge.onWorkspaceTree(handler),
+    onWorkspaceUpdate: (handler) => bridge.onWorkspaceUpdate(handler),
     onExternalModified: (handler) => bridge.onExternalModified(handler),
     onOpenFile: (handler) => bridge.onOpenFile(handler),
     onCloseGuardRequest: (handler) => bridge.onCloseGuardRequest(handler),

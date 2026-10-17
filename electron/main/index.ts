@@ -27,6 +27,12 @@ function openPathFromCli(): string | null {
   return process.argv[index + 1] ?? null
 }
 
+function openDirFromCli(): string | null {
+  const index = process.argv.indexOf('--open-dir')
+  if (index === -1) return null
+  return process.argv[index + 1] ?? null
+}
+
 function installCsp(): void {
   const policy = buildCsp(!app.isPackaged)
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -63,6 +69,13 @@ if (!app.requestSingleInstanceLock()) {
     if (cliPath !== null) {
       mainWindow.webContents.once('did-finish-load', () => {
         mainWindow?.webContents.send(CHANNELS.openFile, cliPath)
+      })
+    }
+
+    const cliDir = openDirFromCli()
+    if (cliDir !== null) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow?.webContents.send(CHANNELS.openWorkspace, cliDir)
       })
     }
 

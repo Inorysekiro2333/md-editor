@@ -21,6 +21,18 @@ export interface WriteCredential {
   writtenAtMs: number
 }
 
+export interface WorkspaceNode {
+  name: string
+  path: string
+  type: 'dir' | 'file'
+  children?: WorkspaceNode[]
+}
+
+export interface WorkspaceUpdate {
+  added: string[]
+  removed: string[]
+}
+
 export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
   readFile(path: string): Promise<FileContent>
@@ -29,6 +41,10 @@ export interface MdEditorBridge {
   unwatchFile(path: string): Promise<void>
   confirmClose(): Promise<void>
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string>
+  openWorkspace(dir: string): Promise<void>
+  onOpenWorkspace(handler: (dir: string) => void): () => void
+  onWorkspaceTree(handler: (nodes: WorkspaceNode[]) => void): () => void
+  onWorkspaceUpdate(handler: (update: WorkspaceUpdate) => void): () => void
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
@@ -54,6 +70,28 @@ const bridge: MdEditorBridge = {
   watchFile: (path) => ipcRenderer.invoke(CHANNELS.watchFile, path) as Promise<void>,
   unwatchFile: (path) => ipcRenderer.invoke(CHANNELS.unwatchFile, path) as Promise<void>,
   confirmClose: () => ipcRenderer.invoke(CHANNELS.confirmClose) as Promise<void>,
+  openWorkspace: (dir) => ipcRenderer.invoke(CHANNELS.openWorkspace, dir) as Promise<void>,
+  onOpenWorkspace: (handler) => {
+    const listener = (_event: unknown, dir: string): void => handler(dir)
+    ipcRenderer.on(CHANNELS.openWorkspace, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.openWorkspace, listener)
+    }
+  },
+  onWorkspaceTree: (handler) => {
+    const listener = (_event: unknown, nodes: WorkspaceNode[]): void => handler(nodes)
+    ipcRenderer.on(CHANNELS.workspaceTree, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.workspaceTree, listener)
+    }
+  },
+  onWorkspaceUpdate: (handler) => {
+    const listener = (_event: unknown, update: WorkspaceUpdate): void => handler(update)
+    ipcRenderer.on(CHANNELS.workspaceUpdate, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.workspaceUpdate, listener)
+    }
+  },
   onExternalModified: (handler) => {
     const listener = (_event: unknown, changed: string): void => handler(changed)
     ipcRenderer.on(CHANNELS.externalModified, listener)

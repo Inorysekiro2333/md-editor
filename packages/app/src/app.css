@@ -40,6 +40,49 @@ body {
   color: #57606a;
 }
 
+.main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar {
+  flex: none;
+  width: 220px;
+  overflow-y: auto;
+  border-right: 1px solid #d0d7de;
+  background: var(--bg);
+}
+
+.sidebar-empty {
+  padding: 8px 12px;
+  color: #57606a;
+  font-size: 0.8125rem;
+}
+
+.file-tree {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.file-row {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.file-row:hover {
+  background: rgba(31, 35, 40, 0.06);
+}
+
 .editor-host {
   flex: 1;
   padding: 0 96px;

@@ -4,6 +4,7 @@ import { CHANNELS } from '../shared/channels'
 import { isValidBase64Payload, ASSET_SAVE_MAX_BYTES, DOC_WRITE_MAX_BYTES } from '../shared/base64'
 import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
 import { createFileWatcher } from './watcher'
+import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 
 export interface IpcRegistry {
   dispose(): Promise<void>
@@ -15,6 +16,7 @@ export function registerIpc(
 ): IpcRegistry {
   let credential: WriteCredential | null = null
   const watchers = new Map<string, FSWatcher>()
+  let workspaceWatcher: FSWatcher | null = null
 
   ipcMain.handle(CHANNELS.appInfo, () => ({
     version: app.getVersion(),
@@ -79,6 +81,24 @@ export function registerIpc(
     await watcher.close()
   })
 
+  ipcMain.handle(CHANNELS.openWorkspace, async (_event, dir: string) => {
+    if (typeof dir !== 'string' || dir.length === 0) {
+      throw new Error('invalid path')
+    }
+    // 多次 openWorkspace：关旧 watcher 再开新。
+    const previous = workspaceWatcher
+    workspaceWatcher = null
+    if (previous !== null) {
+      await previous.close().catch(() => {})
+    }
+    const tree = await walkWorkspace(dir)
+    getWindow()?.webContents.send(CHANNELS.workspaceTree, tree)
+    workspaceWatcher = await createWorkspaceWatcher({
+      dir,
+      onUpdate: (update) => getWindow()?.webContents.send(CHANNELS.workspaceUpdate, update),
+    })
+  })
+
   ipcMain.handle(CHANNELS.confirmClose, () => {
     confirmClose()
   })
@@ -87,6 +107,9 @@ export function registerIpc(
     async dispose() {
       const closing = [...watchers.values()].map((watcher) => watcher.close())
       watchers.clear()
+      const workspace = workspaceWatcher
+      workspaceWatcher = null
+      if (workspace !== null) closing.push(workspace.close())
       await Promise.all(closing)
       ipcMain.removeHandler(CHANNELS.appInfo)
       ipcMain.removeHandler(CHANNELS.docRead)
@@ -95,6 +118,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.unwatchFile)
       ipcMain.removeHandler(CHANNELS.confirmClose)
       ipcMain.removeHandler(CHANNELS.assetSave)
+      ipcMain.removeHandler(CHANNELS.openWorkspace)
     },
   }
 }
