@@ -2,6 +2,7 @@ import {
   EditorHost,
   SourceEditor,
   type EditorHandle,
+  type OutlineItem,
   type SourceEditorHandle,
 } from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -9,6 +10,7 @@ import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
 import { FileTree, insertIntoTree } from './ui/FileTree'
+import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
 import type { WorkspaceNode } from './bridge'
 
@@ -44,6 +46,7 @@ export function App() {
   const [status, setStatus] = useState('未打开文件')
   const [editorReady, setEditorReady] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const [cursorOffset, setCursorOffset] = useState<number | null>(null)
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
@@ -54,6 +57,47 @@ export function App() {
   const sourceHandle = useRef<SourceEditorHandle | null>(null)
   const pendingSelection = useRef<{ anchor: number; head: number } | null>(null)
   const pendingScrollRatio = useRef(0)
+  // 大纲高亮的 200ms 节流（编辑器侧插件已 150ms 节流，这里挡住高频 setState）
+  const cursorEmitRef = useRef({ last: 0, timer: null as number | null })
+  const onCursorChange = useCallback((offset: number) => {
+    const now = Date.now()
+    const { last, timer } = cursorEmitRef.current
+    if (timer !== null) window.clearTimeout(timer)
+    const elapsed = now - last
+    if (elapsed >= 200) {
+      cursorEmitRef.current.last = now
+      cursorEmitRef.current.timer = null
+      setCursorOffset(offset)
+      return
+    }
+    cursorEmitRef.current.timer = window.setTimeout(() => {
+      cursorEmitRef.current.last = Date.now()
+      cursorEmitRef.current.timer = null
+      setCursorOffset(offset)
+    }, 200 - elapsed)
+  }, [])
+
+  // 切换文档 / 重挂载时旧 offset 无意义，清空高亮
+  useEffect(() => {
+    setCursorOffset(null)
+  }, [activeDocId, reloadToken])
+
+  const jumpToOutlineItem = useCallback(
+    (item: OutlineItem) => {
+      if (mode === 'wysiwyg') {
+        const handle = editorHandle.current
+        if (handle === null) return
+        handle.setSelectionOffsets(item.textOffset, item.textOffset)
+        handle.focus()
+        return
+      }
+      const handle = sourceHandle.current
+      if (handle === null) return
+      handle.setSelectionOffsets(item.textOffset, item.textOffset)
+      handle.focus()
+    },
+    [mode],
+  )
 
   const toggleMode = useCallback(() => {
     const current = useAppStore.getState().mode
@@ -352,6 +396,8 @@ export function App() {
                 setEditorReady(true)
               }}
               onPasteAsset={onPasteAsset}
+              getBufferText={() => activeDoc.text}
+              onCursorChange={onCursorChange}
             />
           ) : (
             <SourceEditor
@@ -362,6 +408,8 @@ export function App() {
                 activeDoc.applyEditorMarkdown(markdown)
                 bumpDirtyTick((tick) => tick + 1)
               }}
+              getBufferText={() => activeDoc.text}
+              onCursorChange={onCursorChange}
               onReady={(handle) => {
                 sourceHandle.current = handle
                 setEditorReady(true)
@@ -375,6 +423,13 @@ export function App() {
             />
           )}
         </section>
+        <aside className="sidebar outline-sidebar" data-testid="outline-panel">
+          <OutlinePanel
+            markdown={activeDoc?.text ?? ''}
+            cursorOffset={cursorOffset}
+            onJump={jumpToOutlineItem}
+          />
+        </aside>
       </div>
       {pendingClose !== null ? (
         <Modal

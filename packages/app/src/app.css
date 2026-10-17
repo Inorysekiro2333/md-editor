@@ -285,3 +285,65 @@ body {
 .modal-actions button:hover {
   background: rgba(31, 35, 40, 0.06);
 }
+
+.outline-sidebar {
+  width: 200px;
+  border-left: 1px solid #d0d7de;
+  border-right: none;
+}
+
+.outline {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.outline button {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.outline button:hover {
+  background: rgba(31, 35, 40, 0.06);
+}
+
+.outline button[data-active='true'] {
+  background: rgba(9, 105, 218, 0.12);
+  font-weight: 600;
+}
+
+.outline-level-2 button {
+  padding-left: 24px;
+}
+
+.outline-level-3 button {
+  padding-left: 36px;
+}
+
+.outline-level-4 button {
+  padding-left: 48px;
+}
+
+.outline-level-5 button {
+  padding-left: 60px;
+}
+
+.outline-level-6 button {
+  padding-left: 72px;
+}
+
+.outline-empty {
+  padding: 8px 12px;
+  color: #57606a;
+  font-size: 0.8125rem;
+}

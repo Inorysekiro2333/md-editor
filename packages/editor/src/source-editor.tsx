@@ -21,6 +21,9 @@ export interface SourceEditorProps {
   onMarkdownChange(markdown: string): void
   onReady?(handle: SourceEditorHandle): void
   initialScrollRatio?: number
+  // 大纲光标跟随：CM anchor 即 Markdown offset，直接回传（无需映射，节流由 App 统一 200ms）
+  getBufferText?: () => string
+  onCursorChange?(offset: number): void
 }
 
 export function SourceEditor(props: SourceEditorProps): JSX.Element {
@@ -33,10 +36,12 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
   // R3 parked finding 修复：滚动初值只在 mount 读取一次，运行期变化不得重建 view / 重置 doc
   const initialScrollRatioRef = useRef(initialScrollRatio)
   const onMarkdownChangeRef = useRef(props.onMarkdownChange)
+  const onCursorChangeRef = useRef(props.onCursorChange)
   const onReadyRef = useRef(props.onReady)
 
   useEffect(() => {
     onMarkdownChangeRef.current = props.onMarkdownChange
+    onCursorChangeRef.current = props.onCursorChange
     onReadyRef.current = props.onReady
   })
 
@@ -66,6 +71,9 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
           syntaxHighlighting(defaultHighlightStyle),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) sync.schedule()
+            // 选区或文档变化都视为光标变化；anchor 已是 Markdown offset
+            if (!update.selectionSet && !update.docChanged) return
+            onCursorChangeRef.current?.(update.state.selection.main.anchor)
           }),
         ],
       }),

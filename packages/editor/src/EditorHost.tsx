@@ -20,6 +20,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
 import { editorInputRules } from './input-rules'
+import { createCursorNotifyPlugin } from './cursor-notify'
 import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
   buildSessionHistory,
@@ -75,6 +76,9 @@ export interface EditorHostProps {
   onMarkdownChange(markdown: string): void
   onReady?(handle: EditorHandle): void
   onPasteAsset?: OnPasteAsset
+  // 大纲光标跟随：插件发射前以 getBufferText() 现取 Buffer，回调 150ms 节流（插件内）
+  getBufferText?: () => string
+  onCursorChange?(offset: number): void
   // 模式切换后的光标恢复：editor 异步创建完成后再应用并聚焦
   initialSelection?: { anchor: number; head: number } | null
   onSelectionApplied?(): void
@@ -87,6 +91,8 @@ function EditorHostInner(props: EditorHostProps) {
     onMarkdownChange,
     onReady,
     onPasteAsset,
+    getBufferText,
+    onCursorChange,
     initialSelection,
     onSelectionApplied,
   } = props
@@ -97,6 +103,8 @@ function EditorHostInner(props: EditorHostProps) {
   const restoringRef = useRef(false)
   const baseMarkdownRef = useRef(initialMarkdown)
   const onPasteAssetRef = useRef(onPasteAsset)
+  const getBufferTextRef = useRef(getBufferText)
+  const onCursorChangeRef = useRef(onCursorChange)
   // 只在 mount 后 editor 创建完成时应用一次（模式切换的光标恢复）
   const initialSelectionRef = useRef(initialSelection)
   const selectionAppliedRef = useRef(false)
@@ -104,11 +112,24 @@ function EditorHostInner(props: EditorHostProps) {
 
   useEffect(() => {
     onPasteAssetRef.current = onPasteAsset
-  }, [onPasteAsset])
+    getBufferTextRef.current = getBufferText
+    onCursorChangeRef.current = onCursorChange
+  }, [onPasteAsset, getBufferText, onCursorChange])
 
   // 粘贴扩展只在 editor 创建时注册一次；回调经 ref 读取最新值
   const pastePlugin = useMemo(() => createPastePlugin(() => onPasteAssetRef.current), [])
   const pasteRule = useMemo(() => createPasteRule(), [])
+  // 光标通知插件只创建一次；发射时经 getNotify() 读取最新 buffer 与回调
+  const cursorNotifyPlugin = useMemo(
+    () =>
+      createCursorNotifyPlugin(() => {
+        const getBuffer = getBufferTextRef.current
+        const cb = onCursorChangeRef.current
+        if (getBuffer === undefined || cb === undefined) return null
+        return { cb, buffer: getBuffer() }
+      }),
+    [],
+  )
 
   useEffect(() => {
     initialMarkdownRef.current = initialMarkdown
@@ -136,7 +157,12 @@ function EditorHostInner(props: EditorHostProps) {
         .config((ctx) => {
           ctx.set(rootCtx, root)
           ctx.set(defaultValueCtx, initialMarkdown)
-          ctx.update(prosePluginsCtx, (ps) => [...ps, sessionRecorderPlugin, pastePlugin])
+          ctx.update(prosePluginsCtx, (ps) => [
+            ...ps,
+            sessionRecorderPlugin,
+            pastePlugin,
+            cursorNotifyPlugin,
+          ])
           ctx.update(pasteRulesCtx, (rules) => [...rules, pasteRule])
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
             // Ruling-6 (2026-10-17): colwidth resize changes the PM doc but

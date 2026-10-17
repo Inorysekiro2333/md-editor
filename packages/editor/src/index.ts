@@ -23,3 +23,5 @@ export {
   type PasteRule,
 } from './paste'
 export { tableToolbar, tableToolbarPluginKey } from './table-toolbar'
+export { createCursorNotifyPlugin, type CursorNotifyState } from './cursor-notify'
+export { parseOutline, type OutlineItem } from './outline'
