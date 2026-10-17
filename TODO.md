@@ -36,12 +36,12 @@
 - [x] (P0) Milkdown preset 与输入规则：`#`、`>`、`-`、`1.`、代码围栏、表格管道
 - [x] (P0) GFM：表格、任务列表、删除线
 - [x] (P0) round-trip 差异登记用例集（不少于 50 用例 + 3 篇真实长文档），进 CI
-- [x] (P0) 中文 IME 专项验证（标题 / 列表 / 表格；CDP Input.imeSetComposition 自动化模拟 6 例，真人微软拼音候选窗/确认键/组合内撤销待补）
+- [x] (P0) 中文 IME 专项验证（标题 / 列表 / 表格；CDP Input.imeSetComposition 自动化模拟 6 例，真人微软拼音候选窗/确认键/组合内撤销待补（2026-10-18 人工补测通过））
 - [x] (P1) 会话级撤销栈持久化
 - [x] (P1) 粘贴处理：HTML → Markdown、URL → 链接、图片粘贴存盘
 - [x] (P2) 脚注（GFM 扩展，非规范本体；Milkdown gfm 内置 schema + 未定义引用解析/键入规则补丁，见 component-api.md 3.6）
 
-**验收**：round-trip 用例全绿；Typora 日常写作 80% 场景不卡壳。（M1 验收记录 2026-10-16：roundtrip.test.ts 71 例全绿（规范化差异逐条登记，含转义/表格对齐）；长文档 fixture 3 篇（long-doc-1/2/3）round-trip 全绿；IME 为 CDP Input.imeSetComposition 自动化模拟 6 例（标题/列表/表格/代码块连打、组合内 # - 1. 不触发规则）全绿，真人微软拼音候选窗/确认键/组合内撤销待补；会话撤销 e2e 1 例 + 单测兜底；粘贴 HTML/URL/图片 e2e 2 例；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 119 passed (10 files) · pnpm e2e 27 passed (25.3s) · pnpm build:app main/preload/renderer 三段构建成功，renderer 1,397.35 kB）
+**验收**：round-trip 用例全绿；Typora 日常写作 80% 场景不卡壳。（M1 验收记录 2026-10-16：roundtrip.test.ts 71 例全绿（规范化差异逐条登记，含转义/表格对齐）；长文档 fixture 3 篇（long-doc-1/2/3）round-trip 全绿；IME 为 CDP Input.imeSetComposition 自动化模拟 6 例（标题/列表/表格/代码块连打、组合内 # - 1. 不触发规则）全绿，真人微软拼音候选窗/确认键/组合内撤销待补（2026-10-18 人工补测通过）；会话撤销 e2e 1 例 + 单测兜底；粘贴 HTML/URL/图片 e2e 2 例；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 119 passed (10 files) · pnpm e2e 27 passed (25.3s) · pnpm build:app main/preload/renderer 三段构建成功，renderer 1,397.35 kB）
 
 ## M2 — 源码模式与块级组件（目标：2–3 周）
 
@@ -51,7 +51,7 @@
 - [x] (P1) 表格增强：行列增删、列宽拖拽、对齐保留（M2b 完成，2026-10-17）
 - [ ] (P2) 图片拖拽调整尺寸（v1.1 再考虑）
 
-**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。（M2 验收记录 2026-10-16，CI 修复后复核：cursor-map 边界（leaf 末尾）双向精确用例补齐（31 例），e2e 改用编辑器状态真值断言 + data-editor-ready 门控，CI run 38917832792 全绿（教训入 AGENTS.md CI/E2E 节）。原始记录：e2e/source-mode.spec.ts 3 例全绿——10 次切换内容与 caret 稳定、跨模式 caret 等值、source 编辑带回 WYSIWYG；块级边界退化用例登记（TextSelection.near(+1) 下一块块首）；代码块 e2e + IME 自动化 1 例全绿（真人微软拼音待补）；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 175 passed (15 files) · pnpm e2e 31 passed (35.0s) · pnpm build:app main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB） M2b 表格增强验收（2026-10-17）：pnpm test 192 passed (17 files) · e2e 33 passed（含 table.spec.ts 行列增删全链路 + 列宽拖拽保真 2 例） · typecheck 0 错误 · lint 全过 · build:app 成功（main 57.74 kB / preload 2.08 kB / renderer 1,802.66 kB））
+**验收**：模式切换 10 次内容与光标行列一致；代码块/表格内编辑与 IME 稳定；`ancestor` 降级路径有用例登记。（M2 验收记录 2026-10-16，CI 修复后复核：cursor-map 边界（leaf 末尾）双向精确用例补齐（31 例），e2e 改用编辑器状态真值断言 + data-editor-ready 门控，CI run 38917832792 全绿（教训入 AGENTS.md CI/E2E 节）。原始记录：e2e/source-mode.spec.ts 3 例全绿——10 次切换内容与 caret 稳定、跨模式 caret 等值、source 编辑带回 WYSIWYG；块级边界退化用例登记（TextSelection.near(+1) 下一块块首）；代码块 e2e + IME 自动化 1 例全绿（真人微软拼音 2026-10-18 人工补测通过）；命令实测：pnpm typecheck 0 错误 · pnpm lint 全过 · pnpm test 175 passed (15 files) · pnpm e2e 31 passed (35.0s) · pnpm build:app main 57.74 kB / preload 2.08 kB / renderer 1,795.90 kB） M2b 表格增强验收（2026-10-17）：pnpm test 192 passed (17 files) · e2e 33 passed（含 table.spec.ts 行列增删全链路 + 列宽拖拽保真 2 例） · typecheck 0 错误 · lint 全过 · build:app 成功（main 57.74 kB / preload 2.08 kB / renderer 1,802.66 kB））
 
 ## M3 — 工作台（目标：2 周）
 
