@@ -416,3 +416,6 @@ Ruling-2/3（2026-10-17）：行列新增命令光标移入新行/列；EditorHo
   - Ruling-4：净编辑为零时 Ctrl+S 跳过写盘属铁律 1 预期行为，e2e 断言该保真性质。
   - Parked finding：编辑后 ~500ms 内 Ctrl+S 可能误报「无改动」（listener 200ms debounce + sync 300ms 未收敛，EditorHost.tsx:116 flushNow 不覆盖 listener debounce）——非本计划范围，移交后续。
 - **Task 4: complete** — 文档登记（component-api.md 3.11/3.12、TODO.md M2 P1、development.md R1）+ 全量门禁 + 本 Ledger；commit 见 git log。
+- **Fix round 2: complete** — commit 6bada23 — 终审 2 Important 已修：addRowAbove 表头行返回 false（单测 +1）；EditorHost markdownUpdated 对序列化不变文档（colwidth 拖拽）直接 return，不 sync.schedule、不 saveHistory，restoringRef 分支不变；e2e 用例 2 改为断言 Ctrl+S「无改动，已跳过写盘」且磁盘逐字等于原始未规范化 CONTENT。全量门禁：typecheck 0 错误 / lint 过 / test 193 过 / build:app 成功 / e2e 33 过。
+  - Ruling-5（2026-10-17）：addRowAbove 光标在表头行（`rect.top === 0`）返回 false，与 deleteTableRow 同口径（表头行保护）。
+  - Ruling-6（2026-10-17）：colwidth 拖拽属序列化净零变更，markdownUpdated 比对 prevMarkdown 相等即忽略——Buffer 不标脏，Ctrl+S 按铁律 1 跳过写盘。
