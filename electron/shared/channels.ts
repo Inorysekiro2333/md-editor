@@ -14,6 +14,7 @@ export const CHANNELS = {
   workspaceUpdate: 'workspace:update',
   sessionSave: 'session:save',
   sessionLoad: 'session:load',
+  sessionRemove: 'session:remove',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

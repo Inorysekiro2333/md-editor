@@ -52,6 +52,8 @@ export function App() {
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null)
   const [pendingExternalPath, setPendingExternalPath] = useState<string | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
+  const hadDirtyRef = useRef(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
   const [info, setInfo] = useState<{
@@ -180,6 +182,13 @@ export function App() {
     }
   }, [])
 
+  // Ruling-7：全库无 dirty 时删除崩溃快照（保存成功 / 关 dirty tab 后触发）。
+  const invalidateSnapshotIfClean = useCallback(async () => {
+    if (useAppStore.getState().docs.some((doc) => doc.isDirty)) return
+    hadDirtyRef.current = false
+    await ipc.removeSession().catch(() => {})
+  }, [])
+
   const openFile = useCallback(
     async (path: string) => {
       try {
@@ -230,6 +239,7 @@ export function App() {
       current.markSaved(credential)
       bumpDirtyTick((tick) => tick + 1)
       setStatus('已保存')
+      void invalidateSnapshotIfClean()
     } catch (error) {
       console.error('[app] save failed', error)
       setStatus('保存失败，请重试')
@@ -245,6 +255,7 @@ export function App() {
     if (target.path !== null) {
       void ipc.unwatchFile(target.path).catch(() => {})
     }
+    void invalidateSnapshotIfClean()
   }, [])
 
   const confirmPendingClose = useCallback(() => {
@@ -259,6 +270,7 @@ export function App() {
     } else {
       void ipc.confirmClose()
     }
+    void invalidateSnapshotIfClean()
     setPendingClose(null)
   }, [pendingClose])
 
@@ -282,6 +294,8 @@ export function App() {
         if (appInfo.hasCliOpen || cancelled) return
         const snapshot = await ipc.loadSession()
         if (snapshot === null || cancelled || snapshot.version !== 1) return
+        // 磁盘上已存在快照：hadDirty 记为 true，恢复后关 tab/保存也走失效逻辑。
+        hadDirtyRef.current = true
         let restored = 0
         for (const tab of snapshot.tabs) {
           if (cancelled) return
@@ -305,6 +319,11 @@ export function App() {
         }
         if (cancelled || restored === 0) return
         setReloadToken((token) => token + 1)
+        // 按 snapshot.activePath 激活对应 tab（找不到则保持最后打开的 tab）。
+        if (typeof snapshot.activePath === 'string') {
+          const target = useAppStore.getState().docs.find((doc) => doc.path === snapshot.activePath)
+          if (target !== undefined) useAppStore.getState().setActiveDoc(target.id)
+        }
         setStatus('已恢复未保存的会话')
       } catch (error) {
         console.error('[app] session restore failed', error)
@@ -319,7 +338,16 @@ export function App() {
   useEffect(() => {
     const saveSnapshot = async (): Promise<void> => {
       const state = useAppStore.getState()
-      if (!state.docs.some((doc) => doc.isDirty)) return
+      const hasDirty = state.docs.some((doc) => doc.isDirty)
+      if (!hasDirty) {
+        // 全库干净：清掉残留快照（此前有过 dirty 才需要）。
+        if (hadDirtyRef.current) {
+          hadDirtyRef.current = false
+          await ipc.removeSession().catch(() => {})
+        }
+        return
+      }
+      hadDirtyRef.current = true
       const active = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
       const payload = JSON.stringify({
         version: 1,

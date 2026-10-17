@@ -49,6 +49,7 @@ export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
   saveSession(payload: string): Promise<void>
   loadSession(): Promise<SessionSnapshot | null>
+  removeSession(): Promise<void>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>

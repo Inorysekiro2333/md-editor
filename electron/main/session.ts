@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { writeAtomic } from './fs_io'
 
 export interface SessionTabSnapshot {
@@ -41,4 +41,9 @@ export async function loadSession(filePath: string): Promise<SessionSnapshot | n
   } catch {
     return null
   }
+}
+
+/** 全库无 dirty（保存/关 tab）后删除快照；文件不存在时 no-op。 */
+export async function removeSession(filePath: string): Promise<void> {
+  await rm(filePath, { force: true })
 }

@@ -5,7 +5,7 @@ import { isValidBase64Payload, ASSET_SAVE_MAX_BYTES, DOC_WRITE_MAX_BYTES } from 
 import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
 import { createFileWatcher } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
-import { loadSession, saveSession } from './session'
+import { loadSession, removeSession, saveSession } from './session'
 import { join } from 'node:path'
 
 export interface IpcRegistry {
@@ -34,6 +34,8 @@ export function registerIpc(
   })
 
   ipcMain.handle(CHANNELS.sessionLoad, () => loadSession(sessionPath()))
+
+  ipcMain.handle(CHANNELS.sessionRemove, () => removeSession(sessionPath()))
 
   ipcMain.handle(CHANNELS.docRead, (_event, path: string) => readFile(path))
 
@@ -133,6 +135,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.openWorkspace)
       ipcMain.removeHandler(CHANNELS.sessionSave)
       ipcMain.removeHandler(CHANNELS.sessionLoad)
+      ipcMain.removeHandler(CHANNELS.sessionRemove)
     },
   }
 }

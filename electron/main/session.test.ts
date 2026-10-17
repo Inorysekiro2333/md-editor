@@ -1,8 +1,9 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { access, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadSession, saveSession } from './session'
+import { loadSession, removeSession, saveSession } from './session'
 
 const SNAPSHOT = JSON.stringify({
   version: 1,
@@ -16,7 +17,7 @@ async function tmpFile(name = 'session.json'): Promise<string> {
   return join(dir, name)
 }
 
-describe('session save/load', () => {
+describe('session save/load/remove', () => {
   it('writes the payload atomically and loads it back', async () => {
     const file = await tmpFile()
     await saveSession(SNAPSHOT, file)
@@ -40,5 +41,19 @@ describe('session save/load', () => {
     const huge = 'x'.repeat(5 * 1024 * 1024 + 1)
     await expect(saveSession(huge, file)).rejects.toThrow()
     await expect(loadSession(file)).resolves.toBeNull()
+  })
+
+  it('removes an existing snapshot file (Ruling-7 失效语义)', async () => {
+    const file = await tmpFile()
+    await saveSession(SNAPSHOT, file)
+    await removeSession(file)
+    await expect(access(file)).rejects.toThrow()
+  })
+
+  it('is a no-op when the snapshot file is missing', async () => {
+    const file = await tmpFile()
+    await expect(removeSession(file)).resolves.toBeUndefined()
+    const dir = join(file, '..')
+    expect((await stat(dir)).isDirectory()).toBe(true)
   })
 })

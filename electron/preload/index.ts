@@ -51,6 +51,7 @@ export interface MdEditorBridge {
   getAppInfo(): Promise<AppInfo>
   saveSession(payload: string): Promise<void>
   loadSession(): Promise<SessionSnapshot | null>
+  removeSession(): Promise<void>
   readFile(path: string): Promise<FileContent>
   writeFile(path: string, bytesBase64: string): Promise<WriteCredential>
   watchFile(path: string): Promise<void>
@@ -70,6 +71,7 @@ const bridge: MdEditorBridge = {
   getAppInfo: () => ipcRenderer.invoke(CHANNELS.appInfo) as Promise<AppInfo>,
   saveSession: (payload) => ipcRenderer.invoke(CHANNELS.sessionSave, payload) as Promise<void>,
   loadSession: () => ipcRenderer.invoke(CHANNELS.sessionLoad) as Promise<SessionSnapshot | null>,
+  removeSession: () => ipcRenderer.invoke(CHANNELS.sessionRemove) as Promise<void>,
   readFile: (path) => ipcRenderer.invoke(CHANNELS.docRead, path) as Promise<FileContent>,
   writeFile: (path, bytesBase64) =>
     ipcRenderer.invoke(CHANNELS.docWrite, path, bytesBase64) as Promise<WriteCredential>,
