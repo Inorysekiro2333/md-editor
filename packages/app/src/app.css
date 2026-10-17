@@ -347,3 +347,55 @@ body {
   color: #57606a;
   font-size: 0.8125rem;
 }
+
+.find-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #d0d7de;
+  background: var(--bg);
+}
+
+.find-panel input {
+  padding: 4px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.find-panel input[data-testid='find-input'],
+.find-panel input[data-testid='find-replace-input'] {
+  width: 220px;
+}
+
+.find-panel button {
+  padding: 4px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.find-panel button[data-active='true'] {
+  background: #0969da;
+  border-color: #0969da;
+  color: #ffffff;
+}
+
+.find-count {
+  color: #57606a;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.find-count.empty {
+  color: #cf222e;
+}
+
+.find-msg {
+  color: #cf222e;
+  font-size: 0.8125rem;
+}

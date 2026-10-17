@@ -372,17 +372,25 @@ e2e 通过只读调试钩子 `__mdEditorDebug.getMarkdown()`（EditorHost 注册
 
 ## 4. 工作台组件（`packages/app`）
 
-| 组件             | Props（摘要）                                                 | 说明                                         |
-| ---------------- | ------------------------------------------------------------- | -------------------------------------------- |
-| `Workspace`      | `root: string \| null`                                        | 顶层布局；持有 tab 状态、侧栏状态            |
-| `TabBar`         | `tabs: Tab[]`, `activeId`, `onSelect/onClose/onReorder`       | 脏标记圆点、中键关闭                         |
-| `FileTree`       | `root: string`, `onOpen(path)`                                | 虚拟滚动；数据来自主进程 watcher 增量事件    |
-| `OutlinePanel`   | `outline: OutlineNode[]`, `activeHeadingPath`, `onJump(path)` | 由 `parseOutline` 派生，跟随光标高亮         |
-| `FindReplaceBar` | `doc: MdDocument`                                             | 替换调用 `doc.replaceText`，不经过编辑器组件 |
-| `StatusBar`      | `chars, cursor, mode, savedAt`                                | 只读展示                                     |
-| `SettingsDialog` | `settings: Settings, onChange(patch)`                         | JSON schema 驱动渲染                         |
-| `ExportDialog`   | `doc: MdDocument`                                             | 调用 `packages/export`                       |
-| `ToastHost`      | —                                                             | 右下角，最多 3 条                            |
+| 组件               | Props（摘要）                                                 | 说明                                      |
+| ------------------ | ------------------------------------------------------------- | ----------------------------------------- |
+| `Workspace`        | `root: string \| null`                                        | 顶层布局；持有 tab 状态、侧栏状态         |
+| `TabBar`           | `tabs: Tab[]`, `activeId`, `onSelect/onClose/onReorder`       | 脏标记圆点、中键关闭                      |
+| `FileTree`         | `root: string`, `onOpen(path)`                                | 虚拟滚动；数据来自主进程 watcher 增量事件 |
+| `OutlinePanel`     | `outline: OutlineNode[]`, `activeHeadingPath`, `onJump(path)` | 由 `parseOutline` 派生，跟随光标高亮      |
+| `FindReplacePanel` | `text, onClose, onNavigate, onReplace, onReplaceAll`          | 查找替换（M3 Task 4），见 4.0 节          |
+| `StatusBar`        | `chars, cursor, mode, savedAt`                                | 只读展示                                  |
+| `SettingsDialog`   | `settings: Settings, onChange(patch)`                         | JSON schema 驱动渲染                      |
+| `ExportDialog`     | `doc: MdDocument`                                             | 调用 `packages/export`                    |
+| `ToastHost`        | —                                                             | 右下角，最多 3 条                         |
+
+### 4.0 FindReplacePanel（查找替换，Buffer 级）
+
+- 匹配计算：`packages/app/src/find/finder.ts` 的 `computeMatches(text, query, options)`；空 query / 非法 regex → `[]`，匹配不重叠、零长匹配跳过；wholeWord 用 `\b` 包裹（仅非 regex），非 regex 时 query 按字面量转义。
+- 替换语义（**ADR-6 偏离登记，2026-10-17**）：architecture.md ADR-6 原定「对外语义改 Buffer，内部实现为单个 PM ReplaceStep transaction」。M3 实现改为 **单次 `MdDocument.replaceText` + `reloadToken` 重挂载编辑器**：PM ReplaceStep 不再使用。理由：① 双模式（wysiwyg/source）一致，无需在 CodeMirror 侧复刻 ReplaceStep；② 单次 replaceText 已满足「Ctrl+Z 可整体撤销」的对外语义（重挂载后会话撤销栈自动恢复撤销链，M2 会话恢复兜底）。代价是替换后编辑器重挂载（非增量事务），大文档批量替换的滚动/光标恢复依赖 setSelectionOffsets 而非原地保留。
+- regex 分支 replacement 支持 `$1` 等分组引用（`text.slice(from,to).replace(matchRegex, replacement)` 产出）；非 regex 分支 replacement 是字面量。
+- 导航：Enter / find-next 循环前进，`setSelectionOffsets(from,to)`（Buffer offset → PM/CM pos，经 cursor-map）；光标断言只用 `__mdEditorDebug.pmSelection`。
+- cursor-map 修正（同日登记）：remark 把段内软换行保留在单个 mdast text 里，而 PM doc 是 `text + hardbreak + text`；`flattenInline` 现按 `\n` 切分 text 叶子并插入伪 break 叶子，软换行段落映射由整段 fallback 修复为 exact（新增 cursor-map.test.ts 回归用例）。
 
 ### 4.1 状态管理（Zustand store 摘要）
 

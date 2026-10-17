@@ -43,6 +43,27 @@ describe('mdOffsetToCursor', () => {
   })
 })
 
+describe('paragraph softbreak (mdast text with \n vs PM hardbreak)', () => {
+  const md = 'alpha beta\ngamma alpha\n'
+
+  it('maps offsets across a softbreak exactly', async () => {
+    const ed = await createTestEditor(md)
+    try {
+      const doc = ed.getView().state.doc
+      expect(markdownOffsetToPmPos(md, doc, 0).pos).toBe(1)
+      expect(markdownOffsetToPmPos(md, doc, md.indexOf('gamma')).pos).toBe(12)
+      expect(markdownOffsetToPmPos(md, doc, md.lastIndexOf('alpha')).pos).toBe(18)
+      // 反向：PM pos -> md offset 往返
+      for (const off of [0, 6, 10, 11, 17, 22]) {
+        const pos = markdownOffsetToPmPos(md, doc, off).pos
+        expect(pmPosToMarkdownOffset(md, doc, pos)).toBe(off)
+      }
+    } finally {
+      await ed.destroy()
+    }
+  })
+})
+
 describe('cursorToMdOffset', () => {
   it('round-trips with mdOffsetToCursor', () => {
     const md = '# 标题\n\n段落**加粗**文字\n'

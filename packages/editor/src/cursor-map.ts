@@ -217,7 +217,43 @@ function buildLockstepMap(markdown: string, doc: PMNode, root: Root): LockstepMa
         case 'text': {
           const value = child.value
           const aligned = markdown.slice(start, end) === value
-          out.push({ kind: 'text', value, start, end, contentStart: start, aligned, wrappers })
+          // remark 把段内软换行保留在单个 text 的 value 里（"a\nb"），而 Milkdown
+          // 的 PM doc 是 text + hardbreak + text；这里按 \n 切分 text 叶子并插入
+          // 伪 break 叶子，保证与 PM 子节点一一配对（否则整段退化 fallback）。
+          if (value.includes('\n')) {
+            let cursor = start
+            const segments = value.split('\n')
+            segments.forEach((segment, index) => {
+              if (index > 0) {
+                out.push({
+                  kind: 'break',
+                  value: '',
+                  start: cursor,
+                  end: cursor + 1,
+                  contentStart: cursor,
+                  aligned: true,
+                  wrappers,
+                })
+                cursor += 1
+              }
+              if (segment.length > 0) {
+                const segAligned =
+                  aligned && markdown.slice(cursor, cursor + segment.length) === segment
+                out.push({
+                  kind: 'text',
+                  value: segment,
+                  start: cursor,
+                  end: cursor + segment.length,
+                  contentStart: cursor,
+                  aligned: segAligned,
+                  wrappers,
+                })
+                cursor += segment.length
+              }
+            })
+          } else {
+            out.push({ kind: 'text', value, start, end, contentStart: start, aligned, wrappers })
+          }
           break
         }
         case 'inlineCode': {

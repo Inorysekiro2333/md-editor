@@ -12,6 +12,7 @@ import { useAppStore } from './state/appStore'
 import { FileTree, insertIntoTree } from './ui/FileTree'
 import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
+import { FindReplacePanel } from './ui/FindReplacePanel'
 import type { WorkspaceNode } from './bridge'
 
 const ASSET_EXT_BY_MIME: Record<string, string> = {
@@ -48,6 +49,7 @@ export function App() {
   const [reloadToken, setReloadToken] = useState(0)
   const [cursorOffset, setCursorOffset] = useState<number | null>(null)
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null)
+  const [findOpen, setFindOpen] = useState(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
   const [, bumpDirtyTick] = useState(0)
   const [info, setInfo] = useState<{ version: string; electron: string } | null>(null)
@@ -98,6 +100,33 @@ export function App() {
     },
     [mode],
   )
+
+  // 查找替换：handle 每次经 ref 取最新值（替换后 reloadToken 重挂载，旧 handle 失效）
+  const getActiveHandle = useCallback((): EditorHandle | SourceEditorHandle | null => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return null
+    return state.mode === 'wysiwyg' ? editorHandle.current : sourceHandle.current
+  }, [])
+
+  const navigateToOffset = useCallback(
+    (from: number, to: number) => {
+      const handle = getActiveHandle()
+      if (handle === null) return
+      handle.setSelectionOffsets(from, to)
+      handle.focus()
+    },
+    [getActiveHandle],
+  )
+
+  const replaceRange = useCallback((from: number, to: number, replacement: string) => {
+    const state = useAppStore.getState()
+    const doc = state.docs.find((item) => item.id === state.activeDocId) ?? null
+    if (doc === null) return
+    doc.replaceText({ from, to }, replacement)
+    setReloadToken((token) => token + 1)
+    bumpDirtyTick((tick) => tick + 1)
+  }, [])
 
   const toggleMode = useCallback(() => {
     const current = useAppStore.getState().mode
@@ -312,8 +341,20 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setFindOpen(false)
+        return
+      }
       if (!(event.ctrlKey || event.metaKey)) return
-      if (event.key.toLowerCase() !== 's' && event.key !== '/') return
+      const key = event.key.toLowerCase()
+      if (key === 'f') {
+        // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
+        event.preventDefault()
+        event.stopPropagation()
+        setFindOpen(true)
+        return
+      }
+      if (key !== 's' && event.key !== '/') return
       event.preventDefault()
       if (event.key === '/') {
         // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
@@ -363,6 +404,15 @@ export function App() {
           </div>
         ))}
       </nav>
+      {findOpen && activeDoc !== null ? (
+        <FindReplacePanel
+          text={activeDoc.text}
+          onClose={() => setFindOpen(false)}
+          onNavigate={navigateToOffset}
+          onReplace={replaceRange}
+          onReplaceAll={replaceRange}
+        />
+      ) : null}
       <p data-testid="app-info">
         {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
       </p>
