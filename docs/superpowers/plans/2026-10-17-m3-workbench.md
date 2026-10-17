@@ -112,11 +112,11 @@
 - 增量事件：chokidar watch(dir, { ignoreInitial: true, ignored: 同上目录正则, depth 不限, awaitWriteFinish 同 M0 })；`add`/`unlink` 只对 `.md/.markdown` 过滤后 100ms 批量合并推送 `{ added, removed }`；目录空了由 renderer 收 removed 后重建树（实现从简：removed 非空时 renderer 重新 `openWorkspace(path)` 拉全量树，避免主进程树 diff）。
 - FileTree 虚拟滚动：行高 24px、overscan 8；展开/收起状态 `useState<Map<string, boolean>>`（默认展开）；扁平化函数 `flattenTree(nodes, expanded): { node: WorkspaceNode; depth: number }[]` 放 FileTree 内部；容器 `data-testid="file-tree"`，行 `data-testid="file-row"` + `data-path`；文件行点击调 `ipc.readFile→openFile`（复用 App.openFile）。
 
-- [ ] **Step 1: workspace.test.ts 先行**：tmp 目录建结构（含被忽略目录、非 md 文件、子目录）→ walkWorkspace 断言精确结构；`visibleRange.test.ts`：scrollTop=0 / 中段 / 末尾 clamp / total=0。跑确认失败。
-- [ ] **Step 2: 实现 workspace.ts + visibleRange.ts + FileTree + App 接线 + IPC/CLI**。性能用例：tmp 下生成 10,000 个 .md（先 `Promise.all` 批量写，每批 500），`const t0=performance.now(); await walkWorkspace(dir); expect(performance.now()-t0).toBeLessThan(15_000)`（阈值放宽防 CI 抖动；真实数字进 TODO 验收记录）。跑 `pnpm vitest run electron/main packages/app/src/ui` 全绿。
-- [ ] **Step 3: typecheck + lint** 全过。
-- [ ] **Step 4: e2e workspace.spec.ts**：tmp 目录放 `a.md` `sub/b.md` `ignore.txt`；launch args `['.', '--open-dir', dir, '--open', someFile]`；断言：file-tree 可见且不含 `ignore.txt`；点击 `a.md` 行 → 打开新 tab（承接 Task 1）激活；外部 `writeFileSync(dir, 'c.md')` → 1s 内出现 `c.md` 行（增量 add）；删除 `c.md` → 行消失（removed → 全量重建）。
-- [ ] **Step 5: 全量门禁 + commit** `feat(app): workspace file tree with incremental watcher and virtual scroll`
+- [x] **Step 1: workspace.test.ts 先行**：tmp 目录建结构（含被忽略目录、非 md 文件、子目录）→ walkWorkspace 断言精确结构；`visibleRange.test.ts`：scrollTop=0 / 中段 / 末尾 clamp / total=0。跑确认失败。
+- [x] **Step 2: 实现 workspace.ts + visibleRange.ts + FileTree + App 接线 + IPC/CLI**。性能用例：tmp 下生成 10,000 个 .md（先 `Promise.all` 批量写，每批 500），`const t0=performance.now(); await walkWorkspace(dir); expect(performance.now()-t0).toBeLessThan(15_000)`（阈值放宽防 CI 抖动；真实数字进 TODO 验收记录）。跑 `pnpm vitest run electron/main packages/app/src/ui` 全绿。
+- [x] **Step 3: typecheck + lint** 全过。
+- [x] **Step 4: e2e workspace.spec.ts**：tmp 目录放 `a.md` `sub/b.md` `ignore.txt`；launch args `['.', '--open-dir', dir, '--open', someFile]`；断言：file-tree 可见且不含 `ignore.txt`；点击 `a.md` 行 → 打开新 tab（承接 Task 1）激活；外部 `writeFileSync(dir, 'c.md')` → 1s 内出现 `c.md` 行（增量 add）；删除 `c.md` → 行消失（removed → 全量重建）。
+- [x] **Step 5: 全量门禁 + commit** `feat(app): workspace file tree with incremental watcher and virtual scroll`
 
 ### Task 3: 大纲面板（parseOutline + 光标跟随）
 
@@ -243,4 +243,6 @@
 ## Ledger（subagent-driven 执行记录）
 
 - Task 1: complete — commit fc134cd — review fix round 1（见下行）。偏离：关窗守卫退出路径经 `before-quit` → `markQuitting()` 旁路（app.quit 不被守卫拦截）；e2e evaluate 用字面量 `'app:open-file'`（Playwright evaluate 序列化不携带模块引用）。
+
+- Task 2: complete — commit cd6113a — walk（忽略目录/md 过滤/目录优先排序）+ chokidar 100ms 批量 add/unlink + FileTree 虚拟滚动（24px/overscan 8）+ IPC 三处 + --open-dir；10k 文件 walk 实测 32.8ms（阈值 15s）；全量 test 209 passed / typecheck / lint / e2e 38 passed 全绿。偏离：无（added 走渲染进程插入节点，removed 走全量重拉，均按计划语义）。
 - fix round 1: 评审 4 findings — 1 Important 已修（appStore closeDoc 关中间活跃 tab 改激活左邻 index-1，appStore.test.ts 补中间位置用例）；2 Minor 已修（ipc watchFile/unwatchFile 入参 path 非 string/空串干净拒绝 `invalid path` + 单测）；1 Minor parked finding（后台 tab 外部修改事件不分叉处理，仅活跃 tab 生效）留给 Task 5 一并处理。
