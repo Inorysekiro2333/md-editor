@@ -80,7 +80,10 @@ M0–M3 全部完成并合入 main（HEAD `e1aebd8` 附近），CI run 390474274
 - (P0) 导出 PDF：`webContents.printToPDF()` 静默导出
 - (P1) 导出自包含 HTML（内联 CSS、图片 base64 可选）
 - (P1) `theme:check` 校验脚本
-- 顺手项：Task 2 Minor 清理、Ctrl+S 500ms 竞态（R3 项）、asset magic bytes
+- 顺手项（2026-10-18 人工测试裁定新增）：
+  - (P1) 自定义原生菜单：全屏切换可退出（当前是 Electron 默认菜单，全屏后菜单隐藏无法退出；F11 为逃生通道）、退出确认接入关窗守卫，全局快捷键注册表一并统一
+  - (P1) 新建未命名笔记 + 另存为 Save As（当前无文件只能空态等待；Save As 全程未排期，属真实功能缺口；主进程 dialog + 未命名 tab）
+  - Task 2 Minor 清理、Ctrl+S 500ms 竞态（R3 项）、asset magic bytes
 - 建议同流程：superpowers 计划先行 + subagent-driven + TDD；M3 的 Rulings/Ledger 与 AGENTS 两节必读
 
 ## 7. 工作方式约定（沿用）
