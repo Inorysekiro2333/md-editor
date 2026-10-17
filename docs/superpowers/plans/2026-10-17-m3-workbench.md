@@ -234,6 +234,8 @@
 - [ ] **Step 3: commit** `docs: register m3 workbench in api and todo`
 - [ ] **Step 4: Ledger 追加**（每任务 commit + review 结论 + Ruling）。
 
+- Task 4: review complete（inline fallback）— Ruling: 子代理服务 503 不可用，Task 4 评审由主会话 inline 执行（findings：无 Important；Minor：Escape 全局拦截在 modal 打开时也会收起 find 面板，无实际危害）。实测 unit 234/234、source-mode e2e 3/3（R3 回归）、find-replace e2e 1/1。
+
 ## Self-Review
 
 - 覆盖检查：TODO M3 六项 → Task 1（标签/脏/关确认）、Task 2（文件树）、Task 3（大纲）、Task 4（查找替换）、Task 6（会话恢复）、Task 5（外部二选一）；P2 文件树增删改 = v1.1 明确不做；验收「10k<3s」→ Task 2 性能用例 + TODO 实测；「万行滚动」→ 编辑器已惰性渲染为 v1.1 口径，M3 不加卡顿断言（登记说明）。
