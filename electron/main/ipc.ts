@@ -3,7 +3,7 @@ import type { FSWatcher } from 'chokidar'
 import { CHANNELS } from '../shared/channels'
 import { isValidBase64Payload, ASSET_SAVE_MAX_BYTES, DOC_WRITE_MAX_BYTES } from '../shared/base64'
 import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
-import { createFileWatcher } from './watcher'
+import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
 import { join } from 'node:path'
@@ -17,9 +17,16 @@ export function registerIpc(
   confirmClose: () => void,
   hasCliOpen: boolean,
 ): IpcRegistry {
-  let credential: WriteCredential | null = null
-  const watchers = new Map<string, FSWatcher>()
+  const credentials = new Map<string, WriteCredential>()
   let workspaceWatcher: FSWatcher | null = null
+  const fileWatchers = createWatcherRegistry({
+    createWatcher: (path) =>
+      createFileWatcher({
+        path,
+        getCredential: (credentialPath) => credentials.get(credentialPath) ?? null,
+        onChange: (changed) => getWindow()?.webContents.send(CHANNELS.externalModified, changed),
+      }),
+  })
 
   const sessionPath = (): string => join(app.getPath('userData'), 'session.json')
 
@@ -44,7 +51,8 @@ export function registerIpc(
     if (!isValidBase64Payload(bytesBase64, DOC_WRITE_MAX_BYTES)) {
       throw new Error('invalid payload')
     }
-    credential = await writeAtomic(path, Buffer.from(bytesBase64, 'base64'))
+    const credential = await writeAtomic(path, Buffer.from(bytesBase64, 'base64'))
+    credentials.set(path, credential)
     return credential
   })
 
@@ -75,41 +83,34 @@ export function registerIpc(
     if (typeof path !== 'string' || path.length === 0) {
       throw new Error('invalid path')
     }
-    // 同 path 幂等：已存在 watcher 直接返回，避免重复监听。
-    if (watchers.has(path)) return
-    const watcher = await createFileWatcher({
-      path,
-      getCredential: () => credential,
-      onChange: (changed) => getWindow()?.webContents.send(CHANNELS.externalModified, changed),
-    })
-    watchers.set(path, watcher)
+    // 同 path 幂等 + watch/unwatch/openWorkspace 串行，避免异步建/关 watcher 竞态。
+    return fileWatchers.watch(path)
   })
 
   ipcMain.handle(CHANNELS.unwatchFile, async (_event, path: string) => {
     if (typeof path !== 'string' || path.length === 0) {
       throw new Error('invalid path')
     }
-    const watcher = watchers.get(path)
-    if (watcher === undefined) return
-    watchers.delete(path)
-    await watcher.close()
+    return fileWatchers.unwatch(path)
   })
 
   ipcMain.handle(CHANNELS.openWorkspace, async (_event, dir: string) => {
     if (typeof dir !== 'string' || dir.length === 0) {
       throw new Error('invalid path')
     }
-    // 多次 openWorkspace：关旧 watcher 再开新。
-    const previous = workspaceWatcher
-    workspaceWatcher = null
-    if (previous !== null) {
-      await previous.close().catch(() => {})
-    }
-    const tree = await walkWorkspace(dir)
-    getWindow()?.webContents.send(CHANNELS.workspaceTree, tree)
-    workspaceWatcher = await createWorkspaceWatcher({
-      dir,
-      onUpdate: (update) => getWindow()?.webContents.send(CHANNELS.workspaceUpdate, update),
+    return fileWatchers.enqueue(async () => {
+      // 多次 openWorkspace：关旧 watcher 再开新。
+      const previous = workspaceWatcher
+      workspaceWatcher = null
+      if (previous !== null) {
+        await previous.close().catch(() => {})
+      }
+      const tree = await walkWorkspace(dir)
+      getWindow()?.webContents.send(CHANNELS.workspaceTree, tree)
+      workspaceWatcher = await createWorkspaceWatcher({
+        dir,
+        onUpdate: (update) => getWindow()?.webContents.send(CHANNELS.workspaceUpdate, update),
+      })
     })
   })
 
@@ -119,12 +120,12 @@ export function registerIpc(
 
   return {
     async dispose() {
-      const closing = [...watchers.values()].map((watcher) => watcher.close())
-      watchers.clear()
-      const workspace = workspaceWatcher
-      workspaceWatcher = null
-      if (workspace !== null) closing.push(workspace.close())
-      await Promise.all(closing)
+      await fileWatchers.enqueue(async () => {
+        await fileWatchers.closeAll()
+        const workspace = workspaceWatcher
+        workspaceWatcher = null
+        if (workspace !== null) await workspace.close().catch(() => {})
+      })
       ipcMain.removeHandler(CHANNELS.appInfo)
       ipcMain.removeHandler(CHANNELS.docRead)
       ipcMain.removeHandler(CHANNELS.docWrite)

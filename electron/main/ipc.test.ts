@@ -4,7 +4,10 @@ import { CHANNELS } from '../shared/channels'
 const watcherStub = { close: vi.fn(async () => {}) }
 const createFileWatcher = vi.fn(async () => watcherStub)
 
-vi.mock('./watcher', () => ({ createFileWatcher }))
+vi.mock('./watcher', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./watcher')>()
+  return { ...actual, createFileWatcher }
+})
 
 type IpcHandler = (event: unknown, ...payload: unknown[]) => unknown
 const registered = new Map<string, IpcHandler>()

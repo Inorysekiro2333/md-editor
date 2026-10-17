@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { writeAtomic, type WriteCredential } from './fs_io'
-import { createFileWatcher, shouldSuppress } from './watcher'
+import { createFileWatcher, createWatcherRegistry, shouldSuppress } from './watcher'
 
 function credential(overrides: Partial<WriteCredential> = {}): WriteCredential {
   return {
@@ -42,6 +42,55 @@ describe('shouldSuppress', () => {
 
   it('does not suppress when no credential was recorded', () => {
     expect(shouldSuppress(null, 'C:/notes/doc.md', 1, 1, 1)).toBe(false)
+  })
+})
+
+describe('createWatcherRegistry', () => {
+  it('creates only one watcher for concurrent watch calls on the same path', async () => {
+    const created: string[] = []
+    const closed: string[] = []
+    let release!: () => void
+    const registry = createWatcherRegistry({
+      createWatcher: (path) =>
+        new Promise((resolve) => {
+          created.push(path)
+          release = () => {
+            resolve({
+              close: async () => {
+                closed.push(path)
+              },
+            })
+          }
+        }),
+    })
+
+    const first = registry.watch('doc.md')
+    const second = registry.watch('doc.md')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(created).toEqual(['doc.md'])
+
+    release()
+    await Promise.all([first, second])
+    expect(registry.watcherCount()).toBe(1)
+    expect(closed).toEqual([])
+  })
+
+  it('serializes watch, unwatch, and watch operations in arrival order', async () => {
+    const operations: string[] = []
+    const registry = createWatcherRegistry({
+      createWatcher: async (path) => ({
+        close: async () => {
+          operations.push(`close:${path}`)
+        },
+      }),
+    })
+
+    await registry.watch('doc.md').then(() => operations.push('watch:1'))
+    await registry.unwatch('doc.md').then(() => operations.push('unwatch'))
+    await registry.watch('doc.md').then(() => operations.push('watch:2'))
+
+    expect(operations).toEqual(['watch:1', 'close:doc.md', 'unwatch', 'watch:2'])
+    expect(registry.watcherCount()).toBe(1)
   })
 })
 
