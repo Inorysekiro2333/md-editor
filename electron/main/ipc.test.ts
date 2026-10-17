@@ -54,6 +54,19 @@ describe('ipc watcher registry', () => {
     expect(watcherStub.close).toHaveBeenCalledTimes(1)
   })
 
+  it('watchFile and unwatchFile reject non-string or empty paths', async () => {
+    await register()
+    const watch = registered.get(CHANNELS.watchFile) as IpcHandler
+    const unwatch = registered.get(CHANNELS.unwatchFile) as IpcHandler
+
+    for (const handler of [watch, unwatch]) {
+      await expect(handler(null, 42)).rejects.toThrow('invalid path')
+      await expect(handler(null, '')).rejects.toThrow('invalid path')
+    }
+    expect(createFileWatcher).not.toHaveBeenCalled()
+    expect(watcherStub.close).not.toHaveBeenCalled()
+  })
+
   it('dispose closes every remaining watcher', async () => {
     const registry = await register()
     const watch = registered.get(CHANNELS.watchFile) as IpcHandler

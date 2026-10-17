@@ -52,6 +52,22 @@ describe('appStore multi-tab state', () => {
     expect(useAppStore.getState().activeDocId).toBeNull()
   })
 
+  it('closeDoc activates the left neighbor when a middle active tab closes', () => {
+    const a = makeDoc('C:/notes/a.md')
+    const b = makeDoc('C:/notes/b.md')
+    const c = makeDoc('C:/notes/c.md')
+    const store = useAppStore.getState()
+    store.openDoc(a)
+    store.openDoc(b)
+    store.openDoc(c)
+    useAppStore.getState().setActiveDoc(b.id)
+
+    useAppStore.getState().closeDoc(b.id)
+    const state = useAppStore.getState()
+    expect(state.docs.map((doc) => doc.id)).toEqual([a.id, c.id])
+    expect(state.activeDocId).toBe(a.id)
+  })
+
   it('closeDoc keeps the active tab when a background tab closes', () => {
     const a = makeDoc('C:/notes/a.md')
     const b = makeDoc('C:/notes/b.md')

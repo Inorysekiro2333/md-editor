@@ -56,6 +56,9 @@ export function registerIpc(
   )
 
   ipcMain.handle(CHANNELS.watchFile, async (_event, path: string) => {
+    if (typeof path !== 'string' || path.length === 0) {
+      throw new Error('invalid path')
+    }
     // 同 path 幂等：已存在 watcher 直接返回，避免重复监听。
     if (watchers.has(path)) return
     const watcher = await createFileWatcher({
@@ -67,6 +70,9 @@ export function registerIpc(
   })
 
   ipcMain.handle(CHANNELS.unwatchFile, async (_event, path: string) => {
+    if (typeof path !== 'string' || path.length === 0) {
+      throw new Error('invalid path')
+    }
     const watcher = watchers.get(path)
     if (watcher === undefined) return
     watchers.delete(path)

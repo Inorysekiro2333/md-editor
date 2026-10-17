@@ -36,7 +36,8 @@ export const useAppStore = create<AppState>((set) => ({
       if (index === -1) return state
       const docs = state.docs.filter((doc) => doc.id !== id)
       if (state.activeDocId !== id) return { docs }
-      const neighbor = docs[Math.min(index, docs.length - 1)] ?? null
+      // 关活跃 tab 优先激活相邻左侧；已是最左则回落右邻。
+      const neighbor = docs[index - 1] ?? docs[index] ?? null
       return { docs, activeDocId: neighbor?.id ?? null }
     }),
   setActiveDoc: (activeDocId) => set({ activeDocId }),

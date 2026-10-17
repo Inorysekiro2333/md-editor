@@ -239,3 +239,8 @@
 - 覆盖检查：TODO M3 六项 → Task 1（标签/脏/关确认）、Task 2（文件树）、Task 3（大纲）、Task 4（查找替换）、Task 6（会话恢复）、Task 5（外部二选一）；P2 文件树增删改 = v1.1 明确不做；验收「10k<3s」→ Task 2 性能用例 + TODO 实测；「万行滚动」→ 编辑器已惰性渲染为 v1.1 口径，M3 不加卡顿断言（登记说明）。
 - 占位符扫描：唯一「跑后写死」处（Task 3 步骤 1 的 remark 精确偏移、Task 1 步骤 4 的 PM pos）均为实测校准指令而非占位——与 M2 计划先例一致（计划值需以真实 remark/PM 结构为准）。
 - 类型一致性：OpenDoc/closeDoc/unwatchFile、WorkspaceNode/visibleRange、OutlineItem、computeMatches、hasCliOpen 各任务间签名一致；CHANNELS 增量清单唯一。
+
+## Ledger（subagent-driven 执行记录）
+
+- Task 1: complete — commit fc134cd — review fix round 1（见下行）。偏离：关窗守卫退出路径经 `before-quit` → `markQuitting()` 旁路（app.quit 不被守卫拦截）；e2e evaluate 用字面量 `'app:open-file'`（Playwright evaluate 序列化不携带模块引用）。
+- fix round 1: 评审 4 findings — 1 Important 已修（appStore closeDoc 关中间活跃 tab 改激活左邻 index-1，appStore.test.ts 补中间位置用例）；2 Minor 已修（ipc watchFile/unwatchFile 入参 path 非 string/空串干净拒绝 `invalid path` + 单测）；1 Minor parked finding（后台 tab 外部修改事件不分叉处理，仅活跃 tab 生效）留给 Task 5 一并处理。
