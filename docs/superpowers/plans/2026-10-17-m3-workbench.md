@@ -256,3 +256,12 @@
 
 - Task 6: complete — commit b1c2480 — session.ts save/load（路径注入纯测 4 例：往返/缺失 null/损坏 null/>5MB throw，writeAtomic 落盘）+ MdDocument dirty?: boolean init（snapshot text + 磁盘 originalBytes，1 例）+ 接线 CHANNELS sessionSave/sessionLoad、appInfo hasCliOpen（registerIpc 第三参）、preload/bridge/ipc 三处、App 5s interval（仅 dirty 时快照，卸载 clearInterval）+ mount hasCliOpen===false → loadSession → 逐 tab readFile 缺失跳过 / openDoc 去重 / watchFile；e2e session-recovery.spec.ts（固定 userData、6s 快照、close 重启恢复 1 tab + getMarkdown 真值 + 未保存状态）。全量 test 239 passed / typecheck / lint / e2e 42 passed 全绿。偏离：快照 tabs 过滤 path=null 的未命名文档（SessionTabSnapshot.path 类型为 string，restore 语义不受影响）；e2e 期望值由「段末换行追加」改为实际键入语义 originalrecovered（非删断言）。
 - fix round 1 (Task 6): Ruling-7/8 已修 — commit a296309 + 16fb909。Ruling-7：快照失效语义落地 — removeSession IPC（fs.rm force no-op，CHANNELS +1 四处同步）+ App 三触发（interval 全库转干净 ref 门控 / 保存 markSaved 后 / closeDoc 含放弃更改后）+ session.test 2 例 + e2e 放弃关闭 → 重启 0 tab 恢复。Ruling-8 定位结论：测试竞态（非产品 bug）——重挂载后旧闭包 hook 指向已 destroy 的 editor（editorViewCtx not found），expect.poll 遇 throw 直接失败；hook 本身会重绑（多数轮次通过 + 单跑通过）。修法：e2e readMarkdown 捕获 throw 返回 null 让 poll 重试（等待加固，断言语义未放宽），连跑 3 次全绿。Minor：restore 按 snapshot.activePath 激活对应 tab。门禁：unit 241/241 / typecheck / lint / e2e 43/43 全绿。偏离：无。
+
+
+- Task 7: complete — commit 5eb5578 — 文档登记：component-api.md 新增 4.2 节（appStore tabs 契约、WorkspaceNode/visibleRange、OutlineItem/parseOutline/cursor-notify、finder 契约指向 4.0 不重复 ADR-6 登记、M3 新 IPC 通道表 watch:unwatch / workspace:open / workspace:tree / workspace:update / app:close-guard / app:confirm-close / session:save / session:load / session:remove + appInfo.hasCliOpen、快照失效语义、MD_EDITOR_NO_CLOSE_GUARD）并同步 7 节 IPC 表（app:info 加 hasCliOpen、watch:file 语义修正、menu:command 标注 M3 未实现）；TODO.md M3 六项置 [x]（P2 文件树增删改保持 v1.1）、验收记录写入实测数字、当前状态改为 M0–M3 完成下一步 M4；development.md R1 补「查找替换偏离 ADR-6 登记位置」一行。全量门禁：typecheck 0 错误 / lint 全过 / test 241 passed (25 files) / build:app 成功 / e2e 43 passed (1.3m) 全绿。偏离：7 节 IPC 表补行与 prettier 格式化（超出任务字面清单，前者属 component-api 2.1 规则要求，后者属 lint 门禁）；10k walk 口径标注为 workspace 单测实测（非 e2e）。
+
+## 汇总（682db25..HEAD）
+
+- 功能：fc134cd + 2011666（Task 1 多标签/脏标记/关闭确认 + 评审修复）· cd6113a（Task 2 文件树）· 889a8f4（Task 3 大纲）· 4db76bf（Task 4 查找替换）· d7c5440（Task 5 外部修改二选一）· b1c2480（Task 6 会话恢复）· a296309 + 16fb909（Task 6 fix round 1）
+- 文档：682db25（M3 计划）· badda81 / 318e0a7 / 2f30b49 / 3b74c45 / 1798e4a / 1271866 / bac1193 / b1db914（各任务 Ledger）· 5eb5578（Task 7 登记）
+- 最终门禁（Task 7 复核）：typecheck 0 错误 · lint 全过 · unit 241/241 · build:app 成功 · e2e 43/43。
