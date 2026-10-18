@@ -49,3 +49,4 @@ console.log(
   `| 2026-10-15 | <commit> | ${artifact} | ${readyMs}ms | ${totalMb}MB | 未测（M1） | win32；内存=所有进程 workingSetSize 之和 |`,
 )
 if (!Number.isFinite(readyMs)) process.exit(1)
+process.exit(0)
