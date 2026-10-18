@@ -18,6 +18,9 @@ export const CHANNELS = {
   menuCommand: 'app:menu-command',
   saveDialog: 'app:save-dialog',
   toggleFullscreen: 'window:toggle-fullscreen',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  settingsChanged: 'settings:changed',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

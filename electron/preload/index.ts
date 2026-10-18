@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { isAssetExt } from '../shared/asset'
 import { CHANNELS, type MenuCommand } from '../shared/channels'
+import type { AppSettings } from '../shared/settings'
 
 export interface AppInfo {
   version: string
@@ -68,6 +69,9 @@ export interface MdEditorBridge {
   toggleFullscreen(): Promise<void>
   showSaveDialog(defaultName: string): Promise<string | null>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
+  getSettings(): Promise<AppSettings>
+  setSettings(next: AppSettings): Promise<AppSettings>
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
 const bridge: MdEditorBridge = {
@@ -137,6 +141,15 @@ const bridge: MdEditorBridge = {
     ipcRenderer.on(CHANNELS.menuCommand, listener)
     return () => {
       ipcRenderer.removeListener(CHANNELS.menuCommand, listener)
+    }
+  },
+  getSettings: () => ipcRenderer.invoke(CHANNELS.settingsGet) as Promise<AppSettings>,
+  setSettings: (next) => ipcRenderer.invoke(CHANNELS.settingsSet, next) as Promise<AppSettings>,
+  onSettingsChanged: (handler) => {
+    const listener = (_event: unknown, settings: AppSettings): void => handler(settings)
+    ipcRenderer.on(CHANNELS.settingsChanged, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.settingsChanged, listener)
     }
   },
   onCloseGuardRequest: (handler) => {

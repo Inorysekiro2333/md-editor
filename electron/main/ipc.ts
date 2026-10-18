@@ -8,6 +8,8 @@ import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
 import { toggleFullscreen } from './menu'
 import { showSaveDialog } from './dialogs'
+import { loadSettings, saveSettings } from './settings'
+import { mergeSettings } from '../shared/settings'
 import { join } from 'node:path'
 
 export interface IpcRegistry {
@@ -126,6 +128,17 @@ export function registerIpc(
     toggleFullscreen(getWindow())
   })
 
+  const settingsPath = (): string => join(app.getPath('userData'), 'settings.json')
+
+  ipcMain.handle(CHANNELS.settingsGet, () => loadSettings(settingsPath()))
+
+  ipcMain.handle(CHANNELS.settingsSet, (_event, next: unknown) => {
+    const effective = mergeSettings(next)
+    saveSettings(effective, settingsPath())
+    getWindow()?.webContents.send(CHANNELS.settingsChanged, effective)
+    return effective
+  })
+
   return {
     async dispose() {
       await fileWatchers.enqueue(async () => {
@@ -147,6 +160,8 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.sessionRemove)
       ipcMain.removeHandler(CHANNELS.toggleFullscreen)
       ipcMain.removeHandler(CHANNELS.saveDialog)
+      ipcMain.removeHandler(CHANNELS.settingsGet)
+      ipcMain.removeHandler(CHANNELS.settingsSet)
     },
   }
 }

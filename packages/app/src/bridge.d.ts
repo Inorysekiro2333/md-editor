@@ -1,4 +1,5 @@
 import type { FileContent, MdEditorBridge, WriteCredential } from './bridge'
+import type { AppSettings } from '../../electron/shared/settings'
 
 export interface AppInfo {
   version: string
@@ -66,6 +67,9 @@ export interface MdEditorBridge {
   toggleFullscreen(): Promise<void>
   showSaveDialog(defaultName: string): Promise<string | null>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
+  getSettings(): Promise<AppSettings>
+  setSettings(next: AppSettings): Promise<AppSettings>
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
 export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf'

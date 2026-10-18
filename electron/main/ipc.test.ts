@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { join } from 'node:path'
 import { CHANNELS } from '../shared/channels'
 
 const watcherStub = { close: vi.fn(async () => {}) }
@@ -13,7 +14,7 @@ type IpcHandler = (event: unknown, ...payload: unknown[]) => unknown
 const registered = new Map<string, IpcHandler>()
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => '0.0.0' },
+  app: { getVersion: () => '0.0.0', getPath: () => 'C:/userData' },
   ipcMain: {
     handle: (channel: string, handler: IpcHandler) => {
       registered.set(channel, handler)
@@ -29,6 +30,13 @@ const windowStub = { webContents: { send: vi.fn() } }
 const saveDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
 
 vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock }))
+
+const settingsMocks = vi.hoisted(() => ({
+  loadSettings: vi.fn(),
+  saveSettings: vi.fn(),
+}))
+
+vi.mock('./settings', () => settingsMocks)
 
 async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc>> {
   const { registerIpc } = await import('./ipc')
@@ -129,5 +137,49 @@ describe('ipc fullscreen channel', () => {
     handler(null)
     expect(full).toBe(false)
     expect(windowStub.webContents.send).not.toHaveBeenCalledWith(CHANNELS.toggleFullscreen)
+  })
+})
+
+describe('ipc settings channels', () => {
+  it('settingsGet loads settings from the userData path', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.settingsGet) as IpcHandler
+    expect(handler).toBeDefined()
+
+    const stored = { themeId: 'github-dark', export: { pdf: { printBackground: true } } }
+    settingsMocks.loadSettings.mockReturnValue(stored)
+    expect(handler(null)).toEqual(stored)
+    expect(settingsMocks.loadSettings).toHaveBeenCalledWith(join('C:/userData', 'settings.json'))
+  })
+
+  it('settingsSet merges whitelist fields, saves, broadcasts and returns the effective value', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.settingsSet) as IpcHandler
+    expect(handler).toBeDefined()
+
+    const effective = { themeId: 'paper-serif', export: { pdf: { printBackground: true } } }
+    settingsMocks.saveSettings.mockImplementation(() => {})
+    const result = await handler(null, { themeId: 'paper-serif', rogue: 1 })
+    expect(result).toEqual(effective)
+    expect(settingsMocks.saveSettings).toHaveBeenCalledWith(
+      effective,
+      join('C:/userData', 'settings.json'),
+    )
+    expect(windowStub.webContents.send).toHaveBeenCalledWith(CHANNELS.settingsChanged, effective)
+  })
+
+  it('dispose removes settings handlers', async () => {
+    await register()
+    const registry = await (async () => {
+      const { registerIpc } = await import('./ipc')
+      return registerIpc(
+        () => windowStub as never,
+        () => {},
+        false,
+      )
+    })()
+    await registry.dispose()
+    expect(registered.has(CHANNELS.settingsGet)).toBe(false)
+    expect(registered.has(CHANNELS.settingsSet)).toBe(false)
   })
 })
