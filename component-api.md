@@ -586,3 +586,11 @@ export function themeCss(id: ThemeId): string
 | `settings:changed`         | 主 → 渲染 | `AppSettings`                                                        | `settings:set` 生效后广播（M4 已实现）                                                              |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。
+
+## 8. 自动更新（`electron/main/updater.ts`）
+
+`initUpdater(getWindow: () => BrowserWindow | null, deps?: Partial<UpdaterDeps>): void`
+
+- `UpdaterDeps = { autoUpdater: AppUpdater; setTimeoutFn: typeof setTimeout; logger: (msg: string) => void }`，全部可注入以便单测。
+- 行为：`!app.isPackaged` 或 `MD_EDITOR_DISABLE_UPDATER=1` 时不注册任何监听、不联网；否则启动 10s 后 `checkForUpdates()` 一次；`update-downloaded` 时弹原生 dialog「重启安装 / 稍后」，确认（buttonIndex 0）→ `quitAndInstall()`。
+- 主进程内闭环：渲染进程零新 IPC，v1 更新交互只走原生 dialog；`electron-updater` 仅在 `electron/main/index.ts` 接线处 import，renderer 不感知。
