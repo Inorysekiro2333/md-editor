@@ -50,6 +50,7 @@ export function registerIpc(
   ipcMain.handle(CHANNELS.appInfo, () => ({
     version: app.getVersion(),
     electron: process.versions.electron ?? '',
+    chromium: process.versions.chrome ?? '',
     hasCliOpen,
   }))
 

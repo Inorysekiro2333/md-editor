@@ -10,7 +10,12 @@ import type {
 } from './bridge'
 
 export interface Ipc {
-  getAppInfo(): Promise<{ version: string; electron: string; hasCliOpen: boolean }>
+  getAppInfo(): Promise<{
+    version: string
+    electron: string
+    chromium: string
+    hasCliOpen: boolean
+  }>
   saveSession(payload: string): Promise<void>
   loadSession(): Promise<SessionSnapshot | null>
   removeSession(): Promise<void>

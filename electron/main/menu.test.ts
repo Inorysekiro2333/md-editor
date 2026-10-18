@@ -44,6 +44,7 @@ describe('menu template', () => {
       ['menu-save-as', 'save-as'],
       ['menu-export-pdf', 'export-pdf'],
       ['menu-export-html', 'export-html'],
+      ['menu-about', 'about'],
     ]
     for (const [id, cmd] of cases) {
       const item = findItem(template, id)

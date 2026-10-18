@@ -19,6 +19,7 @@ import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
 import { useCaptureKeydown } from './ui/useCaptureKeydown'
 import { SettingsPanel } from './ui/SettingsPanel'
+import { AboutDialog } from './ui/AboutDialog'
 import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
@@ -125,6 +126,7 @@ export function App() {
   const [findOpen, setFindOpen] = useState(false)
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
@@ -132,6 +134,7 @@ export function App() {
   const [info, setInfo] = useState<{
     version: string
     electron: string
+    chromium: string
     hasCliOpen: boolean
   } | null>(null)
   const [workspaceNodes, setWorkspaceNodes] = useState<WorkspaceNode[] | null>(null)
@@ -648,6 +651,8 @@ export function App() {
         void exportPdfFromMenu()
       } else if (cmd === 'export-html') {
         void exportHtmlFromMenu()
+      } else if (cmd === 'about') {
+        setAboutOpen(true)
       }
     })
     return unsubscribe
@@ -860,9 +865,6 @@ export function App() {
           onReplaceAll={replaceRange}
         />
       ) : null}
-      <p data-testid="app-info">
-        {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
-      </p>
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
       <div className="main-row">
         <aside className="sidebar">
@@ -959,6 +961,14 @@ export function App() {
           cancelLabel="保留我的修改"
           onConfirm={confirmExternalReload}
           onCancel={cancelExternalKeep}
+        />
+      ) : null}
+      {aboutOpen && info !== null ? (
+        <AboutDialog
+          version={info.version}
+          electron={info.electron}
+          chromium={info.chromium}
+          onClose={() => setAboutOpen(false)}
         />
       ) : null}
       {settingsOpen && settings !== null ? (

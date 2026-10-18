@@ -63,7 +63,7 @@ test('menu open-dir command loads the workspace file tree', async () => {
   })
   try {
     const window = await app.firstWindow()
-    await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+    await expect(window.locator('[data-testid="status"]')).toBeVisible()
     await app.evaluate(({ dialog }, targetDir) => {
       const stub = dialog as unknown as {
         showOpenDialog: (options?: unknown) => Promise<{ canceled: boolean; filePaths: string[] }>

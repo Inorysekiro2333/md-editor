@@ -77,6 +77,15 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
         },
       ],
     },
-    { label: '帮助', submenu: [{ role: 'about' }] },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          id: 'menu-about',
+          label: '关于 md-editor',
+          click: clickFor(deps, 'about'),
+        },
+      ],
+    },
   ]
 }

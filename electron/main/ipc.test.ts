@@ -68,6 +68,24 @@ describe('ipc open dialog channel', () => {
   })
 })
 
+describe('ipc app info channel', () => {
+  it('returns app version plus electron/chromium versions', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.appInfo) as IpcHandler
+    expect(handler).toBeDefined()
+    const info = (await handler(null)) as {
+      version: string
+      electron: string
+      chromium: string
+      hasCliOpen: boolean
+    }
+    expect(info).toMatchObject({ version: '0.0.0' })
+    expect(typeof info.electron).toBe('string')
+    expect(typeof info.chromium).toBe('string')
+    expect(info.hasCliOpen).toBe(false)
+  })
+})
+
 describe('ipc watcher registry', () => {
   beforeEach(() => {
     registered.clear()

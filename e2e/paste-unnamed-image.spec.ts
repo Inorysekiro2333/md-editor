@@ -38,7 +38,7 @@ test('pasting an image into an untitled note embeds a data uri, saves and export
     env: { ...process.env, MD_EDITOR_USER_DATA: userData },
   })
   const window = await app.firstWindow()
-  await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+  await expect(window.locator('[data-testid="status"]')).toBeVisible()
 
   await clickMenuItem(app, 'menu-new-note')
   await expect(window.locator('[data-testid="tab"]', { hasText: '未命名.md' })).toHaveCount(1)

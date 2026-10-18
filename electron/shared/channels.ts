@@ -31,4 +31,4 @@ export const CHANNELS = {
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]
 
 export type MenuCommand =
-  'new-note' | 'open' | 'open-dir' | 'save-as' | 'export-pdf' | 'export-html'
+  'new-note' | 'open' | 'open-dir' | 'save-as' | 'export-pdf' | 'export-html' | 'about'

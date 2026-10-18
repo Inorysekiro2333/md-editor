@@ -6,6 +6,7 @@ import type { AppSettings } from '../shared/settings'
 export interface AppInfo {
   version: string
   electron: string
+  chromium: string
   hasCliOpen: boolean
 }
 

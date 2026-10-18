@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 interface MdEditorApi {
-  getAppInfo(): Promise<{ version: string; electron: string }>
+  getAppInfo(): Promise<{ version: string; electron: string; chromium: string }>
 }
 
 test('opens a window with the preload bridge and no node access', async () => {
@@ -30,8 +30,7 @@ test('opens a window with the preload bridge and no node access', async () => {
     (window as unknown as { mdEditor: MdEditorApi }).mdEditor.getAppInfo(),
   )
   expect(appInfo.electron).toBe('44.7.2')
-
-  await expect(window.locator('[data-testid="app-info"]')).toContainText('Electron')
+  expect(appInfo.chromium).toMatch(/^\d+\./)
 
   await app.close()
 })

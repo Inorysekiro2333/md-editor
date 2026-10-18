@@ -9,7 +9,7 @@ test('settings panel switches theme and updates data-theme', async () => {
     env: { ...process.env, MD_EDITOR_USER_DATA: mkdtempSync(join(tmpdir(), 'md-editor-e2e-')) },
   })
   const window = await app.firstWindow()
-  await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+  await expect(window.locator('[data-testid="status"]')).toBeVisible()
 
   await window.getByTestId('open-settings').click()
   await expect(window.getByTestId('theme-github-light')).toBeVisible()
