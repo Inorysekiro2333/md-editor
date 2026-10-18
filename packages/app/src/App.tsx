@@ -8,6 +8,7 @@ import {
 } from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyTheme } from '@md-editor/theming'
+import { markdownToHtml } from '@md-editor/export'
 import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
@@ -50,6 +51,12 @@ function tabTitle(path: string | null): string {
   if (path === null) return '未命名.md'
   const segments = path.split(/[\\/]/)
   return segments[segments.length - 1] ?? path
+}
+
+const PDF_SAVE_FILTERS = [{ name: 'PDF', extensions: ['pdf'] }]
+
+function pdfExportName(path: string | null): string {
+  return `${tabTitle(path).replace(/\.(md|markdown)$/i, '')}.pdf`
 }
 
 export function App() {
@@ -304,6 +311,35 @@ export function App() {
     }
   }, [invalidateSnapshotIfClean])
 
+  const exportPdfFromMenu = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(pdfExportName(current.path), PDF_SAVE_FILTERS, '导出 PDF')
+    } catch (error) {
+      console.error('[app] export pdf dialog failed', error)
+      setStatus('导出 PDF 失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消导出 PDF')
+      return
+    }
+    try {
+      // TODO(Task 7): 改用 buildStandaloneHtml 产出（主题 CSS / 图片内联 / CSP meta）。
+      const html = await markdownToHtml(current.text)
+      await ipc.exportPdf(chosen, html)
+      setStatus(`已导出 PDF ${chosen}`)
+    } catch (error) {
+      console.error('[app] export pdf failed', error)
+      setStatus('导出 PDF 失败，请重试')
+    }
+  }, [])
+
   const save = useCallback(async () => {
     const state = useAppStore.getState()
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
@@ -491,16 +527,18 @@ export function App() {
   }, [openFile])
 
   useEffect(() => {
-    // 原生菜单命令通道：new-note / save-as 本任务接线；open / export-pdf 由后续任务消费。
+    // 原生菜单命令通道：new-note / save-as / export-pdf 接线；open 由后续任务消费。
     const unsubscribe = ipc.onMenuCommand((cmd) => {
       if (cmd === 'new-note') {
         newNote()
       } else if (cmd === 'save-as') {
         void saveAs()
+      } else if (cmd === 'export-pdf') {
+        void exportPdfFromMenu()
       }
     })
     return unsubscribe
-  }, [newNote, saveAs])
+  }, [newNote, saveAs, exportPdfFromMenu])
 
   useEffect(() => {
     const unsubscribe = ipc.onExternalModified((path) => {
@@ -622,6 +660,15 @@ export function App() {
       if (prev === null) return prev
       void ipc.setSettings({ ...prev, themeId }).then((next) => setSettingsState(next))
       return { ...prev, themeId }
+    })
+  }, [])
+
+  const changePrintBackground = useCallback((printBackground: boolean) => {
+    setSettingsState((prev) => {
+      if (prev === null) return prev
+      const next = { ...prev, export: { pdf: { printBackground } } }
+      void ipc.setSettings(next).then((effective) => setSettingsState(effective))
+      return next
     })
   }, [])
 
@@ -802,6 +849,7 @@ export function App() {
           initialTheme={settings.themeId}
           printBackground={settings.export.pdf.printBackground}
           onChangeTheme={changeTheme}
+          onChangePrintBackground={changePrintBackground}
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}

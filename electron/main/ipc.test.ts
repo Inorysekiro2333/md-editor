@@ -31,6 +31,10 @@ const saveDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Prom
 
 vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock }))
 
+const exportPdfMock = vi.hoisted(() => vi.fn())
+
+vi.mock('./exporter', () => ({ exportPdfTo: exportPdfMock }))
+
 const settingsMocks = vi.hoisted(() => ({
   loadSettings: vi.fn(),
   saveSettings: vi.fn(),
@@ -110,7 +114,7 @@ describe('ipc save dialog channel', () => {
 
     saveDialogMock.mockResolvedValueOnce('C:/out/kept.md')
     await expect(handler(null, '未命名.md')).resolves.toBe('C:/out/kept.md')
-    expect(saveDialogMock).toHaveBeenCalledWith('未命名.md')
+    expect(saveDialogMock).toHaveBeenCalledWith('未命名.md', undefined, undefined)
 
     await registry.dispose()
     expect(registered.has(CHANNELS.saveDialog)).toBe(false)
@@ -181,5 +185,24 @@ describe('ipc settings channels', () => {
     await registry.dispose()
     expect(registered.has(CHANNELS.settingsGet)).toBe(false)
     expect(registered.has(CHANNELS.settingsSet)).toBe(false)
+  })
+})
+
+describe('ipc export pdf channel', () => {
+  it('delegates to exportPdfTo with the userData settings path and dispose removes the handler', async () => {
+    const registry = await register()
+    const handler = registered.get(CHANNELS.exportPdf) as IpcHandler
+    expect(handler).toBeDefined()
+
+    exportPdfMock.mockResolvedValueOnce('C:/out/doc.pdf')
+    await expect(handler(null, 'C:/out/doc.pdf', '<p>hi</p>')).resolves.toBe('C:/out/doc.pdf')
+    expect(exportPdfMock).toHaveBeenCalledWith({
+      targetPath: 'C:/out/doc.pdf',
+      html: '<p>hi</p>',
+      settingsPath: join('C:/userData', 'settings.json'),
+    })
+
+    await registry.dispose()
+    expect(registered.has(CHANNELS.exportPdf)).toBe(false)
   })
 })

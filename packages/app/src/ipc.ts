@@ -28,7 +28,12 @@ export interface Ipc {
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
   toggleFullscreen(): Promise<void>
-  showSaveDialog(defaultName: string): Promise<string | null>
+  showSaveDialog(
+    defaultName: string,
+    filters?: Array<{ name: string; extensions: string[] }>,
+    title?: string,
+  ): Promise<string | null>
+  exportPdf(targetPath: string, html?: string): Promise<string>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
   getSettings(): Promise<AppSettings>
   setSettings(next: AppSettings): Promise<AppSettings>
@@ -55,7 +60,9 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     onOpenFile: (handler) => bridge.onOpenFile(handler),
     onCloseGuardRequest: (handler) => bridge.onCloseGuardRequest(handler),
     toggleFullscreen: () => bridge.toggleFullscreen(),
-    showSaveDialog: (defaultName) => bridge.showSaveDialog(defaultName),
+    showSaveDialog: (defaultName, filters, title) =>
+      bridge.showSaveDialog(defaultName, filters, title),
+    exportPdf: (targetPath, html) => bridge.exportPdf(targetPath, html),
     onMenuCommand: (handler) => bridge.onMenuCommand(handler),
     getSettings: () => bridge.getSettings(),
     setSettings: (next) => bridge.setSettings(next),

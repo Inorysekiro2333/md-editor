@@ -7,8 +7,9 @@ import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
 import { toggleFullscreen } from './menu'
-import { showSaveDialog } from './dialogs'
+import { showSaveDialog, type SaveDialogFilter } from './dialogs'
 import { loadSettings, saveSettings } from './settings'
+import { exportPdfTo } from './exporter'
 import { mergeSettings } from '../shared/settings'
 import { join } from 'node:path'
 
@@ -122,7 +123,11 @@ export function registerIpc(
     confirmClose()
   })
 
-  ipcMain.handle(CHANNELS.saveDialog, (_event, defaultName: string) => showSaveDialog(defaultName))
+  ipcMain.handle(
+    CHANNELS.saveDialog,
+    (_event, defaultName: string, filters?: SaveDialogFilter[], title?: string) =>
+      showSaveDialog(defaultName, filters, title),
+  )
 
   ipcMain.handle(CHANNELS.toggleFullscreen, () => {
     toggleFullscreen(getWindow())
@@ -138,6 +143,10 @@ export function registerIpc(
     getWindow()?.webContents.send(CHANNELS.settingsChanged, effective)
     return effective
   })
+
+  ipcMain.handle(CHANNELS.exportPdf, async (_event, targetPath: string, html?: string) =>
+    exportPdfTo({ targetPath, html, settingsPath: settingsPath() }),
+  )
 
   return {
     async dispose() {
@@ -162,6 +171,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.saveDialog)
       ipcMain.removeHandler(CHANNELS.settingsGet)
       ipcMain.removeHandler(CHANNELS.settingsSet)
+      ipcMain.removeHandler(CHANNELS.exportPdf)
     },
   }
 }

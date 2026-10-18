@@ -10,6 +10,7 @@ interface SettingsPanelProps {
   initialTheme: ThemeId
   printBackground: boolean
   onChangeTheme(theme: ThemeId): void
+  onChangePrintBackground(printBackground: boolean): void
   onClose(): void
 }
 
@@ -17,6 +18,7 @@ export function SettingsPanel({
   initialTheme,
   printBackground,
   onChangeTheme,
+  onChangePrintBackground,
   onClose,
 }: SettingsPanelProps) {
   return (
@@ -41,14 +43,13 @@ export function SettingsPanel({
         <fieldset className="settings-group">
           <legend>导出</legend>
           <label className="settings-option">
-            {/* M4 后续任务接线 printToPDF；当前为占位展示 */}
             <input
               type="checkbox"
               checked={printBackground}
-              disabled
+              onChange={(event) => onChangePrintBackground(event.target.checked)}
               data-testid="pdf-print-background"
             />
-            导出 PDF 包含背景（占位）
+            导出 PDF 包含背景
           </label>
         </fieldset>
         <div className="modal-actions">

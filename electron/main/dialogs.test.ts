@@ -52,6 +52,17 @@ describe('showSaveDialog', () => {
     )
   })
 
+  it('passes pdf filters and dialog title through', async () => {
+    mocks.showSaveDialog.mockResolvedValue({ canceled: true, filePath: '' })
+    await showSaveDialog('note.pdf', [{ name: 'PDF', extensions: ['pdf'] }], '导出 PDF')
+    expect(mocks.showSaveDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: '导出 PDF',
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      }),
+    )
+  })
+
   it('strips path separators from the default name', async () => {
     mocks.showSaveDialog.mockResolvedValue({ canceled: true, filePath: '' })
     await showSaveDialog('a/b\\c.md')

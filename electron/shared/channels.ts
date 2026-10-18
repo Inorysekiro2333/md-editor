@@ -21,6 +21,7 @@ export const CHANNELS = {
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
   settingsChanged: 'settings:changed',
+  exportPdf: 'app:export-pdf',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]

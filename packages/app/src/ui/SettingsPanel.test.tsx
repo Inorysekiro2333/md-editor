@@ -13,6 +13,7 @@ describe('SettingsPanel', () => {
     theme: ThemeId
     printBackground: boolean
     onChangeTheme: (theme: ThemeId) => void
+    onChangePrintBackground: (printBackground: boolean) => void
     onClose: () => void
   }): void => {
     root = createRoot(container)
@@ -22,6 +23,7 @@ describe('SettingsPanel', () => {
           initialTheme={props.theme}
           printBackground={props.printBackground}
           onChangeTheme={props.onChangeTheme}
+          onChangePrintBackground={props.onChangePrintBackground}
           onClose={props.onClose}
         />,
       )
@@ -50,7 +52,13 @@ describe('SettingsPanel', () => {
   it('renders three theme radios and switches theme on selection', () => {
     const onChangeTheme = vi.fn()
     const onClose = vi.fn()
-    render({ theme: 'github-light', printBackground: true, onChangeTheme, onClose })
+    render({
+      theme: 'github-light',
+      printBackground: true,
+      onChangeTheme,
+      onChangePrintBackground: vi.fn(),
+      onClose,
+    })
 
     const dark = document.querySelector<HTMLInputElement>('input[data-testid="theme-github-dark"]')
     expect(dark).not.toBeNull()
@@ -65,17 +73,24 @@ describe('SettingsPanel', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('shows export pdf printBackground as a disabled placeholder', () => {
+  it('toggles pdf printBackground and reports the new value', () => {
+    const onChangePrintBackground = vi.fn()
     render({
       theme: 'paper-serif',
       printBackground: false,
       onChangeTheme: vi.fn(),
+      onChangePrintBackground,
       onClose: vi.fn(),
     })
     const toggle = document.querySelector<HTMLInputElement>(
       'input[data-testid="pdf-print-background"]',
     )
-    expect(toggle?.disabled).toBe(true)
+    expect(toggle?.disabled).toBe(false)
     expect(toggle?.checked).toBe(false)
+
+    act(() => {
+      toggle!.click()
+    })
+    expect(onChangePrintBackground).toHaveBeenCalledWith(true)
   })
 })
