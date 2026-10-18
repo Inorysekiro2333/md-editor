@@ -55,12 +55,7 @@ export const editorTripleStarGuard = new Plugin({
       const $from = state.doc.resolve(from)
       const $to = state.doc.resolve(to)
       if (!$from.sameParent($to) || !$from.parent.isTextblock) return false
-      const before = $from.parent.textBetween(
-        Math.max(0, $from.parentOffset - 200),
-        $from.parentOffset,
-        undefined,
-        '\uFFFC',
-      )
+      const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '\uFFFC')
       const match = /\*\*\*([^*]+?)\*\*$/.exec(before + text)
       if (!match || !match[1].trim()) return false
       if (rangeHasCodeMark(state, from, to) || typedCharInCodeSpan(state, to)) return false

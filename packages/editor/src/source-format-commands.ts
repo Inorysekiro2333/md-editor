@@ -84,8 +84,22 @@ export function runSourceFormatCommand(
     case 'blockquote':
       return togglePrefix(/^\s*>\s+/, '> ')
     case 'insertTable': {
-      const rows = Math.min(8, Math.max(1, Math.floor(args?.rows ?? 3)))
-      const cols = Math.min(8, Math.max(1, Math.floor(args?.cols ?? 3)))
+      const rowsArg = args?.rows
+      const colsArg = args?.cols
+      const rows = Math.min(
+        8,
+        Math.max(
+          1,
+          Math.floor(typeof rowsArg === 'number' && Number.isFinite(rowsArg) ? rowsArg : 3),
+        ),
+      )
+      const cols = Math.min(
+        8,
+        Math.max(
+          1,
+          Math.floor(typeof colsArg === 'number' && Number.isFinite(colsArg) ? colsArg : 3),
+        ),
+      )
       const table = [
         `|${'  |'.repeat(cols)}`,
         `|${' --- |'.repeat(cols)}`,

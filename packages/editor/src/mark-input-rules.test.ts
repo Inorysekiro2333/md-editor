@@ -70,6 +70,11 @@ describe('mark input rules (typed, not pasted)', () => {
     const md = await typeAfter('', '***粗斜***')
     expect(md).toBe('***粗斜***\n')
   })
+
+  it('triple-star bold-italic with opening delimiter beyond 200 chars still triggers', async () => {
+    const md = await typeAfter('a'.repeat(250), '***x***')
+    expect(md).toBe('a'.repeat(250) + '***x***\n')
+  })
   it('triple-star does not trigger inside inline-code span', async () => {
     const md = await typeAfter('`code', '***xx***')
     expect(md).toBe(String.fromCharCode(92) + '`code***xx***\n')

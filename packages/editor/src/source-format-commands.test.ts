@@ -70,4 +70,19 @@ describe('runSourceFormatCommand', () => {
     )
     cleanup()
   })
+
+  it('falls back to 3x3 when table args are NaN or Infinity', () => {
+    const { view, cleanup } = createView('x')
+    view.dispatch({ selection: EditorSelection.cursor(1) })
+    expect(
+      runSourceFormatCommand(view, 'insertTable', {
+        rows: Number.NaN,
+        cols: Number.POSITIVE_INFINITY,
+      }),
+    ).toBe(true)
+    expect(view.state.doc.toString()).toBe(
+      'x|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |',
+    )
+    cleanup()
+  })
 })
