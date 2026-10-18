@@ -53,7 +53,7 @@ pnpm theme:check    # 主题规范校验
 ```
 
 技术栈：Electron 44 + React 18 + TypeScript + Milkdown 7（ProseMirror/remark）+ CodeMirror 6。
-架构与设计决策见 [architecture.md](architecture.md)，开发规范见 [development.md](development.md)。
+架构与设计决策、开发规范见仓库内部文档（不入库）。
 
 ## 路线图
 
