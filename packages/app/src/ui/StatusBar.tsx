@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 /** M5.x 底部状态栏：左=未保存标记 + 最近状态消息；右=编辑模式切换 + 设置入口。 */
 export function StatusBar(props: {
   status: string
@@ -10,24 +12,24 @@ export function StatusBar(props: {
   return (
     <footer className="statusbar">
       <span data-testid="status">
-        {dirty ? '未保存 · ' : ''}
+        {dirty ? `${t('dirty')} · ` : ''}
         {status}
       </span>
       <span className="statusbar-right">
         <button
           type="button"
           data-testid="mode-toggle"
-          title={mode === 'wysiwyg' ? '切换到源码模式' : '切换到所见即所得'}
+          title={mode === 'wysiwyg' ? t('toggleToSource') : t('toggleToWysiwyg')}
           onClick={onToggleMode}
         >
-          {mode === 'wysiwyg' ? '所见即所得' : '源码'}
+          {mode === 'wysiwyg' ? t('modeWysiwyg') : t('modeSource')}
         </button>
         <button
           type="button"
           data-testid="open-settings"
           className="statusbar-gear"
-          aria-label="设置"
-          title="设置"
+          aria-label={t('settings')}
+          title={t('settings')}
           onClick={onOpenSettings}
         >
           <svg

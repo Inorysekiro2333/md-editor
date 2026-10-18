@@ -1,9 +1,10 @@
 import { THEME_IDS, type ThemeId } from '@md-editor/theming'
+import { t } from '../i18n'
 
 const THEME_LABELS: Record<ThemeId, string> = {
-  'github-light': 'GitHub 浅色',
-  'github-dark': 'GitHub 深色',
-  'paper-serif': '纸感衬线',
+  'github-light': t('themeGithubLight'),
+  'github-dark': t('themeGithubDark'),
+  'paper-serif': t('themePaperSerif'),
 }
 
 interface SettingsPanelProps {
@@ -23,10 +24,15 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   return (
     <div className="modal-backdrop" data-testid="settings-backdrop">
-      <div className="modal settings-panel" role="dialog" aria-modal="true" aria-label="设置">
-        <p className="modal-message">设置</p>
+      <div
+        className="modal settings-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('settingsTitle')}
+      >
+        <p className="modal-message">{t('settingsTitle')}</p>
         <fieldset className="settings-group">
-          <legend>主题</legend>
+          <legend>{t('settingsTheme')}</legend>
           {THEME_IDS.map((id) => (
             <label key={id} className="settings-option">
               <input
@@ -41,7 +47,7 @@ export function SettingsPanel({
           ))}
         </fieldset>
         <fieldset className="settings-group">
-          <legend>导出</legend>
+          <legend>{t('settingsExport')}</legend>
           <label className="settings-option">
             <input
               type="checkbox"
@@ -49,12 +55,12 @@ export function SettingsPanel({
               onChange={(event) => onChangePrintBackground(event.target.checked)}
               data-testid="pdf-print-background"
             />
-            导出 PDF 包含背景
+            {t('settingsPdfBackground')}
           </label>
         </fieldset>
         <div className="modal-actions">
           <button type="button" data-testid="settings-close" onClick={onClose}>
-            关闭
+            {t('close')}
           </button>
         </div>
       </div>

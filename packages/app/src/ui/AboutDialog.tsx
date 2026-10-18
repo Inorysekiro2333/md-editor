@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+
 interface AboutDialogProps {
   version: string
   electron: string
@@ -12,12 +14,12 @@ export function AboutDialog({ version, electron, chromium, onClose }: AboutDialo
         className="modal settings-panel"
         role="dialog"
         aria-modal="true"
-        aria-label="关于 md-editor"
+        aria-label={t('aboutTitle')}
       >
-        <p className="modal-message">关于 md-editor</p>
+        <p className="modal-message">{t('aboutTitle')}</p>
         <dl className="settings-group" data-testid="about-info">
           <div className="settings-option">
-            <dt>版本</dt>
+            <dt>{t('aboutVersion')}</dt>
             <dd data-testid="about-version">{version}</dd>
           </div>
           <div className="settings-option">
@@ -31,7 +33,7 @@ export function AboutDialog({ version, electron, chromium, onClose }: AboutDialo
         </dl>
         <div className="modal-actions">
           <button type="button" data-testid="about-close" onClick={onClose}>
-            关闭
+            {t('close')}
           </button>
         </div>
       </div>

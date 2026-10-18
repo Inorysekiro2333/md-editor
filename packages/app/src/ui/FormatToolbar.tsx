@@ -1,5 +1,6 @@
 import type { FormatCommandName } from '@md-editor/editor'
 import { useState } from 'react'
+import { t } from '../i18n'
 
 interface FormatButton {
   name: FormatCommandName
@@ -11,28 +12,40 @@ interface FormatButton {
 
 const BUTTONS: FormatButton[][] = [
   [
-    { name: 'bold', label: '加粗', shortcut: 'Ctrl+B', glyph: 'B', glyphClass: 'glyph-bold' },
-    { name: 'italic', label: '斜体', shortcut: 'Ctrl+I', glyph: 'I', glyphClass: 'glyph-italic' },
+    {
+      name: 'bold',
+      label: t('formatBold'),
+      shortcut: 'Ctrl+B',
+      glyph: 'B',
+      glyphClass: 'glyph-bold',
+    },
+    {
+      name: 'italic',
+      label: t('formatItalic'),
+      shortcut: 'Ctrl+I',
+      glyph: 'I',
+      glyphClass: 'glyph-italic',
+    },
     {
       name: 'strikethrough',
-      label: '删除线',
+      label: t('formatStrike'),
       shortcut: 'Ctrl+Shift+X',
       glyph: 'S',
       glyphClass: 'glyph-strike',
     },
     {
       name: 'inlineCode',
-      label: '行内代码',
+      label: t('formatInlineCode'),
       shortcut: 'Ctrl+E',
       glyph: '<>',
       glyphClass: 'glyph-mono',
     },
   ],
   [
-    { name: 'orderedList', label: '有序列表', glyph: '1.' },
-    { name: 'bulletList', label: '无序列表', glyph: '•' },
-    { name: 'blockquote', label: '引用', glyph: '❝' },
-    { name: 'insertTable', label: '插入表格', glyph: '▦' },
+    { name: 'orderedList', label: t('formatOrderedList'), glyph: '1.' },
+    { name: 'bulletList', label: t('formatBulletList'), glyph: '•' },
+    { name: 'blockquote', label: t('formatBlockquote'), glyph: '❝' },
+    { name: 'insertTable', label: t('formatInsertTable'), glyph: '▦' },
   ],
 ]
 
@@ -51,7 +64,7 @@ export function FormatToolbar(props: {
     <div
       className="format-toolbar"
       role="toolbar"
-      aria-label="格式工具栏"
+      aria-label={t('formatToolbar')}
       data-testid="format-toolbar"
     >
       {BUTTONS.map((group, groupIndex) => (
@@ -75,8 +88,8 @@ export function FormatToolbar(props: {
           {groupIndex === 0 ? (
             <select
               className="format-toolbar-heading"
-              aria-label="标题级别"
-              title="标题级别 (H1–H3)"
+              aria-label={t('headingLevel')}
+              title={t('headingLevelTitle')}
               data-testid="heading-select"
               value={heading}
               disabled={disabled}
@@ -86,7 +99,7 @@ export function FormatToolbar(props: {
                 if (value === 'h1' || value === 'h2' || value === 'h3') onCommand(value)
               }}
             >
-              <option value="">标题</option>
+              <option value="">{t('heading')}</option>
               <option value="h1">H1</option>
               <option value="h2">H2</option>
               <option value="h3">H3</option>
