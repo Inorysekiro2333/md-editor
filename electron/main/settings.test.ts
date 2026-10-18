@@ -11,6 +11,18 @@ async function tmpFile(name = 'settings.json'): Promise<string> {
 }
 
 describe('settings load/save', () => {
+  it('persists and restores sidebarCollapsed', async () => {
+    const file = await tmpFile()
+    const settings = { ...DEFAULT_SETTINGS, sidebarCollapsed: true }
+    saveSettings(settings, file)
+    expect(loadSettings(file)).toEqual(settings)
+  })
+
+  it('mergeSettings whitelists sidebarCollapsed and drops invalid values', () => {
+    expect(mergeSettings({ sidebarCollapsed: true, unknown: 1 }).sidebarCollapsed).toBe(true)
+    expect(mergeSettings({ sidebarCollapsed: 'yes' }).sidebarCollapsed).toBe(false)
+    expect(mergeSettings({}).sidebarCollapsed).toBe(false)
+  })
   it('writes atomically and reads the settings back unchanged', async () => {
     const file = await tmpFile()
     saveSettings(DEFAULT_SETTINGS, file)
@@ -35,6 +47,7 @@ describe('settings load/save', () => {
     await writeFile(file, JSON.stringify({ themeId: 'paper-serif' }), 'utf8')
     expect(loadSettings(file)).toEqual({
       themeId: 'paper-serif',
+      sidebarCollapsed: false,
       export: { pdf: { printBackground: true } },
     })
   })
@@ -44,11 +57,13 @@ describe('mergeSettings whitelist', () => {
   it('keeps only whitelisted fields and coerces invalid values to defaults', () => {
     const merged = mergeSettings({
       themeId: 'github-dark',
+      sidebarCollapsed: false,
       unknownTop: 1,
       export: { pdf: { printBackground: false, extra: true }, html: { keep: true } },
     })
     expect(merged).toEqual({
       themeId: 'github-dark',
+      sidebarCollapsed: false,
       export: { pdf: { printBackground: false } },
     })
   })

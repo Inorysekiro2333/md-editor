@@ -4,6 +4,7 @@ export type ThemeId = (typeof THEME_IDS)[number]
 
 export interface AppSettings {
   themeId: ThemeId
+  sidebarCollapsed: boolean
   export: {
     pdf: {
       printBackground: boolean
@@ -13,6 +14,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   themeId: 'github-light',
+  sidebarCollapsed: false,
   export: { pdf: { printBackground: true } },
 }
 
@@ -38,5 +40,9 @@ export function mergeSettings(raw: unknown): AppSettings {
     typeof pdf.printBackground === 'boolean'
       ? pdf.printBackground
       : DEFAULT_SETTINGS.export.pdf.printBackground
-  return { themeId, export: { pdf: { printBackground } } }
+  const sidebarCollapsed =
+    typeof source.sidebarCollapsed === 'boolean'
+      ? source.sidebarCollapsed
+      : DEFAULT_SETTINGS.sidebarCollapsed
+  return { themeId, sidebarCollapsed, export: { pdf: { printBackground } } }
 }

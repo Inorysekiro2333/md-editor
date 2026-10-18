@@ -24,6 +24,8 @@ export const en: Record<MessageKey, string> = {
   statusAutoReloaded: 'Reloaded external changes',
   statusKeptMyChanges: 'Kept my changes; save as or close this file soon',
   sidebarEmpty: 'Open a folder to browse Markdown files',
+  sidebarCollapse: 'Collapse sidebar',
+  sidebarExpand: 'Expand sidebar',
   editorEmpty: 'Waiting for a file…',
   dirty: 'Unsaved',
   modeWysiwyg: 'WYSIWYG',

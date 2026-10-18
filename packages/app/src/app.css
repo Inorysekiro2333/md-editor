@@ -52,6 +52,31 @@ body {
   background: var(--bg);
 }
 
+.sidebar-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px;
+}
+
+.sidebar-toggle {
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted, #57606a);
+  padding: 2px;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(31, 35, 40, 0.06);
+}
+
+.sidebar.collapsed {
+  width: 40px;
+  overflow: hidden;
+}
+
 .sidebar-empty {
   border: none;
   background: none;

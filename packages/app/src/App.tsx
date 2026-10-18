@@ -21,6 +21,7 @@ import { useCaptureKeydown } from './ui/useCaptureKeydown'
 import { SettingsPanel } from './ui/SettingsPanel'
 import { AboutDialog } from './ui/AboutDialog'
 import { FormatToolbar } from './ui/FormatToolbar'
+import { SidebarToggle } from './ui/SidebarToggle'
 import { StatusBar } from './ui/StatusBar'
 import { t } from './i18n'
 import type { FormatCommandArgs, FormatCommandName } from '@md-editor/editor'
@@ -130,6 +131,7 @@ export function App() {
   const [findOpen, setFindOpen] = useState(false)
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
@@ -546,6 +548,7 @@ export function App() {
         if (!cancelled) {
           applyTheme(settings.themeId)
           setSettingsState(settings)
+          setSidebarCollapsed(settings.sidebarCollapsed)
         }
       })
       .catch(() => undefined)
@@ -781,6 +784,17 @@ export function App() {
     }
   }, [])
 
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      void ipc
+        .getSettings()
+        .then((current) => ipc.setSettings({ ...current, sidebarCollapsed: next }))
+        .catch(() => undefined)
+      return next
+    })
+  }, [])
+
   const changeTheme = useCallback((themeId: ThemeId) => {
     setSettingsState((prev) => {
       if (prev === null) return prev
@@ -807,6 +821,13 @@ export function App() {
     }
     if (!(event.ctrlKey || event.metaKey)) return
     const key = event.key.toLowerCase()
+    if (key === '\\') {
+      // Ctrl+\：折叠/展开侧栏（window capture 层统一快捷键语义）
+      event.preventDefault()
+      event.stopPropagation()
+      toggleSidebar()
+      return
+    }
     if (key === 'f') {
       // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
       event.preventDefault()
@@ -874,23 +895,31 @@ export function App() {
       ) : null}
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
       <div className="main-row">
-        <aside className="sidebar">
-          {workspaceNodes === null ? (
-            <button
-              type="button"
-              className="sidebar-empty"
-              data-testid="sidebar-empty"
-              onClick={() => {
-                void ipc.showOpenDirDialog().then((dir) => {
-                  if (dir !== null) return ipc.openWorkspace(dir)
-                })
-              }}
-            >
-              {t('sidebarEmpty')}
-            </button>
-          ) : (
-            <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
-          )}
+        <aside
+          data-testid="file-sidebar"
+          className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
+        >
+          <div className="sidebar-header">
+            <SidebarToggle collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+          </div>
+          {!sidebarCollapsed ? (
+            workspaceNodes === null ? (
+              <button
+                type="button"
+                className="sidebar-empty"
+                data-testid="sidebar-empty"
+                onClick={() => {
+                  void ipc.showOpenDirDialog().then((dir) => {
+                    if (dir !== null) return ipc.openWorkspace(dir)
+                  })
+                }}
+              >
+                {t('sidebarEmpty')}
+              </button>
+            ) : (
+              <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
+            )
+          ) : null}
         </aside>
         <section className="editor-host" data-editor-ready={editorReady ? 'true' : undefined}>
           {activeDoc === null ? (

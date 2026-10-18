@@ -21,6 +21,8 @@ export const zhCN = {
   statusAutoReloaded: '已自动重载外部修改',
   statusKeptMyChanges: '已保留我的修改；请尽快另存或关闭该文件',
   sidebarEmpty: '打开文件夹以浏览 Markdown 文件',
+  sidebarCollapse: '收起侧栏',
+  sidebarExpand: '展开侧栏',
   editorEmpty: '正在等待文件…',
   dirty: '未保存',
   modeWysiwyg: '所见即所得',
