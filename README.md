@@ -2,7 +2,7 @@
 
 开源、跨平台、所见即所得（WYSIWYG）的 Markdown 编辑器，体验对标 Typora：单栏实时渲染、无分栏预览、主题系统、源码模式一键切换。
 
-![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![platform](https://img.shields.io/badge/platform-Windows-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 特性
 
@@ -20,11 +20,11 @@
 
 前往 [Releases](https://github.com/Inorysekiro2333/md-editor/releases) 下载对应平台安装包：
 
-| 平台    | 格式                  |
-| ------- | --------------------- |
-| Windows | NSIS 安装包（`.exe`） |
-| macOS   | DMG                   |
-| Linux   | AppImage / deb        |
+| 平台    | 格式                                |
+| ------- | ----------------------------------- |
+| Windows | NSIS 安装包（`.exe`）               |
+| macOS   | DMG                                 |
+| Linux   | 暂未发布（可自行构建 AppImage/deb） |
 
 > 当前版本为未签名构建（macOS 首次打开需右键 → 打开；Windows SmartScreen 选择「仍要运行」）。
 
@@ -37,7 +37,9 @@
 | 冷启动（第二次及以后） | <3s    |
 | 空文档常驻内存         | ≤300MB |
 
-## 开发
+## 免责声明
+
+本项目是一个纯 vibe coding 练习项目：由 AI（Codex）与人协作、以快速迭代方式编写，作者不对代码的正确性、稳定性、安全性作任何保证。使用本项目产生的一切风险与后果由使用者自行承担；请勿在未审查代码的情况下将其用于处理敏感或重要数据。
 
 ```bash
 pnpm install        # 安装依赖（Node ≥ 20.19，pnpm 11）
