@@ -5,6 +5,17 @@ export const UNTITLED_NOTE_NAME = '未命名.md'
 
 export const MARKDOWN_SAVE_FILTERS = [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
 
+/** 打开文件对话框：Markdown 过滤，用户取消返回 null。 */
+export async function showOpenDialog(): Promise<string | null> {
+  const result = await dialog.showOpenDialog({
+    title: '打开',
+    filters: MARKDOWN_SAVE_FILTERS,
+    properties: ['openFile'],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0] ?? null
+}
+
 /**
  * 另存为对话框：默认落到 userData/<defaultName>，用户取消返回 null。
  * defaultName 只取文件名语义，路径分隔符会被替换，避免把默认目录顶掉。

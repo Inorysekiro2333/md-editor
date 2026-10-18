@@ -70,6 +70,7 @@ export interface MdEditorBridge {
     filters?: Array<{ name: string; extensions: string[] }>,
     title?: string,
   ): Promise<string | null>
+  showOpenDialog(): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
   exportHtml(targetPath: string, html: string): Promise<string>
   readAssetFile(docPath: string, src: string): Promise<FileContent>

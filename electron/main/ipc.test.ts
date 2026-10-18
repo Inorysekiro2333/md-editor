@@ -28,8 +28,9 @@ vi.mock('electron', () => ({
 const windowStub = { webContents: { send: vi.fn() } }
 
 const saveDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
+const openDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
 
-vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock }))
+vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock, showOpenDialog: openDialogMock }))
 
 const exportPdfMock = vi.hoisted(() => vi.fn())
 
@@ -50,6 +51,22 @@ async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc
     false,
   )
 }
+
+describe('ipc open dialog channel', () => {
+  beforeEach(() => {
+    registered.clear()
+    openDialogMock.mockClear()
+  })
+
+  it('openDialog handler forwards to showOpenDialog', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.openDialog) as IpcHandler
+    expect(handler).toBeDefined()
+    openDialogMock.mockResolvedValue('C:/notes/opened.md')
+    await expect(handler(null)).resolves.toBe('C:/notes/opened.md')
+    expect(openDialogMock).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('ipc watcher registry', () => {
   beforeEach(() => {

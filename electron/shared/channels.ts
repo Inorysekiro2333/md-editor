@@ -17,6 +17,7 @@ export const CHANNELS = {
   sessionRemove: 'session:remove',
   menuCommand: 'app:menu-command',
   saveDialog: 'app:save-dialog',
+  openDialog: 'app:open-dialog',
   toggleFullscreen: 'window:toggle-fullscreen',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',

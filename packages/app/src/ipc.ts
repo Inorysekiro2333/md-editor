@@ -33,6 +33,7 @@ export interface Ipc {
     filters?: Array<{ name: string; extensions: string[] }>,
     title?: string,
   ): Promise<string | null>
+  showOpenDialog(): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
   exportHtml(targetPath: string, html: string): Promise<string>
   readAssetFile(docPath: string, src: string): Promise<FileContent>
@@ -64,6 +65,7 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     toggleFullscreen: () => bridge.toggleFullscreen(),
     showSaveDialog: (defaultName, filters, title) =>
       bridge.showSaveDialog(defaultName, filters, title),
+    showOpenDialog: () => bridge.showOpenDialog(),
     exportPdf: (targetPath, html) => bridge.exportPdf(targetPath, html),
     exportHtml: (targetPath, html) => bridge.exportHtml(targetPath, html),
     readAssetFile: (docPath, src) => bridge.readAssetFile(docPath, src),

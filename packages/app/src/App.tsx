@@ -16,6 +16,7 @@ import { FileTree, insertIntoTree } from './ui/FileTree'
 import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
+import { useCaptureKeydown } from './ui/useCaptureKeydown'
 import { SettingsPanel } from './ui/SettingsPanel'
 import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
@@ -301,6 +302,23 @@ export function App() {
     },
     [setExternalNotice],
   )
+
+  // 菜单「打开...」：主进程命令 -> renderer 弹原生打开对话框 -> 复用 openFile 流程。
+  const openFromMenu = useCallback(async () => {
+    let chosen: string | null = null
+    try {
+      chosen = await ipc.showOpenDialog()
+    } catch (error) {
+      console.error('[app] open dialog failed', error)
+      setStatus('打开失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消打开')
+      return
+    }
+    await openFile(chosen)
+  }, [openFile])
 
   const newNote = useCallback(() => {
     const doc = new MdDocument({
@@ -604,10 +622,12 @@ export function App() {
   }, [openFile])
 
   useEffect(() => {
-    // 原生菜单命令通道：new-note / save-as / export-pdf 接线；open 由后续任务消费。
+    // 原生菜单命令通道：new-note / open / save-as / export-pdf 接线。
     const unsubscribe = ipc.onMenuCommand((cmd) => {
       if (cmd === 'new-note') {
         newNote()
+      } else if (cmd === 'open') {
+        void openFromMenu()
       } else if (cmd === 'save-as') {
         void saveAs()
       } else if (cmd === 'export-pdf') {
@@ -617,7 +637,7 @@ export function App() {
       }
     })
     return unsubscribe
-  }, [newNote, saveAs, exportPdfFromMenu, exportHtmlFromMenu])
+  }, [newNote, openFromMenu, saveAs, exportPdfFromMenu, exportHtmlFromMenu])
 
   useEffect(() => {
     const unsubscribe = ipc.onExternalModified((path) => {
@@ -751,41 +771,33 @@ export function App() {
     })
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setFindOpen(false)
-        return
-      }
-      if (event.key === 'F11') {
-        // F11 双通道之一：菜单 accelerator 被主进程消费时不会到达这里，二者幂等。
-        event.preventDefault()
-        void ipc.toggleFullscreen()
-        return
-      }
-      if (!(event.ctrlKey || event.metaKey)) return
-      const key = event.key.toLowerCase()
-      if (key === 'f') {
-        // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
-        event.preventDefault()
-        event.stopPropagation()
-        setFindOpen(true)
-        return
-      }
-      if (key !== 's' && event.key !== '/') return
-      event.preventDefault()
-      if (event.key === '/') {
-        // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
-        // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
-        event.stopPropagation()
-        toggleMode()
-        return
-      }
-      void save()
+  // 全局快捷键只保留 renderer 单通道：F11 全屏走原生菜单 accelerator，不在 renderer 重复处理。
+  // （Ctrl+/ 必须留在 renderer capture：CodeMirror 默认把 Ctrl+/ 绑定为切换注释。）
+  useCaptureKeydown((event) => {
+    if (event.key === 'Escape') {
+      setFindOpen(false)
+      return
     }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [save, toggleMode])
+    if (!(event.ctrlKey || event.metaKey)) return
+    const key = event.key.toLowerCase()
+    if (key === 'f') {
+      // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
+      event.preventDefault()
+      event.stopPropagation()
+      setFindOpen(true)
+      return
+    }
+    if (key !== 's' && event.key !== '/') return
+    event.preventDefault()
+    if (event.key === '/') {
+      // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
+      // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
+      event.stopPropagation()
+      toggleMode()
+      return
+    }
+    void save()
+  })
 
   return (
     <main className="workspace">

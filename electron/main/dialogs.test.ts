@@ -3,19 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
+  showOpenDialog: vi.fn(),
   getPath: vi.fn(() => join('C:', 'userdata')),
 }))
 
 vi.mock('electron', () => ({
   app: { getPath: mocks.getPath },
-  dialog: { showSaveDialog: mocks.showSaveDialog },
+  dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog },
 }))
 
-import { showSaveDialog, UNTITLED_NOTE_NAME } from './dialogs'
+import { showOpenDialog, showSaveDialog, UNTITLED_NOTE_NAME } from './dialogs'
 
 describe('showSaveDialog', () => {
   beforeEach(() => {
     mocks.showSaveDialog.mockReset()
+    mocks.showOpenDialog.mockReset()
     mocks.getPath.mockClear()
   })
 
@@ -69,5 +71,29 @@ describe('showSaveDialog', () => {
     expect(mocks.showSaveDialog).toHaveBeenLastCalledWith(
       expect.objectContaining({ defaultPath: join('C:', 'userdata', 'a-b-c.md') }),
     )
+  })
+})
+
+describe('showOpenDialog', () => {
+  beforeEach(() => {
+    mocks.showOpenDialog.mockReset()
+  })
+
+  it('opens with markdown filter and returns the chosen path', async () => {
+    const chosen = join('C:', 'docs', 'note.md')
+    mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [chosen] })
+
+    await expect(showOpenDialog()).resolves.toBe(chosen)
+    expect(mocks.showOpenDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+        properties: ['openFile'],
+      }),
+    )
+  })
+
+  it('returns null when the user cancels', async () => {
+    mocks.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
+    await expect(showOpenDialog()).resolves.toBeNull()
   })
 })

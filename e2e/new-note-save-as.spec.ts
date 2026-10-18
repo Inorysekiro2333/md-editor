@@ -16,11 +16,17 @@ test('new untitled note tab appears and Ctrl+S saves it via save-as', async () =
   await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
 
   // 主进程内 stub 原生保存对话框：dialog 是共享单例对象，替换属性即可拦截。
+  // 同时计数：回归（bug#3）单次 Ctrl+S 只允许弹一次保存对话框。
   await app.evaluate(({ dialog }, filePath) => {
     const stub = dialog as unknown as {
       showSaveDialog: (options?: unknown) => Promise<{ canceled: boolean; filePath: string }>
+      __saveDialogCalls?: number
     }
-    stub.showSaveDialog = async () => ({ canceled: false, filePath })
+    stub.__saveDialogCalls = 0
+    stub.showSaveDialog = async () => {
+      stub.__saveDialogCalls = (stub.__saveDialogCalls ?? 0) + 1
+      return { canceled: false, filePath }
+    }
   }, target)
 
   // 通过真实菜单项触发新建（main -> renderer menuCommand 通道）。
@@ -45,6 +51,20 @@ test('new untitled note tab appears and Ctrl+S saves it via save-as', async () =
   expect(readFileSync(target, 'utf8')).toContain('# save-as-e2e')
   await expect(window.locator('[data-testid="tab"]', { hasText: 'note.md' })).toHaveCount(1)
 
+  // 回归（bug#3）：整个新建->Ctrl+S 流程只允许一次保存对话框。
+  const callsAfterSaveAs = await app.evaluate(({ dialog }) => {
+    return (dialog as unknown as { __saveDialogCalls?: number }).__saveDialogCalls
+  })
+  expect(callsAfterSaveAs).toBe(1)
+
+  // 回归（bug#4）：另存成功后继续编辑，Ctrl+S 必须直接落盘（不再弹对话框、不报保存失败）。
+  await window.locator('.ProseMirror').click()
+  await window.keyboard.type(' more')
+  await window.waitForTimeout(500)
+  await window.keyboard.press('Control+s')
+  await expect(window.locator('[data-testid="status"]')).toContainText('已保存')
+  expect(readFileSync(target, 'utf8')).toContain('# save-as-e2e more')
+
   // 另存后已是干净文档：再按 Ctrl+S 不得写盘（mtime 不变）。
   const before = statSync(target)
   await window.keyboard.press('Control+s')
@@ -52,6 +72,11 @@ test('new untitled note tab appears and Ctrl+S saves it via save-as', async () =
   const after = statSync(target)
   expect(after.mtimeMs).toBe(before.mtimeMs)
   expect(after.size).toBe(before.size)
+
+  const callsAtEnd = await app.evaluate(({ dialog }) => {
+    return (dialog as unknown as { __saveDialogCalls?: number }).__saveDialogCalls
+  })
+  expect(callsAtEnd).toBe(1)
 
   await app.close()
 })
