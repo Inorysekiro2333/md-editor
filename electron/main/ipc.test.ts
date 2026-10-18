@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { join } from 'node:path'
 import { CHANNELS } from '../shared/channels'
 
 const watcherStub = { close: vi.fn(async () => {}) }
@@ -13,7 +14,7 @@ type IpcHandler = (event: unknown, ...payload: unknown[]) => unknown
 const registered = new Map<string, IpcHandler>()
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => '0.0.0' },
+  app: { getVersion: () => '0.0.0', getPath: () => 'C:/userData' },
   ipcMain: {
     handle: (channel: string, handler: IpcHandler) => {
       registered.set(channel, handler)
@@ -26,6 +27,22 @@ vi.mock('electron', () => ({
 
 const windowStub = { webContents: { send: vi.fn() } }
 
+const saveDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
+const openDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
+
+vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock, showOpenDialog: openDialogMock }))
+
+const exportPdfMock = vi.hoisted(() => vi.fn())
+
+vi.mock('./exporter', () => ({ exportPdfTo: exportPdfMock }))
+
+const settingsMocks = vi.hoisted(() => ({
+  loadSettings: vi.fn(),
+  saveSettings: vi.fn(),
+}))
+
+vi.mock('./settings', () => settingsMocks)
+
 async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc>> {
   const { registerIpc } = await import('./ipc')
   return registerIpc(
@@ -34,6 +51,22 @@ async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc
     false,
   )
 }
+
+describe('ipc open dialog channel', () => {
+  beforeEach(() => {
+    registered.clear()
+    openDialogMock.mockClear()
+  })
+
+  it('openDialog handler forwards to showOpenDialog', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.openDialog) as IpcHandler
+    expect(handler).toBeDefined()
+    openDialogMock.mockResolvedValue('C:/notes/opened.md')
+    await expect(handler(null)).resolves.toBe('C:/notes/opened.md')
+    expect(openDialogMock).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('ipc watcher registry', () => {
   beforeEach(() => {
@@ -88,5 +121,105 @@ describe('ipc watcher registry', () => {
     const confirm = registered.get(CHANNELS.confirmClose) as IpcHandler
     confirm(null)
     expect(onConfirmClose).toHaveBeenCalledTimes(1)
+  })
+})
+describe('ipc save dialog channel', () => {
+  it('saveDialog delegates the default name and dispose removes the handler', async () => {
+    const registry = await register()
+    const handler = registered.get(CHANNELS.saveDialog) as IpcHandler
+    expect(handler).toBeDefined()
+
+    saveDialogMock.mockResolvedValueOnce('C:/out/kept.md')
+    await expect(handler(null, '未命名.md')).resolves.toBe('C:/out/kept.md')
+    expect(saveDialogMock).toHaveBeenCalledWith('未命名.md', undefined, undefined)
+
+    await registry.dispose()
+    expect(registered.has(CHANNELS.saveDialog)).toBe(false)
+  })
+})
+
+describe('ipc fullscreen channel', () => {
+  it('toggleFullscreen delegates to the focused window', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.toggleFullscreen) as IpcHandler
+    expect(handler).toBeDefined()
+
+    let full = false
+    Object.assign(windowStub, {
+      isDestroyed: () => false,
+      isFullScreen: () => full,
+      setFullScreen: (flag: boolean) => {
+        full = flag
+      },
+    })
+
+    handler(null)
+    expect(full).toBe(true)
+    handler(null)
+    expect(full).toBe(false)
+    expect(windowStub.webContents.send).not.toHaveBeenCalledWith(CHANNELS.toggleFullscreen)
+  })
+})
+
+describe('ipc settings channels', () => {
+  it('settingsGet loads settings from the userData path', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.settingsGet) as IpcHandler
+    expect(handler).toBeDefined()
+
+    const stored = { themeId: 'github-dark', export: { pdf: { printBackground: true } } }
+    settingsMocks.loadSettings.mockReturnValue(stored)
+    expect(handler(null)).toEqual(stored)
+    expect(settingsMocks.loadSettings).toHaveBeenCalledWith(join('C:/userData', 'settings.json'))
+  })
+
+  it('settingsSet merges whitelist fields, saves, broadcasts and returns the effective value', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.settingsSet) as IpcHandler
+    expect(handler).toBeDefined()
+
+    const effective = { themeId: 'paper-serif', export: { pdf: { printBackground: true } } }
+    settingsMocks.saveSettings.mockImplementation(() => {})
+    const result = await handler(null, { themeId: 'paper-serif', rogue: 1 })
+    expect(result).toEqual(effective)
+    expect(settingsMocks.saveSettings).toHaveBeenCalledWith(
+      effective,
+      join('C:/userData', 'settings.json'),
+    )
+    expect(windowStub.webContents.send).toHaveBeenCalledWith(CHANNELS.settingsChanged, effective)
+  })
+
+  it('dispose removes settings handlers', async () => {
+    await register()
+    const registry = await (async () => {
+      const { registerIpc } = await import('./ipc')
+      return registerIpc(
+        () => windowStub as never,
+        () => {},
+        false,
+      )
+    })()
+    await registry.dispose()
+    expect(registered.has(CHANNELS.settingsGet)).toBe(false)
+    expect(registered.has(CHANNELS.settingsSet)).toBe(false)
+  })
+})
+
+describe('ipc export pdf channel', () => {
+  it('delegates to exportPdfTo with the userData settings path and dispose removes the handler', async () => {
+    const registry = await register()
+    const handler = registered.get(CHANNELS.exportPdf) as IpcHandler
+    expect(handler).toBeDefined()
+
+    exportPdfMock.mockResolvedValueOnce('C:/out/doc.pdf')
+    await expect(handler(null, 'C:/out/doc.pdf', '<p>hi</p>')).resolves.toBe('C:/out/doc.pdf')
+    expect(exportPdfMock).toHaveBeenCalledWith({
+      targetPath: 'C:/out/doc.pdf',
+      html: '<p>hi</p>',
+      settingsPath: join('C:/userData', 'settings.json'),
+    })
+
+    await registry.dispose()
+    expect(registered.has(CHANNELS.exportPdf)).toBe(false)
   })
 })

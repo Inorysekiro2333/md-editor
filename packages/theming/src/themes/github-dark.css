@@ -1,0 +1,9 @@
+/* github-dark */
+[data-theme='github-dark'] {
+  --md-bg: #0d1117;
+  --md-fg: #e6edf3;
+  --md-accent: #4493f8;
+  --md-border: #30363d;
+  --md-code-bg: #161b22;
+  --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+}

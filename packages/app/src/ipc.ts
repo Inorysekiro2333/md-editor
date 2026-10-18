@@ -1,3 +1,5 @@
+import type { MenuCommand } from './bridge'
+import type { AppSettings } from '../../../electron/shared/settings'
 import type {
   FileContent,
   MdEditorBridge,
@@ -25,6 +27,20 @@ export interface Ipc {
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
+  toggleFullscreen(): Promise<void>
+  showSaveDialog(
+    defaultName: string,
+    filters?: Array<{ name: string; extensions: string[] }>,
+    title?: string,
+  ): Promise<string | null>
+  showOpenDialog(): Promise<string | null>
+  exportPdf(targetPath: string, html?: string): Promise<string>
+  exportHtml(targetPath: string, html: string): Promise<string>
+  readAssetFile(docPath: string, src: string): Promise<FileContent>
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
+  getSettings(): Promise<AppSettings>
+  setSettings(next: AppSettings): Promise<AppSettings>
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
 export function createIpc(bridge: MdEditorBridge): Ipc {
@@ -46,6 +62,17 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     onExternalModified: (handler) => bridge.onExternalModified(handler),
     onOpenFile: (handler) => bridge.onOpenFile(handler),
     onCloseGuardRequest: (handler) => bridge.onCloseGuardRequest(handler),
+    toggleFullscreen: () => bridge.toggleFullscreen(),
+    showSaveDialog: (defaultName, filters, title) =>
+      bridge.showSaveDialog(defaultName, filters, title),
+    showOpenDialog: () => bridge.showOpenDialog(),
+    exportPdf: (targetPath, html) => bridge.exportPdf(targetPath, html),
+    exportHtml: (targetPath, html) => bridge.exportHtml(targetPath, html),
+    readAssetFile: (docPath, src) => bridge.readAssetFile(docPath, src),
+    onMenuCommand: (handler) => bridge.onMenuCommand(handler),
+    getSettings: () => bridge.getSettings(),
+    setSettings: (next) => bridge.setSettings(next),
+    onSettingsChanged: (handler) => bridge.onSettingsChanged(handler),
   }
 }
 

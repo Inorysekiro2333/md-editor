@@ -88,9 +88,33 @@ export class MdDocument {
    */
   bytesForSave(): string | null {
     if (!this.dirty) return null
+    return encodeUtf8Base64(this.serializedText())
+  }
+
+  /**
+   * 另存为：用户显式选择落盘路径，即使零编辑（新建未命名笔记）也必须产出字节。
+   * 与 bytesForSave 使用同一套 EOL / BOM 还原包装。
+   */
+  bytesForSaveAs(): string {
+    return encodeUtf8Base64(this.serializedText())
+  }
+
+  /** 另存为成功后派生同 id、新 path 的实例；Buffer 内容不变，回到干净态。 */
+  withPath(path: string): MdDocument {
+    return new MdDocument({
+      id: this.init.id,
+      path,
+      text: this.currentText,
+      originalBytesBase64: encodeUtf8Base64(this.currentText),
+      eol: this.init.eol,
+      hasBom: this.init.hasBom,
+    })
+  }
+
+  private serializedText(): string {
     const text =
       this.init.eol === 'crlf' ? this.currentText.replace(/(?<!\r)\n/g, '\r\n') : this.currentText
-    return encodeUtf8Base64(this.init.hasBom ? `\uFEFF${text}` : text)
+    return this.init.hasBom ? `\uFEFF${text}` : text
   }
 
   markSaved(credential: WriteCredential | null = null): void {

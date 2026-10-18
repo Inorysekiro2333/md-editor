@@ -7,8 +7,8 @@
 
 ## 当前状态
 
-**阶段：M0–M3 已完成（M3 工作台 2026-10-17 交付：多标签 / 文件树 / 大纲 / 查找替换 / 会话恢复 / 外部修改二选一，CI 全绿）。**
-下一步行动：启动 M4 —— 主题与导出（主题系统、设置中心、PDF / HTML 导出）。
+**阶段：M0–M4 已完成（M4 主题与导出 2026-10-18 交付：内置 3 主题 / settings.json 设置中心 / PDF + 自包含 HTML 导出 / theme:check / 原生菜单 / 新建+另存为，提交区间 8140e4f..985c68b，全量门禁全绿）。**
+下一步行动：启动 M5 —— 发布打磨（三平台安装包、签名与公证、自动更新、性能验收）。
 
 架构前提（已冻结，改动需先改 `architecture.md`）：
 
@@ -67,15 +67,15 @@
 
 ## M4 — 主题与导出（目标：1–2 周）
 
-- [ ] (P0) 主题系统 + 内置 3 主题（github-light / github-dark / paper-serif）
-- [ ] (P0) 设置中心（settings.json + UI 面板）
-- [ ] (P0) 导出 PDF：`webContents.printToPDF()` 静默导出（跨平台一致）
-- [ ] (P1) 导出自包含 HTML（内联 CSS，图片 base64 可选）
-- [ ] (P1) `theme:check` 校验脚本
-- [ ] (P1) 自定义原生菜单：全屏切换可退出（F11 + 菜单双通道）、退出确认接入关窗守卫，全局快捷键注册表一并统一（2026-10-18 人工测试裁定，M0 遗留）
-- [ ] (P1) 新建未命名笔记 + 另存为 Save As（主进程 dialog；提前 v1.1「文件树内新建」的 P2，重命名/删除仍留 v1.1）
+- [x] (P0) 主题系统 + 内置 3 主题（github-light / github-dark / paper-serif）
+- [x] (P0) 设置中心（settings.json + UI 面板）
+- [x] (P0) 导出 PDF：`webContents.printToPDF()` 静默导出（跨平台一致）
+- [x] (P1) 导出自包含 HTML（内联 CSS，图片 base64 可选）
+- [x] (P1) `theme:check` 校验脚本
+- [x] (P1) 自定义原生菜单：全屏切换可退出（F11 + 菜单双通道）、退出确认接入关窗守卫（2026-10-18 人工测试裁定，M0 遗留；全局快捷键注册表未统一——Ctrl+/ 刻意保留 renderer capture，见下方已知事项）
+- [x] (P1) 新建未命名笔记 + 另存为 Save As（主进程 dialog；提前 v1.1「文件树内新建」的 P2，重命名/删除仍留 v1.1）
 
-**验收**：导出的 PDF 分页与中文字体正常；HTML 单文件可离线打开且样式完整；新建未命名笔记 → 另存为落盘、原生菜单全屏可进出（人工验证）。
+**验收**：导出的 PDF 分页与中文字体正常；HTML 单文件可离线打开且样式完整；新建未命名笔记 → 另存为落盘、原生菜单全屏可进出（人工验证）。（M4 验收记录 2026-10-18，提交区间 8140e4f..985c68b：pnpm lint 全过 · pnpm typecheck 5 个 tsconfig 0 错误 · pnpm test 313 passed (35 files, 6.66s) · pnpm e2e 49 passed (1.4m，含 menu.spec F11 双向切换、export-pdf / export-html 菜单触发导出冒烟、settings 主题切换 data-theme 断言、new-note-save-as 新建 tab + 另存为落盘) · pnpm theme:check 通过（三主题键集合一致，核心 CSS 无未豁免硬编码颜色）。**人工验证（2026-10-18 全部通过）**：① 原生菜单 F11 进出 + 菜单全屏 + 脏文档退出守卫；② 新建→另存为真实系统对话框、Ctrl+S 单弹；③ 导出 PDF 中文字体/分页/背景开关；④ 导出 HTML 断网离线打开（含图片内联、远程图外链）。验证后修复 6 项（提交 2b398b1..ba66aa8）：代码块光标困死双死锁、菜单打开未接线、F11 双通道重复触发、keydown capture 泄漏（双弹保存/并发写 tmp 失败）、未命名粘贴图片改 data URI 直插、相对路径图片编辑器内渲染、code_block gap cursor、Ctrl+End/Top 越界。修复后：pnpm test 327 passed (38 files)，e2e 相关子集全绿。**已知事项**：① Ctrl+/ 未进原生菜单——刻意保留 renderer capture 拦截（CodeMirror 默认把 Ctrl+/ 绑定为切换注释，packages/app/src/App.tsx keydown capture），全局快捷键注册表统一仍挂持续性任务；② theme:check 豁免 9 条核心 CSS 硬编码颜色（scripts/theme-check.mjs CORE_CSS_EXEMPTIONS），待主题别名变量（如 --md-fg-muted）落地后迁移；③ packages/app 引用 electron/shared：bridge.d.ts / ipc.ts / App.tsx 的 AppSettings、ThemeId 为类型级导入，另有 App.tsx 一处运行时导入 isAssetExt（纯常量判断、无 Node 依赖），依赖方向待 M5 复核。）
 
 ## M5 — 发布打磨（目标：2 周）
 
@@ -113,5 +113,5 @@
 - [x] sync.dispose 兜底语义登记：dispose 先同步 flush pending，onFlush 重入 schedule 产生的新 timer 保留至下一轮收敛（packages/editor/src/sync.ts + sync.test.ts，2026-10-16 完成）：当前无大小上限、无 magic bytes 校验（asset:save）—— M1 先收窄为信任本机剪贴板，M4 导出前补齐
 
 - [ ] (P2) 代码块 CM→PM 整块替换语义：大代码块撤销粒度粗（M2 终审遗留，M3 前跟进）
-- [~] (P2) 全局快捷键注册表：Ctrl+/ 目前 window capture 拦截，新增快捷键前先统一（M2 终审遗留；2026-10-18 已并入 M4 原生菜单顺手项）
+- [~] (P2) 全局快捷键注册表：Ctrl+/ 未进 M4 原生菜单，刻意保持 window capture 拦截（防 CodeMirror Ctrl+/ 注释切换回归）；新增快捷键前仍先统一注册表（M2 终审遗留）
 - [ ] (P2) M3 复测冷启动/内存并补齐 ≤300MB 口径数据（M2 性能表未测项）

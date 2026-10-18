@@ -7,13 +7,20 @@ import {
   type SourceEditorHandle,
 } from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { applyTheme, themeCss } from '@md-editor/theming'
+import { buildStandaloneHtml } from '@md-editor/export'
 import { MdDocument } from './document/MdDocument'
+import { hasInlineDataUriImages, toInlineDataUri } from './document/dataUri'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
 import { FileTree, insertIntoTree } from './ui/FileTree'
 import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
+import { useCaptureKeydown } from './ui/useCaptureKeydown'
+import { SettingsPanel } from './ui/SettingsPanel'
+import { isAssetExt } from '../../../electron/shared/asset'
+import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
 
 const ASSET_EXT_BY_MIME: Record<string, string> = {
@@ -44,9 +51,58 @@ function removePathFromSet(paths: ReadonlySet<string>, path: string): ReadonlySe
 }
 
 function tabTitle(path: string | null): string {
-  if (path === null) return '未命名'
+  if (path === null) return '未命名.md'
   const segments = path.split(/[\\/]/)
   return segments[segments.length - 1] ?? path
+}
+
+const PDF_SAVE_FILTERS = [{ name: 'PDF', extensions: ['pdf'] }]
+
+function pdfExportName(path: string | null): string {
+  return `${tabTitle(path).replace(/\.(md|markdown)$/i, '')}.pdf`
+}
+
+const HTML_SAVE_FILTERS = [{ name: 'HTML', extensions: ['html'] }]
+
+function htmlExportName(path: string | null): string {
+  return `${tabTitle(path).replace(/\.(md|markdown)$/i, '')}.html`
+}
+
+function exportTitle(path: string | null): string {
+  return tabTitle(path).replace(/\.(md|markdown)$/i, '')
+}
+
+/**
+ * 文档相对路径图片 -> data URI（缺失/越权/非图片返回 null）。
+ * 导出 HTML 内联与 WYSIWYG 编辑器显示共用同一实现。
+ */
+async function resolveDocImage(path: string | null, src: string): Promise<string | null> {
+  if (path === null) return null
+  const clean = src.split(/[?#]/)[0] ?? ''
+  const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
+  if (!isAssetExt(ext)) return null
+  try {
+    const { base64 } = await ipc.readAssetFile(path, clean)
+    const mime = ext === 'jpg' ? 'jpeg' : ext
+    return `data:image/${mime};base64,${base64}`
+  } catch {
+    // 文件缺失/非图片：保留相对链接，不阻塞导出。
+    return null
+  }
+}
+
+/** PDF 与 HTML 共用 buildStandaloneHtml 产出（主题 CSS / 图片内联 / CSP）。 */
+async function buildExportHtml(
+  text: string,
+  path: string | null,
+  themeId: ThemeId,
+): Promise<string> {
+  return buildStandaloneHtml(text, {
+    themeCss: themeCss(themeId),
+    inlineImages: true,
+    title: exportTitle(path),
+    inlineImage: (src) => resolveDocImage(path, src),
+  })
 }
 
 export function App() {
@@ -67,6 +123,8 @@ export function App() {
     () => new Set<string>(),
   )
   const [findOpen, setFindOpen] = useState(false)
+  const [settings, setSettingsState] = useState<AppSettings | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
@@ -193,8 +251,10 @@ export function App() {
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
     const path = current?.path ?? null
     if (path === null) {
-      setStatus('请先保存文档后再粘贴图片')
-      throw new Error('请先保存文档后再粘贴图片')
+      // 裁定问题④：未命名文档粘贴图片直接内嵌 data URI，不强制先保存；
+      // Buffer 走 onMarkdownChange 标脏，保存时不自动改写（R1 铁律）。
+      setStatus('已插入内嵌图片')
+      return toInlineDataUri(mime, base64)
     }
     const ext = ASSET_EXT_BY_MIME[mime]
     if (ext === undefined) {
@@ -252,10 +312,152 @@ export function App() {
     [setExternalNotice],
   )
 
+  // 菜单「打开...」：主进程命令 -> renderer 弹原生打开对话框 -> 复用 openFile 流程。
+  const openFromMenu = useCallback(async () => {
+    let chosen: string | null = null
+    try {
+      chosen = await ipc.showOpenDialog()
+    } catch (error) {
+      console.error('[app] open dialog failed', error)
+      setStatus('打开失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消打开')
+      return
+    }
+    await openFile(chosen)
+  }, [openFile])
+
+  const newNote = useCallback(() => {
+    const doc = new MdDocument({
+      id: `untitled#${Date.now()}#${Math.random().toString(36).slice(2, 8)}`,
+      path: null,
+      text: '',
+      originalBytesBase64: '',
+      eol: 'lf',
+      hasBom: false,
+    })
+    useAppStore.getState().openDoc(doc)
+    setExternalNotice(null)
+    setStatus('已新建未命名笔记')
+  }, [setExternalNotice])
+
+  const saveAs = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(tabTitle(current.path))
+    } catch (error) {
+      console.error('[app] save dialog failed', error)
+      setStatus('另存为失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消另存为')
+      return
+    }
+    // 另存为是显式落盘意图：即使零编辑（新建未命名笔记）也要写出文件。
+    const bytes = current.bytesForSave() ?? current.bytesForSaveAs()
+    try {
+      const credential = await ipc.writeFile(chosen, bytes)
+      current.markSaved(credential)
+      useAppStore.getState().replaceDoc(current.withPath(chosen))
+      await ipc.watchFile(chosen).catch(() => {})
+      const savedText = current.text
+      setStatus(
+        hasInlineDataUriImages(savedText)
+          ? `已另存为 ${chosen}（图片当前为内嵌 data URI，可手动保留或后续迁移到 assets）`
+          : `已另存为 ${chosen}`,
+      )
+      void invalidateSnapshotIfClean()
+    } catch (error) {
+      console.error('[app] saveAs failed', error)
+      setStatus('保存失败，请重试')
+    }
+  }, [invalidateSnapshotIfClean])
+
+  const exportPdfFromMenu = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(pdfExportName(current.path), PDF_SAVE_FILTERS, '导出 PDF')
+    } catch (error) {
+      console.error('[app] export pdf dialog failed', error)
+      setStatus('导出 PDF 失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消导出 PDF')
+      return
+    }
+    try {
+      const html = await buildExportHtml(
+        current.text,
+        current.path,
+        settings?.themeId ?? 'github-light',
+      )
+      await ipc.exportPdf(chosen, html)
+      setStatus(`已导出 PDF ${chosen}`)
+    } catch (error) {
+      console.error('[app] export pdf failed', error)
+      setStatus(`导出 PDF 失败：${toStatusMessage(error)}`)
+    }
+  }, [settings])
+
+  const exportHtmlFromMenu = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(
+        htmlExportName(current.path),
+        HTML_SAVE_FILTERS,
+        '导出 HTML',
+      )
+    } catch (error) {
+      console.error('[app] export html dialog failed', error)
+      setStatus('导出 HTML 失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消导出 HTML')
+      return
+    }
+    try {
+      const html = await buildExportHtml(
+        current.text,
+        current.path,
+        settings?.themeId ?? 'github-light',
+      )
+      await ipc.exportHtml(chosen, html)
+      setStatus(`已导出 HTML ${chosen}`)
+    } catch (error) {
+      console.error('[app] export html failed', error)
+      setStatus(`导出 HTML 失败：${toStatusMessage(error)}`)
+    }
+  }, [settings])
+
   const save = useCallback(async () => {
     const state = useAppStore.getState()
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
-    if (current === null || current.path === null) return
+    if (current === null) return
+    // 无路径 tab（新建未命名笔记）：Ctrl+S 自动转另存为。
+    if (current.path === null) {
+      await saveAs()
+      return
+    }
     editorHandle.current?.flushNow()
     const bytes = current.bytesForSave()
     if (bytes === null) {
@@ -272,7 +474,7 @@ export function App() {
       console.error('[app] save failed', error)
       setStatus('保存失败，请重试')
     }
-  }, [invalidateSnapshotIfClean])
+  }, [invalidateSnapshotIfClean, saveAs])
 
   const closeTab = useCallback(
     (target: { id: string; path: string | null; isDirty: boolean }) => {
@@ -315,13 +517,35 @@ export function App() {
 
   useEffect(() => {
     setEditorReady(false)
-  }, [activeDoc, reloadToken])
+  }, [activeDocId, reloadToken])
 
   useEffect(() => {
     void ipc
       .getAppInfo()
       .then(setInfo)
       .catch(() => setInfo(null))
+  }, [])
+
+  // M4：启动读取 settings.themeId 应用主题，并跟随 settingsChanged 广播切换。
+  useEffect(() => {
+    let cancelled = false
+    void ipc
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) {
+          applyTheme(settings.themeId)
+          setSettingsState(settings)
+        }
+      })
+      .catch(() => undefined)
+    const unsubscribe = ipc.onSettingsChanged((settings) => {
+      applyTheme(settings.themeId)
+      setSettingsState(settings)
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [])
 
   // ADR-7 崩溃恢复：仅当本次启动不带 --open 时，从 userData session.json 逐 tab 还原。
@@ -410,6 +634,24 @@ export function App() {
     })
     return unsubscribe
   }, [openFile])
+
+  useEffect(() => {
+    // 原生菜单命令通道：new-note / open / save-as / export-pdf 接线。
+    const unsubscribe = ipc.onMenuCommand((cmd) => {
+      if (cmd === 'new-note') {
+        newNote()
+      } else if (cmd === 'open') {
+        void openFromMenu()
+      } else if (cmd === 'save-as') {
+        void saveAs()
+      } else if (cmd === 'export-pdf') {
+        void exportPdfFromMenu()
+      } else if (cmd === 'export-html') {
+        void exportHtmlFromMenu()
+      }
+    })
+    return unsubscribe
+  }, [newNote, openFromMenu, saveAs, exportPdfFromMenu, exportHtmlFromMenu])
 
   useEffect(() => {
     const unsubscribe = ipc.onExternalModified((path) => {
@@ -526,35 +768,50 @@ export function App() {
     }
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setFindOpen(false)
-        return
-      }
-      if (!(event.ctrlKey || event.metaKey)) return
-      const key = event.key.toLowerCase()
-      if (key === 'f') {
-        // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
-        event.preventDefault()
-        event.stopPropagation()
-        setFindOpen(true)
-        return
-      }
-      if (key !== 's' && event.key !== '/') return
-      event.preventDefault()
-      if (event.key === '/') {
-        // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
-        // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
-        event.stopPropagation()
-        toggleMode()
-        return
-      }
-      void save()
+  const changeTheme = useCallback((themeId: ThemeId) => {
+    setSettingsState((prev) => {
+      if (prev === null) return prev
+      void ipc.setSettings({ ...prev, themeId }).then((next) => setSettingsState(next))
+      return { ...prev, themeId }
+    })
+  }, [])
+
+  const changePrintBackground = useCallback((printBackground: boolean) => {
+    setSettingsState((prev) => {
+      if (prev === null) return prev
+      const next = { ...prev, export: { pdf: { printBackground } } }
+      void ipc.setSettings(next).then((effective) => setSettingsState(effective))
+      return next
+    })
+  }, [])
+
+  // 全局快捷键只保留 renderer 单通道：F11 全屏走原生菜单 accelerator，不在 renderer 重复处理。
+  // （Ctrl+/ 必须留在 renderer capture：CodeMirror 默认把 Ctrl+/ 绑定为切换注释。）
+  useCaptureKeydown((event) => {
+    if (event.key === 'Escape') {
+      setFindOpen(false)
+      return
     }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [save, toggleMode])
+    if (!(event.ctrlKey || event.metaKey)) return
+    const key = event.key.toLowerCase()
+    if (key === 'f') {
+      // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
+      event.preventDefault()
+      event.stopPropagation()
+      setFindOpen(true)
+      return
+    }
+    if (key !== 's' && event.key !== '/') return
+    event.preventDefault()
+    if (event.key === '/') {
+      // capture 阶段拦截：CodeMirror 默认把 Ctrl+/ 绑定为切换注释，
+      // 必须在到达编辑器前停止传播，否则源码模式会混入 <!-- -->
+      event.stopPropagation()
+      toggleMode()
+      return
+    }
+    void save()
+  })
 
   return (
     <main className="workspace">
@@ -565,6 +822,9 @@ export function App() {
         </span>
         <button type="button" data-testid="mode-toggle" onClick={toggleMode}>
           编辑模式：{mode === 'wysiwyg' ? '所见即所得' : '源码'}
+        </button>
+        <button type="button" data-testid="open-settings" onClick={() => setSettingsOpen(true)}>
+          设置
         </button>
       </header>
       <nav className="tabbar">
@@ -633,6 +893,7 @@ export function App() {
                 setEditorReady(true)
               }}
               onPasteAsset={onPasteAsset}
+              resolveImageSrc={(src) => resolveDocImage(activeDoc.path, src)}
               getBufferText={() => activeDoc.text}
               onCursorChange={onCursorChange}
             />
@@ -687,6 +948,15 @@ export function App() {
           cancelLabel="保留我的修改"
           onConfirm={confirmExternalReload}
           onCancel={cancelExternalKeep}
+        />
+      ) : null}
+      {settingsOpen && settings !== null ? (
+        <SettingsPanel
+          initialTheme={settings.themeId}
+          printBackground={settings.export.pdf.printBackground}
+          onChangeTheme={changeTheme}
+          onChangePrintBackground={changePrintBackground}
+          onClose={() => setSettingsOpen(false)}
         />
       ) : null}
     </main>

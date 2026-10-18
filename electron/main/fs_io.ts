@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { randomBytes } from 'node:crypto'
-import { dirname, isAbsolute, join } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { isAssetExt, type AssetExt } from '../shared/asset'
 
 export interface FileContent {
@@ -123,4 +123,25 @@ export async function saveAssetFile(docPath: string, bytes: Buffer, ext: string)
   const name = assetFileName(new Date(), randomBytes(4).toString('hex'), ext)
   await writeAtomic(join(dir, name), bytes)
   return `assets/${name}`
+}
+
+/** 相对路径图片读取（导出 HTML 内联用）：ext 白名单 + 只接受文件系统相对路径。 */
+export async function readAssetFile(docPath: string, src: string): Promise<FileContent> {
+  if (typeof docPath !== 'string' || docPath.length === 0) {
+    throw new Error('无法读取图片：文档路径无效，请先保存文档')
+  }
+  const clean = typeof src === 'string' ? (src.split(/[?#]/)[0] ?? '') : ''
+  if (clean.length === 0 || /^[a-z][a-z0-9+.-]*:/i.test(clean) || clean.startsWith('//')) {
+    throw new Error('无法读取图片：路径无效')
+  }
+  if (isAbsolute(clean)) {
+    throw new Error('无法读取图片：路径无效')
+  }
+  const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
+  if (!isAssetExt(ext)) {
+    throw new Error('不支持的图片格式')
+  }
+  // 图片是二进制：不走 readFile 的 UTF-8 校验，只回传 base64。
+  const raw = await fs.readFile(resolve(dirname(docPath), clean))
+  return { base64: raw.toString('base64'), text: '', eol: 'lf', hasBom: false }
 }

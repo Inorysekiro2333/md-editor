@@ -10,6 +10,8 @@ export interface AppState {
   externalNotice: string | null
   /** 同 path 已存在 → 激活既有 tab，不重复打开。 */
   openDoc(doc: MdDocument): void
+  /** 另存为成功后以新 path 实例替换同 id 文档（保持 tab 顺序与激活态）。 */
+  replaceDoc(doc: MdDocument): void
   /** 关活跃 tab → 激活相邻左侧；清空 → null。 */
   closeDoc(id: string): void
   setActiveDoc(id: string): void
@@ -24,11 +26,19 @@ export const useAppStore = create<AppState>((set) => ({
   externalNotice: null,
   openDoc: (doc) =>
     set((state) => {
-      const existing = state.docs.find((current) => current.path === doc.path)
-      if (existing !== undefined) {
-        return { activeDocId: existing.id }
+      // path 去重只对有路径的文档生效；未命名笔记（path=null）允许多个。
+      if (doc.path !== null) {
+        const existing = state.docs.find((current) => current.path === doc.path)
+        if (existing !== undefined) {
+          return { activeDocId: existing.id }
+        }
       }
       return { docs: [...state.docs, doc], activeDocId: doc.id }
+    }),
+  replaceDoc: (doc) =>
+    set((state) => {
+      if (!state.docs.some((current) => current.id === doc.id)) return state
+      return { docs: state.docs.map((current) => (current.id === doc.id ? doc : current)) }
     }),
   closeDoc: (id) =>
     set((state) => {

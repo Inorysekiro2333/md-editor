@@ -1,0 +1,13 @@
+/* paper-serif：衬线阅读主题，正文消费 --md-font-serif */
+[data-theme='paper-serif'] {
+  --md-bg: #faf7f2;
+  --md-fg: #3b2f2a;
+  --md-accent: #8b4a2f;
+  --md-border: #e2d8c8;
+  --md-code-bg: #f1eade;
+  --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif SC', serif;
+}
+
+[data-theme='paper-serif'] body {
+  font-family: var(--md-font-serif);
+}

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { isAssetExt } from '../shared/asset'
-import { CHANNELS } from '../shared/channels'
+import { CHANNELS, type MenuCommand } from '../shared/channels'
+import type { AppSettings } from '../shared/settings'
 
 export interface AppInfo {
   version: string
@@ -65,6 +66,20 @@ export interface MdEditorBridge {
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
+  toggleFullscreen(): Promise<void>
+  showSaveDialog(
+    defaultName: string,
+    filters?: Array<{ name: string; extensions: string[] }>,
+    title?: string,
+  ): Promise<string | null>
+  showOpenDialog(): Promise<string | null>
+  exportPdf(targetPath: string, html?: string): Promise<string>
+  exportHtml(targetPath: string, html: string): Promise<string>
+  readAssetFile(docPath: string, src: string): Promise<FileContent>
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
+  getSettings(): Promise<AppSettings>
+  setSettings(next: AppSettings): Promise<AppSettings>
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
 const bridge: MdEditorBridge = {
@@ -124,6 +139,39 @@ const bridge: MdEditorBridge = {
     ipcRenderer.on(CHANNELS.openFile, listener)
     return () => {
       ipcRenderer.removeListener(CHANNELS.openFile, listener)
+    }
+  },
+  toggleFullscreen: () => ipcRenderer.invoke(CHANNELS.toggleFullscreen) as Promise<void>,
+  showSaveDialog: (defaultName, filters, title) =>
+    ipcRenderer.invoke(CHANNELS.saveDialog, defaultName, filters, title) as Promise<string | null>,
+  showOpenDialog: () => ipcRenderer.invoke(CHANNELS.openDialog) as Promise<string | null>,
+  exportPdf: (targetPath, html) =>
+    ipcRenderer.invoke(CHANNELS.exportPdf, targetPath, html) as Promise<string>,
+  exportHtml: (targetPath, html) =>
+    ipcRenderer.invoke(CHANNELS.exportHtml, targetPath, html) as Promise<string>,
+  readAssetFile: (docPath, src) => {
+    if (typeof docPath !== 'string' || docPath.length === 0) {
+      return Promise.reject(new Error('无法读取图片：文档路径无效，请先保存文档'))
+    }
+    if (typeof src !== 'string' || src.length === 0) {
+      return Promise.reject(new Error('无法读取图片：路径无效'))
+    }
+    return ipcRenderer.invoke(CHANNELS.readAssetFile, docPath, src) as Promise<FileContent>
+  },
+  onMenuCommand: (handler) => {
+    const listener = (_event: unknown, cmd: MenuCommand): void => handler(cmd)
+    ipcRenderer.on(CHANNELS.menuCommand, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.menuCommand, listener)
+    }
+  },
+  getSettings: () => ipcRenderer.invoke(CHANNELS.settingsGet) as Promise<AppSettings>,
+  setSettings: (next) => ipcRenderer.invoke(CHANNELS.settingsSet, next) as Promise<AppSettings>,
+  onSettingsChanged: (handler) => {
+    const listener = (_event: unknown, settings: AppSettings): void => handler(settings)
+    ipcRenderer.on(CHANNELS.settingsChanged, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.settingsChanged, listener)
     }
   },
   onCloseGuardRequest: (handler) => {

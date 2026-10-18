@@ -68,6 +68,48 @@ describe('appStore multi-tab state', () => {
     expect(state.activeDocId).toBe(a.id)
   })
 
+  it('openDoc allows multiple untitled docs with path=null', () => {
+    const first = new MdDocument({
+      id: 'untitled#1',
+      path: null,
+      text: '',
+      originalBytesBase64: '',
+      eol: 'lf',
+      hasBom: false,
+    })
+    const second = new MdDocument({
+      id: 'untitled#2',
+      path: null,
+      text: '',
+      originalBytesBase64: '',
+      eol: 'lf',
+      hasBom: false,
+    })
+
+    useAppStore.getState().openDoc(first)
+    useAppStore.getState().openDoc(second)
+
+    const state = useAppStore.getState()
+    expect(state.docs).toHaveLength(2)
+    expect(state.activeDocId).toBe(second.id)
+  })
+
+  it('replaceDoc swaps the instance with the same id and keeps order', () => {
+    const a = makeDoc('C:/notes/a.md')
+    useAppStore.getState().openDoc(a)
+
+    const saved = a.withPath('C:/notes/b.md')
+    useAppStore.getState().replaceDoc(saved)
+
+    const state = useAppStore.getState()
+    expect(state.docs).toEqual([saved])
+    expect(state.activeDocId).toBe(saved.id)
+    // 未知 id 是幂等空操作
+    const ghost = makeDoc('C:/notes/ghost.md')
+    useAppStore.getState().replaceDoc(ghost)
+    expect(useAppStore.getState().docs).toEqual([saved])
+  })
+
   it('closeDoc keeps the active tab when a background tab closes', () => {
     const a = makeDoc('C:/notes/a.md')
     const b = makeDoc('C:/notes/b.md')

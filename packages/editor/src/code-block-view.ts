@@ -1,11 +1,13 @@
+import { cursorDocEnd, cursorDocStart } from '@codemirror/commands'
 import { EditorView as CMView, keymap, ViewUpdate } from '@codemirror/view'
 import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import { LanguageDescription } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import { nodeViewCtx, prosePluginsCtx, SchemaReady } from '@milkdown/kit/core'
+import { nodeViewCtx, prosePluginsCtx, schemaCtx, SchemaReady } from '@milkdown/kit/core'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import { Plugin, TextSelection } from '@milkdown/prose/state'
-import type { Node as PMNode } from '@milkdown/prose/model'
+import { Plugin, TextSelection, type Selection } from '@milkdown/prose/state'
+import { GapCursor, gapCursor } from '@milkdown/prose/gapcursor'
+import type { Node as PMNode, ResolvedPos } from '@milkdown/prose/model'
 import type { EditorView as PMView, NodeView, NodeViewConstructor } from '@milkdown/prose/view'
 
 const COPY_RESET_MS = 1500
@@ -39,6 +41,12 @@ export class CodeBlockNodeView implements NodeView {
     if (pos === undefined) return
     const { from, to } = this.outerView.state.selection
     if (from <= pos || from >= pos + this.node.nodeSize) return
+    // 浏览器 DOM 选区已在代码块之外（例如用户刚点击了块外段落）：此时 PM state
+    // 可能尚未同步——本监听器注册在 ProseMirror 的 selectionchange 读取之前，
+    // 一旦这里抢走焦点，PM 的 flush 会因失焦直接放弃，用户后续所有键盘/鼠标
+    // 操作都会被吞掉（人工验证「无法移出代码块」bug 的第二轮死锁）。
+    const domSel = document.getSelection()
+    if (!domSel || domSel.rangeCount === 0 || !this.dom.contains(domSel.anchorNode)) return
     const cmFrom = Math.min(Math.max(from - pos - 1, 0), this.cmView.state.doc.length)
     const cmTo = Math.min(Math.max(to - pos - 1, 0), this.cmView.state.doc.length)
     this.cmView.focus()
@@ -108,6 +116,10 @@ export class CodeBlockNodeView implements NodeView {
             { key: 'ArrowUp', run: () => this.maybeEscape(-1, 'start') },
             { key: 'ArrowDown', run: () => this.maybeEscape(1, 'end') },
             { key: 'Escape', run: () => this.maybeEscape(-1, 'any') },
+            // Mod-End/Mod-Home 必须在 CM 内部消化：contenteditable 原生行为会把
+            // DOM 选区拽出嵌套可编辑区直达 PM 文档末尾（焦点随之离开 CM）。
+            { key: 'Mod-End', run: () => cursorDocEnd(this.cmView) },
+            { key: 'Mod-Home', run: () => cursorDocStart(this.cmView) },
           ]),
           CMView.updateListener.of((update) => this.onCmChange(update)),
         ],
@@ -162,6 +174,7 @@ export class CodeBlockNodeView implements NodeView {
   }
 
   destroy(): void {
+    codeBlockViews.delete(this)
     document.removeEventListener('selectionchange', this.onDocSelectionChange)
     if (this.copyTimer !== null) clearTimeout(this.copyTimer)
     this.cmView.destroy()
@@ -238,6 +251,12 @@ export class CodeBlockNodeView implements NodeView {
     return this.cmView.hasFocus
   }
 
+  /** 只读调试：WYSIWYG 代码块内 CM 选区真值（e2e 用，无写能力）。 */
+  getCmSelectionPublic(): { anchor: number; head: number; hasFocus: boolean } {
+    const sel = this.cmView.state.selection.main
+    return { anchor: sel.anchor, head: sel.head, hasFocus: this.cmView.hasFocus }
+  }
+
   focusCmPublic(): void {
     this.cmView.focus()
   }
@@ -252,9 +271,41 @@ export class CodeBlockNodeView implements NodeView {
     if (pos === undefined) return false
     // Escape direction: selection at start exits up, otherwise exits down.
     const exitDir: -1 | 1 = edge === 'any' ? (from === 0 ? -1 : 1) : dir
-    const boundary = exitDir < 0 ? pos : pos + this.node.nodeSize
-    const target = TextSelection.near(this.outerView.state.doc.resolve(boundary), exitDir)
+    const doc = this.outerView.state.doc
+    const insideBlock = (sel: Selection): boolean =>
+      sel.from > pos && sel.from < pos + this.node.nodeSize
+    // 从块的指定侧找块外文本落点；文档边界处 near() 会回退到块内（如末代码块
+    // 下方没有文本块时落到块内容末尾），此时返回 null。
+    const tryDir = (d: -1 | 1): Selection | null => {
+      const boundary = d < 0 ? pos : pos + this.node.nodeSize
+      const sel = TextSelection.near(doc.resolve(boundary), d)
+      return insideBlock(sel) ? null : sel
+    }
+    let target = tryDir(exitDir)
+    if (target === null) {
+      // 强行落点会让 PM 选区困在代码块内，焦点路由随即将焦点拉回 CM，用户
+      // 键盘/鼠标都无法移出（人工验证 bug）。方向性按键优先尝试 gap cursor：
+      // 块旁没有文本块（如末代码块下方）时在块边界落 gap cursor，用户仍可
+      // 在块后继续书写（输入/回车会创建新段落）。
+      if (edge !== 'any' && this.maybeGapCursor(exitDir)) return true
+      if (edge !== 'any') return false
+      target = tryDir(-exitDir as 1 | -1)
+      if (target === null) return this.maybeGapCursor(exitDir)
+    }
     this.outerView.dispatch(this.outerView.state.tr.setSelection(target))
+    this.outerView.focus()
+    return true
+  }
+
+  /** 块边界无文本落点时退到 gap cursor（仅在 GapCursor.valid 的位置）。 */
+  private maybeGapCursor(exitDir: -1 | 1): boolean {
+    const pos = this.getPos()
+    if (pos === undefined) return false
+    const boundary = exitDir < 0 ? pos : pos + this.node.nodeSize
+    const $pos = this.outerView.state.doc.resolve(boundary)
+    // GapCursor.valid 在 prosemirror-gapcursor 中标记 @internal，公共 d.ts 未导出
+    if (!(GapCursor as unknown as { valid($pos: ResolvedPos): boolean }).valid($pos)) return false
+    this.outerView.dispatch(this.outerView.state.tr.setSelection(new GapCursor($pos)))
     this.outerView.focus()
     return true
   }
@@ -283,6 +334,26 @@ export class CodeBlockNodeView implements NodeView {
  */
 const codeBlockViews = new Set<CodeBlockNodeView>()
 
+// 块旁无文本落点时允许 gap cursor（点击块下方空区/方向键退出），否则光标
+// 会被 TextSelection.near 钉回块内或上一文本块，「从块下方续写」不可达。
+const gapCursorPlugin = gapCursor()
+
+/** 只读调试：e2e 通过 __mdEditorDebug.codeBlocks 读取 CM 选区真值（无写能力）。 */
+export function getCodeBlockCmSelections(): Array<{
+  pos: number
+  anchor: number
+  head: number
+  hasFocus: boolean
+}> {
+  return Array.from(codeBlockViews)
+    .map((cb) => {
+      const pos = cb.getPosPublic()
+      const sel = cb.getCmSelectionPublic()
+      return { pos: pos ?? -1, anchor: sel.anchor, head: sel.head, hasFocus: sel.hasFocus }
+    })
+    .sort((a, b) => a.pos - b.pos)
+}
+
 const codeBlockFocusPlugin = new Plugin({
   view() {
     return {
@@ -307,14 +378,23 @@ const codeBlockFocusPlugin = new Plugin({
  */
 export const codeBlockView: MilkdownPlugin = (ctx) => async () => {
   await ctx.wait(SchemaReady)
+  // milkdown commonmark 的 code_block 未声明 createGapCursor，gap cursor 在
+  // 块前后恒不合法（needsGap 对 inlineContent 邻居返回 false）。这里在显示层
+  // 补上该标记，使块旁空区（如末代码块下方）可落 gap cursor 继续书写；
+  // 仅影响选区路由，不改 schema/序列化。
+  const codeBlockSpec = ctx.get(schemaCtx).nodes.code_block?.spec as
+    { createGapCursor?: boolean } | undefined
+  if (codeBlockSpec) codeBlockSpec.createGapCursor = true
   // commonmark registers the code_block node under this fixed id.
   const id = 'code_block'
   const constructor: NodeViewConstructor = (node, view, getPos) =>
     new CodeBlockNodeView(node, view, getPos)
   ctx.update(nodeViewCtx, (ps) => [...ps, [id, constructor] as [string, NodeViewConstructor]])
-  ctx.update(prosePluginsCtx, (ps) => [...ps, codeBlockFocusPlugin])
+  ctx.update(prosePluginsCtx, (ps) => [...ps, codeBlockFocusPlugin, gapCursorPlugin])
   return () => {
     ctx.update(nodeViewCtx, (ps) => ps.filter(([key]) => key !== id))
-    ctx.update(prosePluginsCtx, (ps) => ps.filter((p) => p !== codeBlockFocusPlugin))
+    ctx.update(prosePluginsCtx, (ps) =>
+      ps.filter((p) => p !== codeBlockFocusPlugin && p !== gapCursorPlugin),
+    )
   }
 }

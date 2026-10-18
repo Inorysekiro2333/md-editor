@@ -1,0 +1,9 @@
+/* github-light：默认主题 */
+[data-theme='github-light'] {
+  --md-bg: #ffffff;
+  --md-fg: #24292f;
+  --md-accent: #0969da;
+  --md-border: #d0d7de;
+  --md-code-bg: #f6f8fa;
+  --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+}

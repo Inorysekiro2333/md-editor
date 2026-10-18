@@ -29,7 +29,8 @@ import {
   saveHistory,
   sessionRecorderPlugin,
 } from './session-history'
-import { codeBlockView } from './code-block-view'
+import { codeBlockView, getCodeBlockCmSelections } from './code-block-view'
+import { createImageView, type ResolveImageSrc } from './image-view'
 import { createMarkdownSync } from './sync'
 import { tableToolbar } from './table-toolbar'
 
@@ -72,6 +73,8 @@ export function applySelectionOffsets(
 
 export interface EditorHostProps {
   docId: string
+  /** 相对路径图片的显示层解析（Buffer 保持原样，仅渲染时替换 src）；可空。 */
+  resolveImageSrc?: ResolveImageSrc
   initialMarkdown: string
   onMarkdownChange(markdown: string): void
   onReady?(handle: EditorHandle): void
@@ -95,6 +98,7 @@ function EditorHostInner(props: EditorHostProps) {
     onCursorChange,
     initialSelection,
     onSelectionApplied,
+    resolveImageSrc,
   } = props
   const handleRef = useRef<EditorHandle | null>(null)
   const initialMarkdownRef = useRef(initialMarkdown)
@@ -103,6 +107,7 @@ function EditorHostInner(props: EditorHostProps) {
   const restoringRef = useRef(false)
   const baseMarkdownRef = useRef(initialMarkdown)
   const onPasteAssetRef = useRef(onPasteAsset)
+  const resolveImageSrcRef = useRef(resolveImageSrc)
   const getBufferTextRef = useRef(getBufferText)
   const onCursorChangeRef = useRef(onCursorChange)
   // 只在 mount 后 editor 创建完成时应用一次（模式切换的光标恢复）
@@ -114,10 +119,15 @@ function EditorHostInner(props: EditorHostProps) {
     onPasteAssetRef.current = onPasteAsset
     getBufferTextRef.current = getBufferText
     onCursorChangeRef.current = onCursorChange
-  }, [onPasteAsset, getBufferText, onCursorChange])
+    resolveImageSrcRef.current = resolveImageSrc
+  }, [onPasteAsset, getBufferText, onCursorChange, resolveImageSrc])
 
   // 粘贴扩展只在 editor 创建时注册一次；回调经 ref 读取最新值
   const pastePlugin = useMemo(() => createPastePlugin(() => onPasteAssetRef.current), [])
+  const imageViewPlugin = useMemo(
+    () => createImageView((src) => resolveImageSrcRef.current?.(src) ?? null),
+    [],
+  )
   const pasteRule = useMemo(() => createPasteRule(), [])
   // 光标通知插件只创建一次；发射时经 getNotify() 读取最新 buffer 与回调
   const cursorNotifyPlugin = useMemo(
@@ -183,6 +193,7 @@ function EditorHostInner(props: EditorHostProps) {
         })
         .use(commonmark)
         .use(codeBlockView)
+        .use(imageViewPlugin)
         .use(editorInputRules)
         .use(gfm)
         .use(columnResizingPlugin)
@@ -235,6 +246,7 @@ function EditorHostInner(props: EditorHostProps) {
             hasFocus: view.hasFocus(),
           }
         }),
+      codeBlocks: getCodeBlockCmSelections,
     }
   }, [get, loading])
 

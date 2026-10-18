@@ -116,6 +116,8 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [ ] 外部程序改文件：Buffer 干净时自动重载；脏时弹窗二选一。
 - [ ] 保存原子性：写盘失败不留半个文件，`.tmp` 被清理。
 - [ ] CRLF/LF 与 BOM 保留。
+- [x] 导出写盘走 `writeAtomic`：`app:export-pdf`（printToPDF 字节）与 `app:export-html`（≤ EXPORT_HTML_MAX_BYTES 守卫）均原子写，失败不留 `.tmp`（M4，2026-10-18）。
+- [ ] （待人工验证，M4 后置登记）新建→另存为真实系统对话框落盘；导出 PDF 中文字体/分页；导出 HTML 断网离线打开样式完整。
 
 ### R5 — 性能（每里程碑测一次，结果记录到第 7 节）
 
@@ -138,6 +140,7 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [ ] 生产构建 CSP 中无 `unsafe-eval`、无远程脚本。
 - [ ] 渲染进程无法直接访问 `require` / `fs`（devtools 里 `window.require === undefined`）。
 - [ ] 外链只经 `shell.openExternal`，且协议限 http/https。
+- [x] M4 新增 IPC（`app:menu-command` / `app:save-dialog` / `window:toggle-fullscreen` / `settings:get|set|changed` / `app:export-pdf` / `app:export-html` / `asset:read`）全部经 `electron/preload` 窄接口 + `electron/shared/channels.ts` 白名单；printToPDF 隐藏窗口显式 `sandbox: true` / `contextIsolation: true` / `nodeIntegration: false`（electron/main/exporter.ts；M4，2026-10-18）。
 
 ## 7. 性能基准记录
 

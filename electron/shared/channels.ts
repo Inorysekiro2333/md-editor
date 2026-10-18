@@ -15,6 +15,18 @@ export const CHANNELS = {
   sessionSave: 'session:save',
   sessionLoad: 'session:load',
   sessionRemove: 'session:remove',
+  menuCommand: 'app:menu-command',
+  saveDialog: 'app:save-dialog',
+  openDialog: 'app:open-dialog',
+  toggleFullscreen: 'window:toggle-fullscreen',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  settingsChanged: 'settings:changed',
+  exportPdf: 'app:export-pdf',
+  exportHtml: 'app:export-html',
+  readAssetFile: 'asset:read',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]
+
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'

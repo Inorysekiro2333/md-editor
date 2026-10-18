@@ -16,7 +16,7 @@
     "test": "vitest run --exclude \"e2e/**\"",
     "test:watch": "vitest --exclude \"e2e/**\"",
     "test:coverage": "vitest run --exclude \"e2e/**\" --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p packages/editor/tsconfig.json && tsc --noEmit -p packages/app/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p packages/editor/tsconfig.json && tsc --noEmit -p packages/app/tsconfig.json && tsc --noEmit -p packages/theming/tsconfig.json && tsc --noEmit -p packages/export/tsconfig.json",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "e2e": "pnpm build:app && playwright test",

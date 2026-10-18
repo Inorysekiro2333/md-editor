@@ -1,7 +1,8 @@
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, Menu, session } from 'electron'
 import { writeFileSync } from 'node:fs'
 import { registerIpc, type IpcRegistry } from './ipc'
 import { buildCsp } from './security'
+import { buildTemplate, toggleFullscreen } from './menu'
 import { confirmWindowClose, createMainWindow, markQuitting } from './window'
 import { CHANNELS } from '../shared/channels'
 
@@ -56,6 +57,15 @@ if (!app.requestSingleInstanceLock()) {
     const closeGuardEnabled = process.env.MD_EDITOR_NO_CLOSE_GUARD !== '1'
     ipcRegistry = registerIpc(() => mainWindow, confirmWindowClose, openPathFromCli() !== null)
     mainWindow = createMainWindow(closeGuardEnabled)
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildTemplate({
+          onCommand: (cmd) => mainWindow?.webContents.send(CHANNELS.menuCommand, cmd),
+          onClose: () => mainWindow?.close(),
+          toggleFullscreen,
+        }),
+      ),
+    )
     mainWindow.once('ready-to-show', () => {
       console.log(`[startup] ready ${Date.now() - STARTED_AT}`)
       const probePath = probeMemoryPathFromCli()
