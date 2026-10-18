@@ -111,7 +111,13 @@ function buildTable(schema: Schema): PMNode {
   return tableType.create(undefined, [headerRow, dataRow, dataRow])
 }
 
-/** Ctrl+B / Ctrl+I / Ctrl+Shift+X / Ctrl+E 统一注册（M5.x 工具栏同步补齐）。 */
+/**
+ * Ctrl+B / Ctrl+I / Ctrl+Shift+X / Ctrl+E 统一注册（M5.x 工具栏同步补齐）。
+ *
+ * 审查结论（2026-10-18）：Milkdown commonmark 内置 keymap 已含 Mod-b（strikeout 等同理），
+ * 本 keymap 注册在后故优先命中，无双 toggle；该行为依赖注册顺序，移除/改动前必须核对内置绑定，
+ * 避免未来调整装配顺序造成回归。
+ */
 export const formattingKeymap = $prose(() =>
   keymap({
     'Mod-b': (state, dispatch) =>
