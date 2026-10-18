@@ -31,13 +31,6 @@ body {
   height: 100%;
 }
 
-.chrome {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--md-border, #d0d7de);
-  color: #57606a;
-  font-size: 0.875rem;
-}
-
 .notice {
   margin: 0;
   padding: 8px 16px;
@@ -422,4 +415,105 @@ body {
 .find-msg {
   color: #cf222e;
   font-size: 0.8125rem;
+}
+
+.format-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--md-border, #d0d7de);
+  background: var(--bg);
+}
+
+.format-toolbar-group {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding-right: 6px;
+  border-right: 1px solid var(--md-border, #d0d7de);
+}
+
+.format-toolbar-group:last-child {
+  border-right: none;
+}
+
+.format-toolbar-btn {
+  min-width: 26px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.format-toolbar-btn:hover:not(:disabled) {
+  background: var(--md-hover-bg, rgba(31, 35, 40, 0.06));
+}
+
+.format-toolbar-btn:disabled {
+  color: var(--md-fg-muted, #57606a);
+  cursor: default;
+}
+
+.glyph-bold {
+  font-weight: 700;
+}
+
+.glyph-italic {
+  font-style: italic;
+}
+
+.glyph-strike {
+  text-decoration: line-through;
+}
+
+.glyph-mono {
+  font-family: var(--font-code, monospace);
+  font-size: 0.75rem;
+}
+
+.format-toolbar-heading {
+  border: 1px solid var(--md-border, #d0d7de);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  padding: 1px 4px;
+}
+
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--md-border, #d0d7de);
+  color: var(--md-fg-muted, #57606a);
+  font-size: 0.8125rem;
+  background: var(--bg);
+}
+
+.statusbar-right {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.statusbar button {
+  border: none;
+  background: transparent;
+  color: var(--md-fg-muted, #57606a);
+  font: inherit;
+  cursor: pointer;
+}
+
+.statusbar button:hover {
+  color: var(--fg);
+}
+
+.statusbar-gear {
+  display: inline-flex;
+  align-items: center;
 }

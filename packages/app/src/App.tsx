@@ -20,6 +20,9 @@ import { FindReplacePanel } from './ui/FindReplacePanel'
 import { useCaptureKeydown } from './ui/useCaptureKeydown'
 import { SettingsPanel } from './ui/SettingsPanel'
 import { AboutDialog } from './ui/AboutDialog'
+import { FormatToolbar } from './ui/FormatToolbar'
+import { StatusBar } from './ui/StatusBar'
+import type { FormatCommandName } from '@md-editor/editor'
 import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
@@ -820,18 +823,17 @@ export function App() {
 
   return (
     <main className="workspace">
-      <header className="chrome">
-        <span data-testid="status">
-          {activeDoc?.isDirty === true ? '未保存 · ' : ''}
-          {status}
-        </span>
-        <button type="button" data-testid="mode-toggle" onClick={toggleMode}>
-          编辑模式：{mode === 'wysiwyg' ? '所见即所得' : '源码'}
-        </button>
-        <button type="button" data-testid="open-settings" onClick={() => setSettingsOpen(true)}>
-          设置
-        </button>
-      </header>
+      {activeDoc !== null ? (
+        <FormatToolbar
+          disabled={!editorReady}
+          onCommand={(name: FormatCommandName) => {
+            const handle =
+              mode === 'wysiwyg' ? editorHandle.current : (sourceHandle.current ?? undefined)
+            handle?.runCommand(name)
+          }}
+        />
+      ) : null}
+
       <nav className="tabbar">
         {docs.map((doc) => (
           <div
@@ -980,6 +982,13 @@ export function App() {
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
+      <StatusBar
+        status={status}
+        dirty={activeDoc?.isDirty === true}
+        mode={mode}
+        onToggleMode={toggleMode}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     </main>
   )
 }
