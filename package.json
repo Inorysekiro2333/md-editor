@@ -13,6 +13,7 @@
     "build:app": "electron-vite build",
     "measure": "node scripts/measure-startup.mjs",
     "build": "pnpm build:app && electron-builder",
+    "dist": "pnpm build:app && electron-builder",
     "test": "vitest run --exclude \"e2e/**\"",
     "test:watch": "vitest --exclude \"e2e/**\"",
     "test:coverage": "vitest run --exclude \"e2e/**\" --coverage",
