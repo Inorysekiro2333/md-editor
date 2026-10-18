@@ -19,7 +19,7 @@ import { TextSelection, type Transaction } from '@milkdown/prose/state'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
-import { editorInputRules, editorMarkInputRules } from './input-rules'
+import { editorInputRules, editorMarkInputRules, editorTripleStarGuard } from './input-rules'
 import { createCursorNotifyPlugin } from './cursor-notify'
 import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
@@ -173,6 +173,7 @@ function EditorHostInner(props: EditorHostProps) {
           ctx.update(prosePluginsCtx, (ps) => [
             ...ps,
             sessionRecorderPlugin,
+            editorTripleStarGuard,
             pastePlugin,
             cursorNotifyPlugin,
           ])

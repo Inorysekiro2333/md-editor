@@ -3,7 +3,7 @@ import { inputRules, InputRule } from '@milkdown/prose/inputrules'
 import { keymap } from '@milkdown/kit/prose/keymap'
 import { markRule } from '@milkdown/prose'
 import { $prose } from '@milkdown/kit/utils'
-import { EditorState, TextSelection } from '@milkdown/kit/prose/state'
+import { EditorState, Plugin, TextSelection } from '@milkdown/kit/prose/state'
 import type { Mark as PMMark, Node as PMNode } from '@milkdown/prose/model'
 
 /**
@@ -39,6 +39,36 @@ export const editorInputRules = $prose(() => {
   })
 })
 
+/**
+ * 三星粗斜体中途拦截：键入 `***text**`（差最后一颗收尾星）时，
+ * 内置/自定义 strong 规则会抢先消费 `**text**`（开界取三星中的后两颗），
+ * 留下一颗游离字面星，最终序列化出错误的强调结构。
+ * 此插件注册在内置 inputRules 之前（EditorHost config 阶段加入 prosePluginsCtx），
+ * 对即将凑齐三星收尾的那次键入改为纯文本插入、不跑规则，
+ * 让最后一颗星到达时由 editorMarkInputRules 的三星规则整段转换。
+ */
+export const editorTripleStarGuard = new Plugin({
+  props: {
+    handleTextInput(view, from, to, text) {
+      if (text !== '*') return false
+      const { state } = view
+      const $from = state.doc.resolve(from)
+      const $to = state.doc.resolve(to)
+      if (!$from.sameParent($to) || !$from.parent.isTextblock) return false
+      const before = $from.parent.textBetween(
+        Math.max(0, $from.parentOffset - 200),
+        $from.parentOffset,
+        undefined,
+        '\uFFFC',
+      )
+      const match = /\*\*\*([^*]+?)\*\*$/.exec(before + text)
+      if (!match || !match[1].trim()) return false
+      if (rangeHasCodeMark(state, from, to) || typedCharInCodeSpan(state, to)) return false
+      view.dispatch(state.tr.insertText(text, from, to))
+      return true
+    },
+  },
+})
 /** 范围内是否含行内代码 mark（守卫：不在代码 span 内触发强调规则）。 */
 function rangeHasCodeMark(state: EditorState, from: number, to: number): boolean {
   const code = state.schema.marks.inlineCode

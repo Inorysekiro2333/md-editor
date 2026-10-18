@@ -2,11 +2,15 @@
 import { describe, it, expect } from 'vitest'
 import { TextSelection } from '@milkdown/prose/state'
 import { createTestEditor } from './testing/create-test-editor'
-import { editorInputRules, editorMarkInputRules } from './input-rules'
+import { editorInputRules, editorMarkInputRules, editorTripleStarGuard } from './input-rules'
 
 /** Simulate per-character typing through ProseMirror handleTextInput. */
 async function typeAfter(initial: string, chars: string): Promise<string> {
-  const editor = await createTestEditor(initial, [], [editorInputRules, editorMarkInputRules])
+  const editor = await createTestEditor(
+    initial,
+    [editorTripleStarGuard],
+    [editorInputRules, editorMarkInputRules],
+  )
   try {
     const view = editor.getView()
     // move caret to end of document

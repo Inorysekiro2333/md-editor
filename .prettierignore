@@ -7,3 +7,4 @@ pnpm-lock.yaml
 .superpowers
 
 packages/editor/src/__fixtures__
+.vitest

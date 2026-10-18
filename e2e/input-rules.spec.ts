@@ -86,3 +86,18 @@ test('strikethrough rule after word chars', async () => {
   const saved = await typeAndSave('~~xx~~', 'abc')
   expect(saved).toBe('abc~~xx~~\n')
 })
+
+test('triple-star bold-italic rule', async () => {
+  const saved = await typeAndSave('***haha***', 'abc')
+  expect(saved).toBe('abc***haha***\n')
+})
+
+test('triple-star bold-italic rule in empty doc', async () => {
+  const saved = await typeAndSave('***haha***')
+  expect(saved).toBe('***haha***\n')
+})
+
+test('triple-star bold-italic after CJK chars', async () => {
+  const saved = await typeAndSave('***粗斜***', '中文')
+  expect(saved).toBe('中文***粗斜***\n')
+})
