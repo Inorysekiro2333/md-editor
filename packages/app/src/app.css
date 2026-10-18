@@ -1,6 +1,11 @@
+@import '@md-editor/theming/themes/github-light.css';
+@import '@md-editor/theming/themes/github-dark.css';
+@import '@md-editor/theming/themes/paper-serif.css';
+
 :root {
-  --bg: #ffffff;
-  --fg: #24292f;
+  --bg: var(--md-bg, #ffffff);
+  --fg: var(--md-fg, #24292f);
+  --code-bg: var(--md-code-bg, rgba(31, 35, 40, 0.05));
 }
 
 * {
@@ -28,7 +33,7 @@ body {
 
 .chrome {
   padding: 8px 16px;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--md-border, #d0d7de);
   color: #57606a;
   font-size: 0.875rem;
 }
@@ -36,7 +41,7 @@ body {
 .notice {
   margin: 0;
   padding: 8px 16px;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--md-border, #d0d7de);
   color: #57606a;
 }
 
@@ -50,7 +55,7 @@ body {
   flex: none;
   width: 220px;
   overflow-y: auto;
-  border-right: 1px solid #d0d7de;
+  border-right: 1px solid var(--md-border, #d0d7de);
   background: var(--bg);
 }
 
@@ -152,7 +157,7 @@ body {
   gap: 2px;
   padding: 2px;
   background: var(--bg);
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--md-border, #d0d7de);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(31, 35, 40, 0.15);
 }
@@ -189,7 +194,7 @@ body {
   display: flex;
   gap: 2px;
   padding: 4px 8px 0;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--md-border, #d0d7de);
   background: var(--bg);
   overflow-x: auto;
 }
@@ -200,7 +205,7 @@ body {
   gap: 4px;
   max-width: 220px;
   padding: 2px 4px 2px 10px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--md-border, #d0d7de);
   border-bottom: none;
   border-radius: 6px 6px 0 0;
   background: var(--code-bg, rgba(31, 35, 40, 0.05));
@@ -274,7 +279,7 @@ body {
 
 .modal-actions button {
   padding: 4px 12px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--md-border, #d0d7de);
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
@@ -288,7 +293,7 @@ body {
 
 .outline-sidebar {
   width: 200px;
-  border-left: 1px solid #d0d7de;
+  border-left: 1px solid var(--md-border, #d0d7de);
   border-right: none;
 }
 
@@ -354,13 +359,13 @@ body {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--md-border, #d0d7de);
   background: var(--bg);
 }
 
 .find-panel input {
   padding: 4px 8px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--md-border, #d0d7de);
   border-radius: 6px;
   font: inherit;
 }
@@ -372,7 +377,7 @@ body {
 
 .find-panel button {
   padding: 4px 8px;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--md-border, #d0d7de);
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);

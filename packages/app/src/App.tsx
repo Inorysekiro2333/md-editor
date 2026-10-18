@@ -7,6 +7,7 @@ import {
   type SourceEditorHandle,
 } from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { applyTheme } from '@md-editor/theming'
 import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
@@ -374,6 +375,24 @@ export function App() {
       .getAppInfo()
       .then(setInfo)
       .catch(() => setInfo(null))
+  }, [])
+
+  // M4：启动读取 settings.themeId 应用主题，并跟随 settingsChanged 广播切换。
+  useEffect(() => {
+    let cancelled = false
+    void ipc
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) applyTheme(settings.themeId)
+      })
+      .catch(() => undefined)
+    const unsubscribe = ipc.onSettingsChanged((settings) => {
+      applyTheme(settings.themeId)
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [])
 
   // ADR-7 崩溃恢复：仅当本次启动不带 --open 时，从 userData session.json 逐 tab 还原。

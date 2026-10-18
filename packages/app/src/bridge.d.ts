@@ -1,5 +1,5 @@
 import type { FileContent, MdEditorBridge, WriteCredential } from './bridge'
-import type { AppSettings } from '../../electron/shared/settings'
+import type { AppSettings } from '../../../electron/shared/settings'
 
 export interface AppInfo {
   version: string

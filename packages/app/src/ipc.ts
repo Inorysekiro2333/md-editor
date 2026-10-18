@@ -1,4 +1,5 @@
 import type { MenuCommand } from './bridge'
+import type { AppSettings } from '../../../electron/shared/settings'
 import type {
   FileContent,
   MdEditorBridge,
@@ -29,6 +30,9 @@ export interface Ipc {
   toggleFullscreen(): Promise<void>
   showSaveDialog(defaultName: string): Promise<string | null>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
+  getSettings(): Promise<AppSettings>
+  setSettings(next: AppSettings): Promise<AppSettings>
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
 export function createIpc(bridge: MdEditorBridge): Ipc {
@@ -53,6 +57,9 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     toggleFullscreen: () => bridge.toggleFullscreen(),
     showSaveDialog: (defaultName) => bridge.showSaveDialog(defaultName),
     onMenuCommand: (handler) => bridge.onMenuCommand(handler),
+    getSettings: () => bridge.getSettings(),
+    setSettings: (next) => bridge.setSettings(next),
+    onSettingsChanged: (handler) => bridge.onSettingsChanged(handler),
   }
 }
 
