@@ -3,7 +3,8 @@ import { inputRules, InputRule } from '@milkdown/prose/inputrules'
 import { keymap } from '@milkdown/kit/prose/keymap'
 import { markRule } from '@milkdown/prose'
 import { $prose } from '@milkdown/kit/utils'
-import { TextSelection } from '@milkdown/kit/prose/state'
+import { EditorState, TextSelection } from '@milkdown/kit/prose/state'
+import type { Mark as PMMark, Node as PMNode } from '@milkdown/prose/model'
 
 /**
  * 表格管道规则：在段落末尾键入 `| a | b |` 后按 Enter，
@@ -38,6 +39,22 @@ export const editorInputRules = $prose(() => {
   })
 })
 
+/** 范围内是否含行内代码 mark（守卫：不在代码 span 内触发强调规则）。 */
+function rangeHasCodeMark(state: EditorState, from: number, to: number): boolean {
+  const code = state.schema.marks.inlineCode
+  if (!code) return false
+  let found = false
+  state.doc.nodesBetween(from, to, (node: PMNode) => {
+    if (node.marks.some((m: PMMark) => m.type === code)) found = true
+  })
+  return found
+}
+
+function typedCharInCodeSpan(state: EditorState, pos: number): boolean {
+  const stored = state.storedMarks ?? state.doc.resolve(pos).marks()
+  return stored.some((m: PMMark) => m.type === state.schema.marks.inlineCode)
+}
+
 /**
  * mark input rules 补充：Milkdown 内置 strong/strikethrough 规则带
  * `(?<![\w:/])` lookbehind，开界标紧跟 ASCII 词字符时拒绝触发
@@ -45,12 +62,42 @@ export const editorInputRules = $prose(() => {
  * CommonMark 本身允许词后 `foo**bar**` 成对星号，故对 `*` 系放宽；
  * `__` 保留词内保守性（CommonMark 对 intraword 下划线不强调）。
  * 代码块/行内代码守卫由 markRule 自带校验 + parent code 检查承担。
+ * `***text***` 组合规则同时施加 emphasis + strong（序列化为三星粗斜体），
+ * 代码 span 守卫与 markRule 一致。
  */
 export const editorMarkInputRules = $prose((ctx) => {
   const schema = ctx.get(schemaCtx)
   const strong = schema.marks.strong
+  const emphasis = schema.marks.emphasis
   const strikethrough = schema.marks.strike_through
   const markRules: InputRule[] = []
+  if (strong && emphasis) {
+    markRules.push(
+      new InputRule(/\*\*\*([^*]+?)\*\*\*(?![\w/])$/, (state, match, start, end) => {
+        const group = match[1]
+        if (!group || !group.trim()) return null
+        const textStart = start + match[0].indexOf(group)
+        const textEnd = textStart + group.length
+        if (
+          rangeHasCodeMark(state, start, textStart) ||
+          rangeHasCodeMark(state, textEnd, end) ||
+          typedCharInCodeSpan(state, end)
+        ) {
+          return null
+        }
+        const { tr } = state
+        const storedMarks = tr.storedMarks ?? []
+        tr.delete(textEnd, end)
+        tr.delete(start, textStart)
+        const markEnd = start + group.length
+        // 先 em 后 strong，序列化输出 ***text***
+        tr.addMark(start, markEnd, emphasis.create())
+        tr.addMark(start, markEnd, strong.create({ marker: '*' }))
+        tr.setStoredMarks(storedMarks)
+        return tr
+      }),
+    )
+  }
   if (strong) {
     markRules.push(
       markRule(/\*\*([^*_]+?)\*\*(?![\w/])$/, strong, {

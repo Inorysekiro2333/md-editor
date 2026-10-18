@@ -58,4 +58,16 @@ describe('mark input rules (typed, not pasted)', () => {
         .join(''),
     )
   })
+  it('triple-star bold-italic after word chars applies both marks', async () => {
+    const md = await typeAfter('abc', '***粗斜***')
+    expect(md).toBe('abc***粗斜***\n')
+  })
+  it('triple-star bold-italic in empty paragraph', async () => {
+    const md = await typeAfter('', '***粗斜***')
+    expect(md).toBe('***粗斜***\n')
+  })
+  it('triple-star does not trigger inside inline-code span', async () => {
+    const md = await typeAfter('`code', '***xx***')
+    expect(md).toBe(String.fromCharCode(92) + '`code***xx***\n')
+  })
 })
