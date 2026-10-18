@@ -13,7 +13,7 @@ const DICTIONARIES: Record<Locale, Record<MessageKey, string>> = {
 
 /** 极简查词典函数：未知键在类型层禁止；未知 locale 回退 zh-CN。 */
 export function t(key: MessageKey, locale: Locale = DEFAULT_LOCALE): string {
-  return DICTIONARIES[locale][key] ?? zhCN[key]
+  return DICTIONARIES[locale]?.[key] ?? zhCN[key]
 }
 
 export { zhCN } from './zh-CN'

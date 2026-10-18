@@ -1,5 +1,6 @@
 import { parseOutline, type OutlineItem } from '@md-editor/editor'
 import { useMemo } from 'react'
+import { t } from '../i18n'
 
 interface OutlinePanelProps {
   markdown: string
@@ -20,7 +21,7 @@ export function OutlinePanel({ markdown, cursorOffset, onJump }: OutlinePanelPro
     }
   }
   if (items.length === 0) {
-    return <p className="outline-empty">无标题</p>
+    return <p className="outline-empty">{t('outlineNoHeadings')}</p>
   }
   return (
     <ul className="outline">

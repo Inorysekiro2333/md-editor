@@ -57,6 +57,17 @@ export const zhCN = {
   modalExternalModified: '文件已被外部修改，请选择重载外部内容或保留我的修改',
   reloadExternal: '重载外部内容',
   keepMyChanges: '保留我的修改',
+  findPlaceholder: '查找',
+  replacePlaceholder: '替换为',
+  replace: '替换',
+  replaceAll: '全部替换',
+  noMatches: '无匹配',
+  invalidRegex: '无效的正则表达式',
+  noResults: '0 个结果',
+  resultsCountSuffix: '个结果',
+  closeFindReplace: '关闭查找替换',
+  findWordToggle: '词',
+  outlineNoHeadings: '无标题',
 } as const
 
 export type MessageKey = keyof typeof zhCN
