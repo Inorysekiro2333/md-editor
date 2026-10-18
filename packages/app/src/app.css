@@ -171,6 +171,22 @@ body {
 .md-table-toolbar button:hover {
   background: rgba(31, 35, 40, 0.08);
 }
+.milkdown table {
+  width: 100%;
+  margin: var(--sp-4, 16px) 0;
+  border-collapse: collapse;
+  border: 1px solid var(--md-border, #d0d7de);
+}
+.milkdown th,
+.milkdown td {
+  padding: var(--sp-2, 8px) var(--sp-3, 12px);
+  border: 1px solid var(--md-border, #d0d7de);
+  min-height: 1.5em;
+}
+.milkdown th {
+  background: var(--md-code-bg, rgba(31, 35, 40, 0.05));
+  font-weight: 600;
+}
 /* prosemirror-tables 依赖单元格 position:relative，handle 才能贴附在单元格右缘 */
 .milkdown th,
 .milkdown td {

@@ -1,4 +1,5 @@
 import { toggleMark, wrapIn } from '@milkdown/prose/commands'
+import { TextSelection } from '@milkdown/prose/state'
 import { wrapInList } from '@milkdown/prose/schema-list'
 import { keymap } from '@milkdown/prose/keymap'
 import { $prose } from '@milkdown/kit/utils'
@@ -86,7 +87,20 @@ export function runFormatCommand(
     case 'insertTable': {
       const tableType = schema.nodes.table
       if (!tableType || insideTable(state.selection.$from)) return false
-      dispatch(state.tr.replaceSelectionWith(buildTable(schema)).scrollIntoView())
+      const tr = state.tr.replaceSelectionWith(buildTable(schema)).scrollIntoView()
+      let tablePos = -1
+      tr.doc.descendants((node, pos) => {
+        if (tablePos < 0 && node.type.name === 'table') {
+          tablePos = pos
+          return false
+        }
+        return true
+      })
+      if (tablePos < 0) return false
+      // Resolve the first header cell's start; TextSelection.near lands on
+      // its inner paragraph so the caret is visible and typable.
+      tr.setSelection(TextSelection.near(tr.doc.resolve(tablePos + 2)))
+      dispatch(tr)
       return true
     }
     default:
