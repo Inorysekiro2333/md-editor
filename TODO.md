@@ -82,11 +82,11 @@
 - [x] (P1) `electron-builder` 三平台安装包（NSIS / DMG / AppImage + deb）——配置与 CI 干跑完成，产物实测待 Release CI
 - [x] (P1) 代码签名与 macOS 公证（env 驱动接线完成；无证书，发布说明标注 unsigned，SmartScreen/Gatekeeper 实测待证书后补）
 - [x] (P1) 自动更新（electron-updater，见 component-api.md 8 节；真实更新升级验证待 GitHub Release 后补）
-- [x] (P1) 性能验收：冷启动 297ms <3s、空文档内存 211MB ≤300MB 达标（perf:check）；包体/安装后体积待 Release CI 实装后补测
+- [x] (P1) 性能验收：冷启动 299ms <3s、空文档内存 212MB ≤300MB 达标（perf:check）；包体/安装后体积待 Release CI 实装后补测
 - [x] (P1) `user-guide.md` 按实际实现校对成稿、官网 landing page（site/index.html）
 - [ ] (P2) opt-in 崩溃上报（按 2026-10-18 计划范围裁定延后至 v1.1 前补齐）
 
-**验收**：三平台 CI 干跑全绿；`development.md` 7 节 M5 行已登记（冷启动 297ms、空文档内存 211MB 私有，达标）；未签名/未公证项已在发布说明写明。（M5 验收记录 2026-10-18：pnpm lint 全过（eslint + prettier）· pnpm typecheck 5 个 tsconfig 0 错误 · pnpm test 333 passed (39 files, 6.03s) · pnpm e2e 59 passed (1.4m) · pnpm theme:check 通过 · pnpm build:app 成功（renderer 2,009.44 kB）· pnpm perf:check 冷启动 297ms（<3000ms）/ 私有工作集 211MB（≤300MB）/ 安装包体积 SKIP 待 Release CI。**人工验证清单（待补，不阻塞合入）**：① 真实证书签名后 Windows SmartScreen / macOS Gatekeeper 实测（无证书时发布说明标注 unsigned）；② GitHub Release 上传产物后打包版应用真实更新提示 + 升级；③ Windows NSIS / macOS DMG / Linux AppImage+deb 各自实装一次，安装后体积 ≤400MB。）
+**验收**：三平台 CI 干跑全绿；`development.md` 7 节 M5 行已登记（冷启动 299ms、空文档内存 212MB 私有，达标）；未签名/未公证项已在发布说明写明。（M5 验收记录 2026-10-18：pnpm lint 全过（eslint + prettier）· pnpm typecheck 5 个 tsconfig 0 错误 · pnpm test 333 passed (39 files, 6.03s) · pnpm e2e 59 passed (1.4m) · pnpm theme:check 通过 · pnpm build:app 成功（renderer 2,009.44 kB）· pnpm perf:check 冷启动 299ms（<3000ms）/ 私有工作集 212MB（≤300MB）/ 安装包体积 SKIP 待 Release CI。**人工验证清单（待补，不阻塞合入）**：① 真实证书签名后 Windows SmartScreen / macOS Gatekeeper 实测（无证书时发布说明标注 unsigned）；② GitHub Release 上传产物后打包版应用真实更新提示 + 升级；③ Windows NSIS / macOS DMG / Linux AppImage+deb 各自实装一次，安装后体积 ≤400MB。）
 
 ## v1.1 — 架构评审移出项 + 原 v1.1 项
 

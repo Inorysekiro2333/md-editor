@@ -1,7 +1,14 @@
 // perf:check - M5 release acceptance thresholds (architecture.md 5)
 // ready < 3000ms; private working set <= 300MB; each installer in release/ <= 150MB
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,27 +16,91 @@ const INSTALLER_LIMIT_MB = 150
 const MEMORY_LIMIT_MB = 300
 const READY_LIMIT_MS = 3000
 
+function fail(msg) {
+  console.error(`perf-check: ${msg}`)
+  process.exit(1)
+}
+
 // ---- 冷启动 ready：复用 scripts/measure-startup.mjs 的采样 ----
 const r = spawnSync(process.execPath, ['scripts/measure-startup.mjs'], {
   encoding: 'utf8',
   stdio: ['ignore', 'pipe', 'inherit'],
 })
 if (r.status !== 0) {
-  console.error('perf-check: measure-startup 失败')
-  process.exit(1)
+  fail('measure-startup 失败')
 }
 const line = r.stdout.trim().split(/\r?\n/).at(-1)
 const cols = line.split('|').map((c) => c.trim())
 const readyMs = Number(cols[4]?.replace(/ms$/, ''))
 if (!Number.isFinite(readyMs)) {
-  console.error(`perf-check: 无法解析 measure-startup 输出: ${line}`)
-  process.exit(1)
+  fail(`无法解析 measure-startup 输出: ${line}`)
 }
 
-// ---- 私有工作集：优先 --probe-memory JSON 的 privateWorkingSet；缺失时回退。
-// 回退口径：Windows 用 Get-Process 私有内存之和（与 development.md 第 7 节 M1 口径一致，
-// workingSetSize 含共享内存，不能直接当私有工作集阈值用）。
-async function electronPids() {
+const fixture = join(tmpdir(), `md-editor-perf-${Date.now()}.md`)
+writeFileSync(fixture, '# perf-check\n\nbody\n')
+
+// ---- 启动一次 app，resolve 于「收到 [startup] ready 输出」；
+// 提前退出（闪退）必须失败，禁止把闪退当 ready。 ----
+function runApp(extraArgs = [], timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      ['electron', 'out/main/index.js', '--open', fixture, ...extraArgs],
+      {
+        env: {
+          ...process.env,
+          MD_EDITOR_USER_DATA: mkdtempSync(join(tmpdir(), 'md-editor-perf-')),
+        },
+        shell: process.platform === 'win32',
+      },
+    )
+    let out = ''
+    let done = false
+    const killTree = () => {
+      if (process.platform === 'win32') {
+        spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+      } else {
+        child.kill()
+      }
+    }
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      killTree()
+      reject(new Error('等待 ready 超时'))
+    }, timeoutMs)
+    child.stdout.on('data', (chunk) => {
+      out += chunk.toString()
+      if (!done && out.includes('[startup] ready')) {
+        done = true
+        clearTimeout(timer)
+        resolve(child)
+      }
+    })
+    child.on('error', (e) => {
+      if (!done) {
+        done = true
+        clearTimeout(timer)
+        reject(e)
+      }
+    })
+    child.on('exit', (code) => {
+      if (!done) {
+        done = true
+        clearTimeout(timer)
+        reject(new Error(`app 在输出 ready 前提前退出 (code=${code})，疑似闪退`))
+      }
+    })
+  })
+}
+
+function waitExit(child) {
+  return new Promise((resolve) => {
+    child.on('exit', (code) => resolve(code))
+  })
+}
+
+function electronPidsSync() {
   const r = spawnSync(
     'powershell',
     [
@@ -51,52 +122,66 @@ async function electronPids() {
   )
 }
 
-const fixture = join(tmpdir(), `md-editor-perf-${Date.now()}.md`)
-writeFileSync(fixture, '# perf-check\n\nbody\n')
-const before = await electronPids()
-const child = spawn(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['electron', 'out/main/index.js', '--open', fixture],
-  {
-    env: { ...process.env, MD_EDITOR_USER_DATA: mkdtempSync(join(tmpdir(), 'md-editor-perf-')) },
-    shell: process.platform === 'win32',
-  },
-)
-let out = ''
-let memoryMb = NaN
-let memoryScope = ''
-try {
-  memoryMb = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('等待 ready 超时')), 30000)
-    child.stdout.on('data', (chunk) => {
-      out += chunk.toString()
-      if (out.includes('[startup] ready')) {
-        clearTimeout(timer)
-        resolve()
+// ---- 私有工作集：优先 --probe-memory JSON 的 privateWorkingSet；缺失时回退。
+// 回退口径：Windows 用 Get-Process 私有内存（PrivateMemorySize64）之和；
+// 非 Windows 且 probe 无 privateWorkingSet 时直接失败，禁止采成 0MB 假 PASS。
+async function sampleMemory() {
+  const probeFile = join(tmpdir(), `md-editor-probe-${Date.now()}.json`)
+  try {
+    const child = await runApp(['--probe-memory', probeFile])
+    await waitExit(child)
+    if (existsSync(probeFile)) {
+      const metrics = JSON.parse(readFileSync(probeFile, 'utf8'))
+      let sum = 0
+      let hasPws = false
+      for (const metric of metrics) {
+        const pws = metric.memory?.privateWorkingSet
+        if (Number.isFinite(pws)) {
+          hasPws = true
+          sum += pws
+        }
       }
-    })
-    child.on('error', reject)
-    child.on('exit', () => resolve())
-  }).then(async () => {
-    // ready 已到，采样新增 electron 进程私有内存之和
-    const after = await electronPids()
-    let sum = 0
-    for (const [id, bytes] of after) {
-      if (!before.has(id)) sum += bytes
+      if (hasPws) {
+        return {
+          mb: Math.round(sum / 1024 / 1024),
+          scope: '--probe-memory privateWorkingSet 之和',
+        }
+      }
     }
-    memoryScope =
-      'Get-Process electron 私有内存(PrivateMemorySize64)之和（privateWorkingSet 缺失，回退）'
-    return Math.round(sum / 1024 / 1024)
-  })
-} catch (e) {
-  console.error(`perf-check: 私有工作集采样失败: ${e.message}`)
-} finally {
+  } catch (e) {
+    fail(`probe 内存采样失败: ${e.message}`)
+  }
+  if (process.platform !== 'win32') {
+    fail(
+      '私有工作集采样仅支持 Windows（probe JSON 无 privateWorkingSet 时回退 Get-Process；' +
+        '如需支持其他平台，请让 --probe-memory 输出 privateWorkingSet 后替代）',
+    )
+  }
+  const before = electronPidsSync()
+  let child
+  try {
+    child = await runApp()
+  } catch (e) {
+    fail(`app 启动失败: ${e.message}`)
+  }
+  const after = electronPidsSync()
   if (process.platform === 'win32') {
     spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
   } else {
     child.kill()
   }
+  let sum = 0
+  for (const [id, bytes] of after) {
+    if (!before.has(id)) sum += bytes
+  }
+  return {
+    mb: Math.round(sum / 1024 / 1024),
+    scope:
+      'Get-Process electron 私有内存(PrivateMemorySize64)之和（probe JSON 无 privateWorkingSet，回退）',
+  }
 }
+
+const { mb: memoryMb, scope: memoryScope } = await sampleMemory()
 
 // ---- 判定 ----
 let failed = false
@@ -108,10 +193,7 @@ if (readyMs >= READY_LIMIT_MS) {
 console.log(
   `perf-check: 私有工作集 = ${memoryMb}MB (阈值 ≤${MEMORY_LIMIT_MB}MB；口径：${memoryScope})`,
 )
-if (!Number.isFinite(memoryMb)) {
-  console.error('perf-check: FAIL 私有工作集采样失败')
-  failed = true
-} else if (memoryMb > MEMORY_LIMIT_MB) {
+if (memoryMb > MEMORY_LIMIT_MB) {
   console.error('perf-check: FAIL 私有工作集超阈值')
   failed = true
 }
