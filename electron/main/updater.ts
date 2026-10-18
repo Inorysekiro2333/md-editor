@@ -9,6 +9,15 @@ export interface UpdaterDeps {
 
 const CHECK_DELAY_MS = 10_000
 
+const UPDATE_READY_DIALOG_OPTIONS = {
+  type: 'info' as const,
+  title: '更新已就绪',
+  message: '新版本已下载完成，是否重启并安装？',
+  buttons: ['重启安装', '稍后'],
+  defaultId: 0,
+  cancelId: 1,
+}
+
 /**
  * 主进程内闭环的自动更新：渲染进程零新 IPC，v1 更新交互只走原生 dialog。
  * dev（未打包）或 MD_EDITOR_DISABLE_UPDATER=1 时不注册监听、不联网。
@@ -29,15 +38,11 @@ export function initUpdater(
 
   autoUpdater.on('update-downloaded', () => {
     const win = getWindow()
-    void dialog
-      .showMessageBox(win ?? undefined!, {
-        type: 'info',
-        title: '更新已就绪',
-        message: '新版本已下载完成，是否重启并安装？',
-        buttons: ['重启安装', '稍后'],
-        defaultId: 0,
-        cancelId: 1,
-      })
+    const dialogPromise =
+      win === null
+        ? dialog.showMessageBox(UPDATE_READY_DIALOG_OPTIONS)
+        : dialog.showMessageBox(win, UPDATE_READY_DIALOG_OPTIONS)
+    void dialogPromise
       .then((result) => {
         if (result.response === 0) {
           autoUpdater.quitAndInstall()
@@ -46,7 +51,8 @@ export function initUpdater(
       .catch((err: unknown) => logger(`updater dialog failed: ${String(err)}`))
   })
 
-  deps?.setTimeoutFn?.(() => {
+  const setTimeoutFn = deps.setTimeoutFn ?? setTimeout
+  setTimeoutFn(() => {
     void autoUpdater
       .checkForUpdates()
       .catch((err: unknown) => logger(`checkForUpdates failed: ${String(err)}`))

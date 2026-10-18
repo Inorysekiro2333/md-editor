@@ -108,3 +108,19 @@ describe('initUpdater', () => {
     expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled()
   })
 })
+it('schedules the 10s check with the real setTimeout when setTimeoutFn is not injected', () => {
+  mocks.isPackaged = true
+  vi.useFakeTimers()
+  try {
+    const autoUpdater = makeAutoUpdater()
+    initUpdater(() => null, {
+      autoUpdater: autoUpdater as unknown as AppUpdater,
+      logger: vi.fn(),
+    })
+    expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(10_000)
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1)
+  } finally {
+    vi.useRealTimers()
+  }
+})
