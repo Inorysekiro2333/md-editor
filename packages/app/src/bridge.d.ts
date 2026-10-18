@@ -71,13 +71,15 @@ export interface MdEditorBridge {
     title?: string,
   ): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
+  exportHtml(targetPath: string, html: string): Promise<string>
+  readAssetFile(docPath: string, src: string): Promise<FileContent>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
   getSettings(): Promise<AppSettings>
   setSettings(next: AppSettings): Promise<AppSettings>
   onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
-export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf'
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'
 
 declare global {
   interface Window {

@@ -5,6 +5,8 @@
  */
 export const DOC_WRITE_MAX_BYTES = 10 * 1024 * 1024
 export const ASSET_SAVE_MAX_BYTES = 20 * 1024 * 1024
+/** 导出 HTML 落盘载荷上限（含内联 base64 图片）。 */
+export const EXPORT_HTML_MAX_BYTES = 50 * 1024 * 1024
 
 const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/
 

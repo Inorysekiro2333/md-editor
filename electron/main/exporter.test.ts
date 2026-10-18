@@ -5,9 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const stubs = vi.hoisted(() => {
   let printImpl: () => Promise<Buffer> = async () => Buffer.from('%PDF-1.4 exporter-test-bytes')
+  const paths = { userData: '', loadedFile: '', loadedHtml: '' }
   class FakeBrowserWindow {
     static instances: FakeBrowserWindow[] = []
-    loadURL = vi.fn(async (_url: string) => {})
+    loadFile = vi.fn(async (file: string) => {
+      paths.loadedFile = file
+      paths.loadedHtml = readFileSync(file, 'utf8')
+    })
     isDestroyed = (): boolean => false
     destroy = vi.fn()
     webContents = { printToPDF: vi.fn(() => printImpl()) }
@@ -17,6 +21,7 @@ const stubs = vi.hoisted(() => {
   }
   return {
     FakeBrowserWindow,
+    paths,
     setPrintImpl: (impl: () => Promise<Buffer>): void => {
       printImpl = impl
     },
@@ -26,7 +31,10 @@ const stubs = vi.hoisted(() => {
   }
 })
 
-vi.mock('electron', () => ({ BrowserWindow: stubs.FakeBrowserWindow }))
+vi.mock('electron', () => ({
+  BrowserWindow: stubs.FakeBrowserWindow,
+  app: { getPath: () => stubs.paths.userData },
+}))
 
 import { exportPdfTo } from './exporter'
 
@@ -44,10 +52,13 @@ describe('exportPdfTo (printToPDF)', () => {
     stubs.FakeBrowserWindow.instances.length = 0
     stubs.resetPrintImpl()
     dir = mkdtempSync(join(tmpdir(), 'md-editor-exporter-'))
+    stubs.paths.userData = join(dir, 'userdata')
+    stubs.paths.loadedFile = ''
+    stubs.paths.loadedHtml = ''
     settingsPath = join(dir, 'settings.json')
   })
 
-  it('writes printToPDF bytes to the chosen path and returns it', async () => {
+  it('loads a temporary html file under userData and cleans it up', async () => {
     writeFileSync(
       settingsPath,
       JSON.stringify({ export: { pdf: { printBackground: true } } }),
@@ -55,22 +66,45 @@ describe('exportPdfTo (printToPDF)', () => {
     )
     const target = join(dir, 'out.pdf')
 
-    const result = await exportPdfTo({ targetPath: target, html: '<p>hi</p>', settingsPath })
+    const result = await exportPdfTo({
+      targetPath: target,
+      html:
+        '<!doctype html><html><head>' +
+        '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;" />' +
+        '</head><body><p>hi</p></body></html>',
+      settingsPath,
+    })
 
     expect(result).toBe(target)
     expect(readFileSync(target).toString('latin1')).toBe('%PDF-1.4 exporter-test-bytes')
     const win = lastWindow()
-    expect(win.loadURL).toHaveBeenCalledWith(
-      expect.stringMatching(/^data:text\/html;charset=utf-8,/),
+    expect(win.loadFile).toHaveBeenCalledTimes(1)
+    expect(stubs.paths.loadedFile).toMatch(
+      new RegExp(`^${stubs.paths.userData.replace(/\\/g, '\\\\')}.+\\.html$`),
     )
-    const dataUrl = win.loadURL.mock.calls[0]![0] as string
-    expect(decodeURIComponent(dataUrl)).toContain('Content-Security-Policy')
-    expect(decodeURIComponent(dataUrl)).not.toContain('<script')
+    // 临时文档带 CSP 禁脚本，打印后即删除
+    expect(stubs.paths.loadedHtml).toContain('Content-Security-Policy')
+    expect(stubs.paths.loadedHtml).toContain('default-src')
+    expect(stubs.paths.loadedHtml).not.toContain('<script')
+    expect(existsSync(stubs.paths.loadedFile)).toBe(false)
     expect(win.webContents.printToPDF).toHaveBeenCalledWith({
       printBackground: true,
       margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 },
     })
     expect(win.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to an empty paragraph document when no html is provided', async () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({ export: { pdf: { printBackground: true } } }),
+      'utf8',
+    )
+    const target = join(dir, 'out.pdf')
+
+    await exportPdfTo({ targetPath: target, settingsPath })
+
+    expect(stubs.paths.loadedHtml).toContain('<p></p>')
   })
 
   it('reads printBackground from settings (false)', async () => {
@@ -107,7 +141,7 @@ describe('exportPdfTo (printToPDF)', () => {
     expect(existsSync(target)).toBe(false)
   })
 
-  it('destroys the hidden window when printToPDF fails', async () => {
+  it('destroys the hidden window and cleans the temp file when printToPDF fails', async () => {
     writeFileSync(
       settingsPath,
       JSON.stringify({ export: { pdf: { printBackground: true } } }),
@@ -123,5 +157,8 @@ describe('exportPdfTo (printToPDF)', () => {
     ).rejects.toThrow('print failed')
     expect(lastWindow().destroy).toHaveBeenCalledTimes(1)
     expect(existsSync(target)).toBe(false)
+    if (stubs.paths.loadedFile !== '') {
+      expect(existsSync(stubs.paths.loadedFile)).toBe(false)
+    }
   })
 })

@@ -48,6 +48,13 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
           accelerator: 'CmdOrCtrl+Shift+P',
           click: clickFor(deps, 'export-pdf'),
         },
+        {
+          id: 'menu-export-html',
+          label: '导出 HTML...',
+          accelerator: 'CmdOrCtrl+Shift+H',
+          click: clickFor(deps, 'export-html'),
+        },
+
         { type: 'separator' },
         { id: 'menu-exit', label: '退出', click: () => deps.onClose() },
       ],

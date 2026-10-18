@@ -34,6 +34,8 @@ export interface Ipc {
     title?: string,
   ): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
+  exportHtml(targetPath: string, html: string): Promise<string>
+  readAssetFile(docPath: string, src: string): Promise<FileContent>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
   getSettings(): Promise<AppSettings>
   setSettings(next: AppSettings): Promise<AppSettings>
@@ -63,6 +65,8 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     showSaveDialog: (defaultName, filters, title) =>
       bridge.showSaveDialog(defaultName, filters, title),
     exportPdf: (targetPath, html) => bridge.exportPdf(targetPath, html),
+    exportHtml: (targetPath, html) => bridge.exportHtml(targetPath, html),
+    readAssetFile: (docPath, src) => bridge.readAssetFile(docPath, src),
     onMenuCommand: (handler) => bridge.onMenuCommand(handler),
     getSettings: () => bridge.getSettings(),
     setSettings: (next) => bridge.setSettings(next),

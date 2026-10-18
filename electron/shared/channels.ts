@@ -22,8 +22,10 @@ export const CHANNELS = {
   settingsSet: 'settings:set',
   settingsChanged: 'settings:changed',
   exportPdf: 'app:export-pdf',
+  exportHtml: 'app:export-html',
+  readAssetFile: 'asset:read',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]
 
-export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf'
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'

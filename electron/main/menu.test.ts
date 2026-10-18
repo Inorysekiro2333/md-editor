@@ -42,6 +42,7 @@ describe('menu template', () => {
       ['menu-open', 'open'],
       ['menu-save-as', 'save-as'],
       ['menu-export-pdf', 'export-pdf'],
+      ['menu-export-html', 'export-html'],
     ]
     for (const [id, cmd] of cases) {
       const item = findItem(template, id)
@@ -57,6 +58,7 @@ describe('menu template', () => {
     expect(findItem(template, 'menu-open')?.accelerator).toBe('CmdOrCtrl+O')
     expect(findItem(template, 'menu-save-as')?.accelerator).toBe('Shift+CmdOrCtrl+S')
     expect(findItem(template, 'menu-export-pdf')?.accelerator).toBe('CmdOrCtrl+Shift+P')
+    expect(findItem(template, 'menu-export-html')?.accelerator).toBe('CmdOrCtrl+Shift+H')
   })
 
   it('view menu exposes F11 fullscreen toggle through deps', () => {

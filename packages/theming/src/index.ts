@@ -8,3 +8,4 @@ export {
   type ThemeVars,
 } from './themes'
 export { applyTheme } from './apply'
+export { themeCss } from './css'

@@ -1,33 +1,42 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
+import { promises as fs } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
 import { writeAtomic } from './fs_io'
 import { loadSettings } from './settings'
 
 export interface ExportPdfOptions {
   targetPath: string
-  /** Markdown 渲染出的 body HTML 片段（renderer 侧组装，不含远程脚本）。 */
+  /** buildStandaloneHtml 产出的完整自包含 HTML（含 CSP，无脚本）。 */
   html?: string
   settingsPath: string
 }
 
 const PDF_MARGINS = { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }
 
+const FALLBACK_DOCUMENT = [
+  '<!doctype html>',
+  '<html>',
+  '<head>',
+  '<meta charset="utf-8" />',
+  `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * data:; style-src 'unsafe-inline'" />`,
+  '</head>',
+  '<body><p></p></body>',
+  '</html>',
+].join('\n')
+
 /**
- * 组装打印文档：CSP 禁脚本（default-src 'none' 使 script 回退为禁止），
- * 仅放行内联样式与图片。内容来自本仓库 remark 管线，原始 HTML 已在解析层丢弃。
- * 注意：data: URL 有长度上限（~2MB），超大文档待 Task 7 管线时改为临时文件方案。
+ * PDF 打印走临时 .html 文件（userData/tmp）+ loadFile：
+ * data: URL 有 ~2MB 长度上限，大文档会被静默截断；
+ * 用完即删，不留临时文件。
  */
-function buildPrintDocument(html?: string): string {
-  const body = typeof html === 'string' && html.length > 0 ? html : '<p></p>'
-  return [
-    '<!doctype html>',
-    '<html>',
-    '<head>',
-    '<meta charset="utf-8" />',
-    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * data:; style-src 'unsafe-inline'" />`,
-    '</head>',
-    `<body>${body}</body>`,
-    '</html>',
-  ].join('\n')
+async function writeTempPrintDocument(html?: string): Promise<string> {
+  const document = typeof html === 'string' && html.length > 0 ? html : FALLBACK_DOCUMENT
+  const tmpDir = join(app.getPath('userData'), 'tmp')
+  await fs.mkdir(tmpDir, { recursive: true })
+  const tmpFile = join(tmpDir, `print-${Date.now()}-${randomBytes(6).toString('hex')}.html`)
+  await fs.writeFile(tmpFile, document, 'utf8')
+  return tmpFile
 }
 
 export async function exportPdfTo({
@@ -39,6 +48,7 @@ export async function exportPdfTo({
     throw new Error('invalid path')
   }
   const settings = loadSettings(settingsPath)
+  const tmpFile = await writeTempPrintDocument(html)
   const win = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -48,8 +58,7 @@ export async function exportPdfTo({
     },
   })
   try {
-    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(buildPrintDocument(html))}`
-    await win.loadURL(dataUrl)
+    await win.loadFile(tmpFile)
     const bytes = await win.webContents.printToPDF({
       printBackground: settings.export.pdf.printBackground,
       margins: PDF_MARGINS,
@@ -60,5 +69,6 @@ export async function exportPdfTo({
     if (!win.isDestroyed()) {
       win.destroy()
     }
+    await fs.rm(tmpFile, { force: true })
   }
 }

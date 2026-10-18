@@ -7,8 +7,8 @@ import {
   type SourceEditorHandle,
 } from '@md-editor/editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { applyTheme } from '@md-editor/theming'
-import { markdownToHtml } from '@md-editor/export'
+import { applyTheme, themeCss } from '@md-editor/theming'
+import { buildStandaloneHtml } from '@md-editor/export'
 import { MdDocument } from './document/MdDocument'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
@@ -17,6 +17,7 @@ import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
 import { SettingsPanel } from './ui/SettingsPanel'
+import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
 
@@ -57,6 +58,43 @@ const PDF_SAVE_FILTERS = [{ name: 'PDF', extensions: ['pdf'] }]
 
 function pdfExportName(path: string | null): string {
   return `${tabTitle(path).replace(/\.(md|markdown)$/i, '')}.pdf`
+}
+
+const HTML_SAVE_FILTERS = [{ name: 'HTML', extensions: ['html'] }]
+
+function htmlExportName(path: string | null): string {
+  return `${tabTitle(path).replace(/\.(md|markdown)$/i, '')}.html`
+}
+
+function exportTitle(path: string | null): string {
+  return tabTitle(path).replace(/\.(md|markdown)$/i, '')
+}
+
+/** PDF 与 HTML 共用 buildStandaloneHtml 产出（主题 CSS / 图片内联 / CSP）。 */
+async function buildExportHtml(
+  text: string,
+  path: string | null,
+  themeId: ThemeId,
+): Promise<string> {
+  return buildStandaloneHtml(text, {
+    themeCss: themeCss(themeId),
+    inlineImages: true,
+    title: exportTitle(path),
+    inlineImage: async (src) => {
+      if (path === null) return null
+      const clean = src.split(/[?#]/)[0] ?? ''
+      const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
+      if (!isAssetExt(ext)) return null
+      try {
+        const { base64 } = await ipc.readAssetFile(path, clean)
+        const mime = ext === 'jpg' ? 'jpeg' : ext
+        return `data:image/${mime};base64,${base64}`
+      } catch {
+        // 文件缺失/非图片：保留相对链接，不阻塞导出。
+        return null
+      }
+    },
+  })
 }
 
 export function App() {
@@ -330,15 +368,54 @@ export function App() {
       return
     }
     try {
-      // TODO(Task 7): 改用 buildStandaloneHtml 产出（主题 CSS / 图片内联 / CSP meta）。
-      const html = await markdownToHtml(current.text)
+      const html = await buildExportHtml(
+        current.text,
+        current.path,
+        settings?.themeId ?? 'github-light',
+      )
       await ipc.exportPdf(chosen, html)
       setStatus(`已导出 PDF ${chosen}`)
     } catch (error) {
       console.error('[app] export pdf failed', error)
       setStatus('导出 PDF 失败，请重试')
     }
-  }, [])
+  }, [settings])
+
+  const exportHtmlFromMenu = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(
+        htmlExportName(current.path),
+        HTML_SAVE_FILTERS,
+        '导出 HTML',
+      )
+    } catch (error) {
+      console.error('[app] export html dialog failed', error)
+      setStatus('导出 HTML 失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消导出 HTML')
+      return
+    }
+    try {
+      const html = await buildExportHtml(
+        current.text,
+        current.path,
+        settings?.themeId ?? 'github-light',
+      )
+      await ipc.exportHtml(chosen, html)
+      setStatus(`已导出 HTML ${chosen}`)
+    } catch (error) {
+      console.error('[app] export html failed', error)
+      setStatus('导出 HTML 失败，请重试')
+    }
+  }, [settings])
 
   const save = useCallback(async () => {
     const state = useAppStore.getState()
@@ -535,10 +612,12 @@ export function App() {
         void saveAs()
       } else if (cmd === 'export-pdf') {
         void exportPdfFromMenu()
+      } else if (cmd === 'export-html') {
+        void exportHtmlFromMenu()
       }
     })
     return unsubscribe
-  }, [newNote, saveAs, exportPdfFromMenu])
+  }, [newNote, saveAs, exportPdfFromMenu, exportHtmlFromMenu])
 
   useEffect(() => {
     const unsubscribe = ipc.onExternalModified((path) => {

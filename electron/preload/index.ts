@@ -73,6 +73,8 @@ export interface MdEditorBridge {
     title?: string,
   ): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
+  exportHtml(targetPath: string, html: string): Promise<string>
+  readAssetFile(docPath: string, src: string): Promise<FileContent>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
   getSettings(): Promise<AppSettings>
   setSettings(next: AppSettings): Promise<AppSettings>
@@ -143,6 +145,17 @@ const bridge: MdEditorBridge = {
     ipcRenderer.invoke(CHANNELS.saveDialog, defaultName, filters, title) as Promise<string | null>,
   exportPdf: (targetPath, html) =>
     ipcRenderer.invoke(CHANNELS.exportPdf, targetPath, html) as Promise<string>,
+  exportHtml: (targetPath, html) =>
+    ipcRenderer.invoke(CHANNELS.exportHtml, targetPath, html) as Promise<string>,
+  readAssetFile: (docPath, src) => {
+    if (typeof docPath !== 'string' || docPath.length === 0) {
+      return Promise.reject(new Error('无法读取图片：文档路径无效，请先保存文档'))
+    }
+    if (typeof src !== 'string' || src.length === 0) {
+      return Promise.reject(new Error('无法读取图片：路径无效'))
+    }
+    return ipcRenderer.invoke(CHANNELS.readAssetFile, docPath, src) as Promise<FileContent>
+  },
   onMenuCommand: (handler) => {
     const listener = (_event: unknown, cmd: MenuCommand): void => handler(cmd)
     ipcRenderer.on(CHANNELS.menuCommand, listener)

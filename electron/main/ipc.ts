@@ -1,8 +1,20 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import type { FSWatcher } from 'chokidar'
 import { CHANNELS } from '../shared/channels'
-import { isValidBase64Payload, ASSET_SAVE_MAX_BYTES, DOC_WRITE_MAX_BYTES } from '../shared/base64'
-import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential } from './fs_io'
+import {
+  isValidBase64Payload,
+  ASSET_SAVE_MAX_BYTES,
+  DOC_WRITE_MAX_BYTES,
+  EXPORT_HTML_MAX_BYTES,
+} from '../shared/base64'
+import {
+  isAssetExt,
+  readAssetFile,
+  readFile,
+  saveAssetFile,
+  writeAtomic,
+  type WriteCredential,
+} from './fs_io'
 import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
@@ -148,6 +160,24 @@ export function registerIpc(
     exportPdfTo({ targetPath, html, settingsPath: settingsPath() }),
   )
 
+  ipcMain.handle(CHANNELS.readAssetFile, (_event, docPath: string, src: string) =>
+    readAssetFile(docPath, src),
+  )
+
+  ipcMain.handle(CHANNELS.exportHtml, async (_event, targetPath: string, html: string) => {
+    if (typeof targetPath !== 'string' || targetPath.length === 0) {
+      throw new Error('invalid path')
+    }
+    if (typeof html !== 'string' || html.length === 0) {
+      throw new Error('invalid payload')
+    }
+    if (Buffer.byteLength(html, 'utf8') > EXPORT_HTML_MAX_BYTES) {
+      throw new Error('导出内容过大')
+    }
+    await writeAtomic(targetPath, Buffer.from(html, 'utf8'))
+    return targetPath
+  })
+
   return {
     async dispose() {
       await fileWatchers.enqueue(async () => {
@@ -172,6 +202,8 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.settingsGet)
       ipcMain.removeHandler(CHANNELS.settingsSet)
       ipcMain.removeHandler(CHANNELS.exportPdf)
+      ipcMain.removeHandler(CHANNELS.readAssetFile)
+      ipcMain.removeHandler(CHANNELS.exportHtml)
     },
   }
 }
