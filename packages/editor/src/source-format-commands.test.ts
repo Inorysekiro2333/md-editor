@@ -20,6 +20,38 @@ describe('runSourceFormatCommand', () => {
     cleanup()
   })
 
+  it('strips existing bold markers before wrapping a partial selection', () => {
+    const { view, cleanup } = createView('x **y** z')
+    view.dispatch({ selection: EditorSelection.range(2, 9) })
+    expect(runSourceFormatCommand(view, 'bold')).toBe(true)
+    expect(view.state.doc.toString()).toBe('x **y z**')
+    cleanup()
+  })
+
+  it('strips existing italic markers before wrapping a partial selection', () => {
+    const { view, cleanup } = createView('x *y* z')
+    view.dispatch({ selection: EditorSelection.range(2, 7) })
+    expect(runSourceFormatCommand(view, 'italic')).toBe(true)
+    expect(view.state.doc.toString()).toBe('x *y z*')
+    cleanup()
+  })
+
+  it('converts an empty line to a heading without trailing space (R1)', () => {
+    const { view, cleanup } = createView('a\n\nb')
+    const emptyLine = view.state.doc.line(2)
+    view.dispatch({ selection: EditorSelection.cursor(emptyLine.from) })
+    expect(runSourceFormatCommand(view, 'h1')).toBe(true)
+    expect(view.state.doc.toString()).toBe('a\n#\nb')
+    cleanup()
+  })
+
+  it('converts a non-empty line to a heading keeping body text', () => {
+    const { view, cleanup } = createView('title')
+    expect(runSourceFormatCommand(view, 'h3')).toBe(true)
+    expect(view.state.doc.toString()).toBe('### title')
+    cleanup()
+  })
+
   it('toggles blockquote prefix on current line', () => {
     const { view, cleanup } = createView('hello')
     expect(runSourceFormatCommand(view, 'blockquote')).toBe(true)
@@ -29,10 +61,13 @@ describe('runSourceFormatCommand', () => {
     cleanup()
   })
 
-  it('inserts a markdown table at cursor', () => {
+  it('inserts a markdown table with empty header cells at cursor', () => {
     const { view, cleanup } = createView('x')
+    view.dispatch({ selection: EditorSelection.cursor(1) })
     expect(runSourceFormatCommand(view, 'insertTable')).toBe(true)
-    expect(view.state.doc.toString()).toContain('| --- | --- | --- |')
+    expect(view.state.doc.toString()).toBe(
+      'x|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |',
+    )
     cleanup()
   })
 })

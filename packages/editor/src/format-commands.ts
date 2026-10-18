@@ -59,13 +59,21 @@ export function runFormatCommand(
           })
         }
         if (targets.length === 0) return false
+        // Single transaction: multi-block selections must not let later
+        // per-block transactions (each based on the same old state) overwrite
+        // earlier ones.
+        const tr = s.tr
         for (const { pos, node } of targets) {
+          // nodesBetween reports the position *before* the block node; move
+          // inside it so setBlockType can resolve the block range.
+          const inner = pos + 1
           if (node.type === heading && node.attrs.level === level) {
-            d(s.tr.setBlockType(pos, pos, paragraph))
+            tr.setBlockType(inner, inner, paragraph)
           } else {
-            d(s.tr.setBlockType(pos, pos, heading, { level }))
+            tr.setBlockType(inner, inner, heading, { level })
           }
         }
+        d(tr)
         return true
       })
     }
