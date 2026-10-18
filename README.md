@@ -2,7 +2,7 @@
 
 开源、跨平台、所见即所得（WYSIWYG）的 Markdown 编辑器，体验对标 Typora：单栏实时渲染、无分栏预览、主题系统、源码模式一键切换。
 
-![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![platform](https://img.shields.io/badge/platform-Windows-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 特性
 
