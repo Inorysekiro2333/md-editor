@@ -40,6 +40,7 @@ export const en: Record<MessageKey, string> = {
   formatBulletList: 'Bullet list',
   formatBlockquote: 'Blockquote',
   formatInsertTable: 'Insert table',
+  formatInsertTablePicker: 'Choose rows × columns (1-8)',
   heading: 'Heading',
   headingLevel: 'Heading level',
   headingLevelTitle: 'Heading level (H1–H3)',

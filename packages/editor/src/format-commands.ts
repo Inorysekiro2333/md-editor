@@ -6,6 +6,12 @@ import { $prose } from '@milkdown/kit/utils'
 import type { Node as PMNode, Schema } from '@milkdown/prose/model'
 import type { EditorState, Transaction } from '@milkdown/prose/state'
 
+/** 可选命令参数（当前仅 insertTable 使用行列数）。 */
+export interface FormatCommandArgs {
+  rows?: number
+  cols?: number
+}
+
 export type FormatCommandName =
   | 'bold'
   | 'italic'
@@ -28,6 +34,7 @@ type PMCommand = (state: EditorState, dispatch?: (tr: Transaction) => void) => b
 export function runFormatCommand(
   view: { state: EditorState; dispatch(tr: Transaction): void },
   name: FormatCommandName,
+  args?: FormatCommandArgs,
 ): boolean {
   const { state, dispatch } = view
   const schema = state.schema
@@ -91,7 +98,9 @@ export function runFormatCommand(
       // the transaction's own mapping — never by scanning for the first table
       // in the document (an existing earlier table would steal the caret).
       const before = state.selection.from
-      const tr = state.tr.replaceSelectionWith(buildTable(schema)).scrollIntoView()
+      const tr = state.tr
+        .replaceSelectionWith(buildTable(schema, args?.rows, args?.cols))
+        .scrollIntoView()
       const mapped = tr.mapping.map(before, -1)
       const resolved = tr.doc.resolve(mapped)
       const tableAt = (pos: number): number =>
@@ -143,7 +152,7 @@ function insideTable(resolved: { depth: number; node(depth: number): PMNode }): 
   return false
 }
 
-function buildTable(schema: Schema): PMNode {
+function buildTable(schema: Schema, rawRows?: number, rawCols?: number): PMNode {
   const tableType = schema.nodes.table
   const rowType = schema.nodes.table_row
   const headerType = schema.nodes.table_header
@@ -152,13 +161,22 @@ function buildTable(schema: Schema): PMNode {
     throw new Error('table schema nodes are missing')
   }
   const empty = (type: PMNode['type']): PMNode => type.createAndFill() ?? type.create()
-  const headerRow = rowType.create(undefined, [
-    empty(headerType),
-    empty(headerType),
-    empty(headerType),
+  const clamp = (n: number | undefined, fallback: number): number =>
+    typeof n === 'number' && Number.isFinite(n) ? Math.min(8, Math.max(1, Math.floor(n))) : fallback
+  const rows = clamp(rawRows, 3)
+  const cols = clamp(rawCols, 3)
+  const headerRow = rowType.create(
+    undefined,
+    Array.from({ length: cols }, () => empty(headerType)),
+  )
+  const dataRow = rowType.create(
+    undefined,
+    Array.from({ length: cols }, () => empty(cellType)),
+  )
+  return tableType.create(undefined, [
+    headerRow,
+    ...Array.from({ length: rows - 1 }, () => dataRow),
   ])
-  const dataRow = rowType.create(undefined, [empty(cellType), empty(cellType), empty(cellType)])
-  return tableType.create(undefined, [headerRow, dataRow, dataRow])
 }
 
 /**

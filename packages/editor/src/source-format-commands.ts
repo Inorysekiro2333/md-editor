@@ -1,6 +1,6 @@
 import { EditorSelection } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
-import type { FormatCommandName } from './format-commands'
+import type { FormatCommandArgs, FormatCommandName } from './format-commands'
 
 /**
  * 源码模式的格式化命令：直接编辑 Markdown Buffer 文本（CM 事务经 sync 收敛）。
@@ -14,7 +14,11 @@ const toHeading =
     return body.length === 0 ? '#'.repeat(level) : `${'#'.repeat(level)} ${body}`
   }
 
-export function runSourceFormatCommand(view: EditorView, name: FormatCommandName): boolean {
+export function runSourceFormatCommand(
+  view: EditorView,
+  name: FormatCommandName,
+  args?: FormatCommandArgs,
+): boolean {
   const { state } = view
   const sel = state.selection.main
   const text = (from: number, to: number): string => state.sliceDoc(from, to)
@@ -80,7 +84,13 @@ export function runSourceFormatCommand(view: EditorView, name: FormatCommandName
     case 'blockquote':
       return togglePrefix(/^\s*>\s+/, '> ')
     case 'insertTable': {
-      const table = ['|  |  |  |', '| --- | --- | --- |', '|  |  |  |', '|  |  |  |'].join('\n')
+      const rows = Math.min(8, Math.max(1, Math.floor(args?.rows ?? 3)))
+      const cols = Math.min(8, Math.max(1, Math.floor(args?.cols ?? 3)))
+      const table = [
+        `|${'  |'.repeat(cols)}`,
+        `|${' --- |'.repeat(cols)}`,
+        ...Array.from({ length: rows - 1 }, () => `|${'  |'.repeat(cols)}`),
+      ].join('\n')
       const insert = sel.empty ? table : `\n${table}\n`
       view.dispatch(
         state.update({

@@ -44,6 +44,7 @@ describe('table-toolbar', () => {
     try {
       placeCursor(editor, '1')
       const el = toolbar()
+      // eslint-disable-next-line no-console
       expect(el).not.toBeNull()
       expect(toolbarVisible()).toBe(true)
       for (const id of [

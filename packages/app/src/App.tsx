@@ -23,7 +23,7 @@ import { AboutDialog } from './ui/AboutDialog'
 import { FormatToolbar } from './ui/FormatToolbar'
 import { StatusBar } from './ui/StatusBar'
 import { t } from './i18n'
-import type { FormatCommandName } from '@md-editor/editor'
+import type { FormatCommandArgs, FormatCommandName } from '@md-editor/editor'
 import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
@@ -831,10 +831,10 @@ export function App() {
       {activeDoc !== null ? (
         <FormatToolbar
           disabled={!editorReady}
-          onCommand={(name: FormatCommandName) => {
+          onCommand={(name: FormatCommandName, args?: FormatCommandArgs) => {
             const handle =
               mode === 'wysiwyg' ? editorHandle.current : (sourceHandle.current ?? undefined)
-            handle?.runCommand(name)
+            handle?.runCommand(name, args)
           }}
         />
       ) : null}

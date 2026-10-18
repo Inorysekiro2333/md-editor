@@ -60,6 +60,18 @@ describe('FormatToolbar', () => {
     expect(onCommand).toHaveBeenCalledWith('h2')
   })
 
+  it('insertTable opens a grid picker and dispatches rows/cols', () => {
+    const onCommand = vi.fn()
+    render(onCommand)
+    const tableBtn = container.querySelector<HTMLButtonElement>('[data-testid="insert-table-btn"]')!
+    click(tableBtn)
+    const picker = container.querySelector('[data-testid="table-picker"]')
+    expect(picker).not.toBeNull()
+    click(container.querySelector<HTMLButtonElement>('[data-testid="table-picker-4x2"]')!)
+    expect(onCommand).toHaveBeenCalledWith('insertTable', { rows: 4, cols: 2 })
+    expect(container.querySelector('[data-testid="table-picker"]')).toBeNull()
+  })
+
   it('renders disabled state', () => {
     render(vi.fn(), true)
     const bold = container.querySelector<HTMLButtonElement>('.format-toolbar-btn')!

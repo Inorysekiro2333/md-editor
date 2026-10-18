@@ -70,6 +70,30 @@ describe('runFormatCommand insertTable', () => {
     }
   })
 
+  it('insertTable honors rows/cols args (2x4) and keeps default 3x3', async () => {
+    await setup('hello')
+    try {
+      const view = editor.getView()
+      expect(runFormatCommand(view, 'insertTable', { rows: 2, cols: 4 })).toBe(true)
+      const tables: PMNode[] = []
+      view.state.doc.descendants((node) => {
+        if (node.type.name === 'table') tables.push(node)
+      })
+      const table = tables[0]
+      expect(table).toBeDefined()
+      expect(table.childCount).toBe(2)
+      for (let i = 0; i < 2; i += 1) {
+        expect(table.child(i).childCount).toBe(4)
+      }
+      const headerCells = table.child(0)
+      for (let i = 0; i < 4; i += 1) {
+        expect(headerCells.child(i).type.name).toBe('table_header')
+      }
+    } finally {
+      await editor.destroy()
+    }
+  })
+
   it('insertTable puts the caret in the new table when the doc already has one', async () => {
     await setup('| a | b |\n| --- | --- |\n| 1 | 2 |\n\nhello')
     try {

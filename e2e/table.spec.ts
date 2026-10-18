@@ -173,3 +173,35 @@ test('column resize keeps markdown and disk content unchanged', async () => {
   expect(readFileSync(file, 'utf8')).toBe(CONTENT)
   await app.close()
 })
+
+test('insert 4x2 table via picker and save contains 4 pipe rows', async () => {
+  test.setTimeout(30_000)
+  const dir = mkdtempSync(join(tmpdir(), 'md-editor-table-insert-'))
+  const file = join(dir, 'insert-table.md')
+  writeFileSync(file, 'hello\n')
+  const app = await launchApp(file)
+  const window = await app.firstWindow()
+  await window.waitForSelector('[data-editor-ready="true"]')
+
+  // 先把光标放进正文段落，表格应插入在段落后而保留段落
+  await window.locator('.ProseMirror p').first().click()
+  await window.getByTestId('insert-table-btn').click()
+  const cell = window.getByTestId('table-picker-4x2')
+  // 悬停高亮（Notion/Typora 惯例），点击提交行列数
+  await cell.hover()
+  await cell.click()
+
+  // 等防抖收敛（200ms listener + 300ms sync，同 table.spec.ts 既有约定）
+  await window.waitForTimeout(600)
+  await window.keyboard.press('Control+s')
+  await expect(window.getByTestId('status')).toContainText('已保存', { timeout: 10_000 })
+  const saved = readFileSync(file, 'utf8')
+  const pipeRows = saved.split('\n').filter((line) => line.startsWith('|'))
+  // 4 行表格（含表头）序列化 = 表头 + 分隔行 + 3 数据行 = 5 条管道行
+  expect(pipeRows.length).toBe(5)
+  expect(saved).toContain('hello')
+  // R1 登记：空表序列化按列宽补齐 padding（同 roundtrip 用例口径）
+  expect(pipeRows[0]).toBe('|    |    |')
+  expect(pipeRows[1]).toBe('| :- | :- |')
+  await app.close()
+})

@@ -33,7 +33,12 @@ import { codeBlockView, getCodeBlockCmSelections } from './code-block-view'
 import { createImageView, type ResolveImageSrc } from './image-view'
 import { createMarkdownSync } from './sync'
 import { tableToolbar } from './table-toolbar'
-import { formattingKeymap, runFormatCommand, type FormatCommandName } from './format-commands'
+import {
+  formattingKeymap,
+  runFormatCommand,
+  type FormatCommandArgs,
+  type FormatCommandName,
+} from './format-commands'
 
 export interface EditorHandle {
   getMarkdown(): string
@@ -43,7 +48,7 @@ export interface EditorHandle {
   focus(): void
   getScrollRatio(): number
   /** 格式工具栏 / 快捷键统一命令入口（作用于 Buffer 的 sync 事务）。 */
-  runCommand(name: FormatCommandName): void
+  runCommand(name: FormatCommandName, args?: FormatCommandArgs): void
 }
 
 export function selectionOffsetsFromView(
@@ -296,12 +301,12 @@ function EditorHostInner(props: EditorHostProps) {
           applySelectionOffsets(view, getMarkdown()(ctx), anchor, head)
         })
       },
-      runCommand: (name: FormatCommandName) => {
+      runCommand: (name: FormatCommandName, args?: FormatCommandArgs) => {
         const editor = get()
         if (!editor) return
         editor.action((ctx) => {
           const view = ctx.get(editorViewCtx)
-          runFormatCommand(view, name)
+          runFormatCommand(view, name, args)
           ;(view as unknown as { focus(): void } | undefined)?.focus()
         })
       },

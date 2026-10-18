@@ -37,6 +37,7 @@ export const zhCN = {
   formatBulletList: '无序列表',
   formatBlockquote: '引用',
   formatInsertTable: '插入表格',
+  formatInsertTablePicker: '选择行列（1-8）',
   heading: '标题',
   headingLevel: '标题级别',
   headingLevelTitle: '标题级别 (H1–H3)',

@@ -1,4 +1,4 @@
-import type { FormatCommandName } from '@md-editor/editor'
+import type { FormatCommandArgs, FormatCommandName } from '@md-editor/editor'
 import { useState } from 'react'
 import { t } from '../i18n'
 
@@ -49,16 +49,21 @@ const BUTTONS: FormatButton[][] = [
   ],
 ]
 
+const GRID_SIZE = 8
+
 /**
  * M5.x 格式工具栏：仅 Markdown 语义项。
  * 所有命令经编辑器统一命令入口作用于 Buffer（sync 事务），两种模式等价。
  */
 export function FormatToolbar(props: {
   disabled?: boolean
-  onCommand(name: FormatCommandName): void
+  onCommand(name: FormatCommandName, args?: FormatCommandArgs): void
 }): JSX.Element {
   const { disabled = false, onCommand } = props
   const [heading, setHeading] = useState('')
+  const [tablePickerOpen, setTablePickerOpen] = useState(false)
+  const [pickerRows, setPickerRows] = useState(0)
+  const [pickerCols, setPickerCols] = useState(0)
 
   return (
     <div
@@ -71,18 +76,60 @@ export function FormatToolbar(props: {
         <span className="format-toolbar-group" key={groupIndex}>
           {group.map((button) => {
             const title = button.shortcut ? `${button.label} (${button.shortcut})` : button.label
+            const isTable = button.name === 'insertTable'
             return (
-              <button
-                key={button.name}
-                type="button"
-                className="format-toolbar-btn"
-                title={title}
-                aria-label={title}
-                disabled={disabled}
-                onClick={() => onCommand(button.name)}
-              >
-                <span className={button.glyphClass ?? ''}>{button.glyph}</span>
-              </button>
+              <span className="format-toolbar-slot" key={button.name}>
+                <button
+                  type="button"
+                  className="format-toolbar-btn"
+                  title={title}
+                  aria-label={title}
+                  aria-expanded={isTable ? tablePickerOpen : undefined}
+                  disabled={disabled}
+                  data-testid={isTable ? 'insert-table-btn' : undefined}
+                  onClick={() =>
+                    isTable ? setTablePickerOpen((open) => !open) : onCommand(button.name)
+                  }
+                >
+                  <span className={button.glyphClass ?? ''}>{button.glyph}</span>
+                </button>
+                {isTable && tablePickerOpen ? (
+                  <div
+                    className="table-picker"
+                    role="menu"
+                    aria-label={t('formatInsertTablePicker')}
+                    data-testid="table-picker"
+                  >
+                    {Array.from({ length: GRID_SIZE }, (_, rowIndex) => (
+                      <span className="table-picker-row" key={rowIndex}>
+                        {Array.from({ length: GRID_SIZE }, (_, colIndex) => {
+                          const rows = rowIndex + 1
+                          const cols = colIndex + 1
+                          const active = rows <= pickerRows && cols <= pickerCols
+                          return (
+                            <button
+                              key={colIndex}
+                              type="button"
+                              className={active ? 'table-picker-cell active' : 'table-picker-cell'}
+                              title={`${rows}×${cols}`}
+                              aria-label={`${rows}x${cols}`}
+                              data-testid={`table-picker-${rows}x${cols}`}
+                              onMouseEnter={() => {
+                                setPickerRows(rows)
+                                setPickerCols(cols)
+                              }}
+                              onClick={() => {
+                                setTablePickerOpen(false)
+                                onCommand('insertTable', { rows, cols })
+                              }}
+                            />
+                          )
+                        })}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </span>
             )
           })}
           {groupIndex === 0 ? (
