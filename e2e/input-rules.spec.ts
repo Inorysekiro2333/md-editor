@@ -10,14 +10,15 @@ function launchApp(file: string) {
   })
 }
 
-async function typeAndSave(content: string): Promise<string> {
+async function typeAndSave(content: string, initial = ''): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), 'md-editor-doc-'))
   const file = join(dir, 'sample.md')
-  writeFileSync(file, '')
+  writeFileSync(file, initial)
   const app = await launchApp(file)
   const window = await app.firstWindow()
   const editor = window.locator('.ProseMirror')
   await editor.click()
+  await window.keyboard.press('Control+End')
   await window.keyboard.type(content)
   await window.waitForTimeout(500)
   await window.keyboard.press('Control+s')
@@ -74,4 +75,14 @@ test('escape keeps literal text', async () => {
   const saved = await typeAndSave('1\\. 不是列表')
   // Registered normalization: 文本中的字面反斜杠序列化时转义为 "\\"，round-trip 语义不变，且未被解析为列表
   expect(saved).toBe('1\\\\. 不是列表\n')
+})
+
+test('bold rule after word chars', async () => {
+  const saved = await typeAndSave('**加粗**', '已有一段文字')
+  expect(saved).toBe('已有一段文字**加粗**\n')
+})
+
+test('strikethrough rule after word chars', async () => {
+  const saved = await typeAndSave('~~xx~~', 'abc')
+  expect(saved).toBe('abc~~xx~~\n')
 })

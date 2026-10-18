@@ -19,7 +19,7 @@ import { TextSelection, type Transaction } from '@milkdown/prose/state'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
-import { editorInputRules } from './input-rules'
+import { editorInputRules, editorMarkInputRules } from './input-rules'
 import { createCursorNotifyPlugin } from './cursor-notify'
 import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
@@ -195,6 +195,7 @@ function EditorHostInner(props: EditorHostProps) {
         .use(codeBlockView)
         .use(imageViewPlugin)
         .use(editorInputRules)
+        .use(editorMarkInputRules)
         .use(gfm)
         .use(columnResizingPlugin)
         .use(tableToolbar)

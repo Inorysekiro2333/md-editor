@@ -1,5 +1,8 @@
-import { $prose } from '@milkdown/kit/utils'
+import { schemaCtx } from '@milkdown/kit/core'
+import { inputRules, InputRule } from '@milkdown/prose/inputrules'
 import { keymap } from '@milkdown/kit/prose/keymap'
+import { markRule } from '@milkdown/prose'
+import { $prose } from '@milkdown/kit/utils'
 import { TextSelection } from '@milkdown/kit/prose/state'
 
 /**
@@ -33,4 +36,33 @@ export const editorInputRules = $prose(() => {
       return true
     },
   })
+})
+
+/**
+ * mark input rules 补充：Milkdown 内置 strong/strikethrough 规则带
+ * `(?<![\w:/])` lookbehind，开界标紧跟 ASCII 词字符时拒绝触发
+ * （行尾已有文字时键入 `**xx**` 不转加粗，序列化被转义为 `\*\*xx\*\*`）。
+ * CommonMark 本身允许词后 `foo**bar**` 成对星号，故对 `*` 系放宽；
+ * `__` 保留词内保守性（CommonMark 对 intraword 下划线不强调）。
+ * 代码块/行内代码守卫由 markRule 自带校验 + parent code 检查承担。
+ */
+export const editorMarkInputRules = $prose((ctx) => {
+  const schema = ctx.get(schemaCtx)
+  const strong = schema.marks.strong
+  const strikethrough = schema.marks.strike_through
+  const markRules: InputRule[] = []
+  if (strong) {
+    markRules.push(
+      markRule(/\*\*([^*_]+?)\*\*(?![\w/])$/, strong, {
+        getAttr: () => ({ marker: '*' }),
+      }),
+      markRule(/(?<![\w:/])__([^*_]+?)__(?![\w/])$/, strong, {
+        getAttr: () => ({ marker: '_' }),
+      }),
+    )
+  }
+  if (strikethrough) {
+    markRules.push(markRule(/(~{1,2})([^~]+?)\1(?!\w|\/)$/, strikethrough))
+  }
+  return inputRules({ rules: markRules })
 })
