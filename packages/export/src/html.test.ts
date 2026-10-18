@@ -65,3 +65,20 @@ describe('buildStandaloneHtml', () => {
     expect(html).toContain('src="assets/gone.png"')
   })
 })
+
+describe('buildStandaloneHtml data uri images', () => {
+  it('keeps inline data uri images untouched even when inlining is enabled', async () => {
+    let called = 0
+    const md = '![inline](data:image/png;base64,AAA=)'
+    const html = await buildStandaloneHtml(md, {
+      ...baseOpts,
+      inlineImages: true,
+      inlineImage: async () => {
+        called += 1
+        return 'data:image/png;base64,BBB='
+      },
+    })
+    expect(called).toBe(0)
+    expect(html).toContain('src="data:image/png;base64,AAA="')
+  })
+})

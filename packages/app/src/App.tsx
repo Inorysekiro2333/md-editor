@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyTheme, themeCss } from '@md-editor/theming'
 import { buildStandaloneHtml } from '@md-editor/export'
 import { MdDocument } from './document/MdDocument'
+import { hasInlineDataUriImages, toInlineDataUri } from './document/dataUri'
 import { ipc } from './ipc'
 import { useAppStore } from './state/appStore'
 import { FileTree, insertIntoTree } from './ui/FileTree'
@@ -244,8 +245,10 @@ export function App() {
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
     const path = current?.path ?? null
     if (path === null) {
-      setStatus('请先保存文档后再粘贴图片')
-      throw new Error('请先保存文档后再粘贴图片')
+      // 裁定问题④：未命名文档粘贴图片直接内嵌 data URI，不强制先保存；
+      // Buffer 走 onMarkdownChange 标脏，保存时不自动改写（R1 铁律）。
+      setStatus('已插入内嵌图片')
+      return toInlineDataUri(mime, base64)
     }
     const ext = ASSET_EXT_BY_MIME[mime]
     if (ext === undefined) {
@@ -359,7 +362,12 @@ export function App() {
       current.markSaved(credential)
       useAppStore.getState().replaceDoc(current.withPath(chosen))
       await ipc.watchFile(chosen).catch(() => {})
-      setStatus(`已另存为 ${chosen}`)
+      const savedText = current.text
+      setStatus(
+        hasInlineDataUriImages(savedText)
+          ? `已另存为 ${chosen}（图片当前为内嵌 data URI，可手动保留或后续迁移到 assets）`
+          : `已另存为 ${chosen}`,
+      )
       void invalidateSnapshotIfClean()
     } catch (error) {
       console.error('[app] saveAs failed', error)
@@ -395,7 +403,7 @@ export function App() {
       setStatus(`已导出 PDF ${chosen}`)
     } catch (error) {
       console.error('[app] export pdf failed', error)
-      setStatus('导出 PDF 失败，请重试')
+      setStatus(`导出 PDF 失败：${toStatusMessage(error)}`)
     }
   }, [settings])
 
@@ -431,7 +439,7 @@ export function App() {
       setStatus(`已导出 HTML ${chosen}`)
     } catch (error) {
       console.error('[app] export html failed', error)
-      setStatus('导出 HTML 失败，请重试')
+      setStatus(`导出 HTML 失败：${toStatusMessage(error)}`)
     }
   }, [settings])
 
