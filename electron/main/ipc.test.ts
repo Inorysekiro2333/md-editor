@@ -26,6 +26,10 @@ vi.mock('electron', () => ({
 
 const windowStub = { webContents: { send: vi.fn() } }
 
+const saveDialogMock = vi.hoisted(() => vi.fn((): Promise<string | null> => Promise.resolve(null)))
+
+vi.mock('./dialogs', () => ({ showSaveDialog: saveDialogMock }))
+
 async function register(): Promise<ReturnType<typeof import('./ipc').registerIpc>> {
   const { registerIpc } = await import('./ipc')
   return registerIpc(
@@ -90,6 +94,21 @@ describe('ipc watcher registry', () => {
     expect(onConfirmClose).toHaveBeenCalledTimes(1)
   })
 })
+describe('ipc save dialog channel', () => {
+  it('saveDialog delegates the default name and dispose removes the handler', async () => {
+    const registry = await register()
+    const handler = registered.get(CHANNELS.saveDialog) as IpcHandler
+    expect(handler).toBeDefined()
+
+    saveDialogMock.mockResolvedValueOnce('C:/out/kept.md')
+    await expect(handler(null, '未命名.md')).resolves.toBe('C:/out/kept.md')
+    expect(saveDialogMock).toHaveBeenCalledWith('未命名.md')
+
+    await registry.dispose()
+    expect(registered.has(CHANNELS.saveDialog)).toBe(false)
+  })
+})
+
 describe('ipc fullscreen channel', () => {
   it('toggleFullscreen delegates to the focused window', async () => {
     await register()

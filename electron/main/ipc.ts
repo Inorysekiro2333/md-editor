@@ -7,6 +7,7 @@ import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
 import { toggleFullscreen } from './menu'
+import { showSaveDialog } from './dialogs'
 import { join } from 'node:path'
 
 export interface IpcRegistry {
@@ -119,6 +120,8 @@ export function registerIpc(
     confirmClose()
   })
 
+  ipcMain.handle(CHANNELS.saveDialog, (_event, defaultName: string) => showSaveDialog(defaultName))
+
   ipcMain.handle(CHANNELS.toggleFullscreen, () => {
     toggleFullscreen(getWindow())
   })
@@ -143,6 +146,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.sessionLoad)
       ipcMain.removeHandler(CHANNELS.sessionRemove)
       ipcMain.removeHandler(CHANNELS.toggleFullscreen)
+      ipcMain.removeHandler(CHANNELS.saveDialog)
     },
   }
 }

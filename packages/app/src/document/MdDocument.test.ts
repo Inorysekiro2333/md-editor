@@ -106,3 +106,43 @@ it('starts dirty from init with snapshot text over disk content (ADR-7 restore)'
   expect(doc.text).toBe('edited in memory\n')
   expect(decodeUtf8Base64(doc.bytesForSave()!)).toBe('edited in memory\n')
 })
+
+describe('save-as support', () => {
+  function makeDoc(
+    init: { text?: string; eol?: 'lf' | 'crlf'; hasBom?: boolean } = {},
+  ): MdDocument {
+    return new MdDocument({
+      id: 'doc#1',
+      path: null,
+      text: init.text ?? '# hello\n',
+      originalBytesBase64: '',
+      eol: init.eol ?? 'lf',
+      hasBom: init.hasBom ?? false,
+    })
+  }
+
+  it('bytesForSaveAs always produces bytes, even for a clean doc', () => {
+    const doc = makeDoc()
+    expect(doc.bytesForSave()).toBeNull()
+    const bytes = decodeUtf8Base64(doc.bytesForSaveAs())
+    expect(bytes).toBe('# hello\n')
+  })
+
+  it('bytesForSaveAs restores crlf and bom wrappers', () => {
+    const doc = makeDoc({ text: 'a\nb\n', eol: 'crlf', hasBom: true })
+    expect(doc.bytesForSaveAs()).toBe(encodeUtf8Base64('\uFEFFa\r\nb\r\n'))
+  })
+
+  it('withPath derives a clean doc with the same id and text', () => {
+    const doc = makeDoc()
+    doc.applyEditorMarkdown('# edited\n')
+    const saved = doc.withPath('C:/notes/new.md')
+
+    expect(saved.id).toBe(doc.id)
+    expect(saved.path).toBe('C:/notes/new.md')
+    expect(saved.text).toBe('# edited\n')
+    expect(saved.isDirty).toBe(false)
+    // 新实例继续走「零编辑不写盘」语义
+    expect(saved.bytesForSave()).toBeNull()
+  })
+})

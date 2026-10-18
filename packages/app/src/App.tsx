@@ -44,7 +44,7 @@ function removePathFromSet(paths: ReadonlySet<string>, path: string): ReadonlySe
 }
 
 function tabTitle(path: string | null): string {
-  if (path === null) return '未命名'
+  if (path === null) return '未命名.md'
   const segments = path.split(/[\\/]/)
   return segments[segments.length - 1] ?? path
 }
@@ -252,10 +252,62 @@ export function App() {
     [setExternalNotice],
   )
 
+  const newNote = useCallback(() => {
+    const doc = new MdDocument({
+      id: `untitled#${Date.now()}#${Math.random().toString(36).slice(2, 8)}`,
+      path: null,
+      text: '',
+      originalBytesBase64: '',
+      eol: 'lf',
+      hasBom: false,
+    })
+    useAppStore.getState().openDoc(doc)
+    setExternalNotice(null)
+    setStatus('已新建未命名笔记')
+  }, [setExternalNotice])
+
+  const saveAs = useCallback(async () => {
+    const state = useAppStore.getState()
+    const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
+    if (current === null) return
+    editorHandle.current?.flushNow()
+    sourceHandle.current?.flushNow()
+    let chosen: string | null
+    try {
+      chosen = await ipc.showSaveDialog(tabTitle(current.path))
+    } catch (error) {
+      console.error('[app] save dialog failed', error)
+      setStatus('另存为失败，请重试')
+      return
+    }
+    if (chosen === null) {
+      setStatus('已取消另存为')
+      return
+    }
+    // 另存为是显式落盘意图：即使零编辑（新建未命名笔记）也要写出文件。
+    const bytes = current.bytesForSave() ?? current.bytesForSaveAs()
+    try {
+      const credential = await ipc.writeFile(chosen, bytes)
+      current.markSaved(credential)
+      useAppStore.getState().replaceDoc(current.withPath(chosen))
+      await ipc.watchFile(chosen).catch(() => {})
+      setStatus(`已另存为 ${chosen}`)
+      void invalidateSnapshotIfClean()
+    } catch (error) {
+      console.error('[app] saveAs failed', error)
+      setStatus('保存失败，请重试')
+    }
+  }, [invalidateSnapshotIfClean])
+
   const save = useCallback(async () => {
     const state = useAppStore.getState()
     const current = state.docs.find((doc) => doc.id === state.activeDocId) ?? null
-    if (current === null || current.path === null) return
+    if (current === null) return
+    // 无路径 tab（新建未命名笔记）：Ctrl+S 自动转另存为。
+    if (current.path === null) {
+      await saveAs()
+      return
+    }
     editorHandle.current?.flushNow()
     const bytes = current.bytesForSave()
     if (bytes === null) {
@@ -272,7 +324,7 @@ export function App() {
       console.error('[app] save failed', error)
       setStatus('保存失败，请重试')
     }
-  }, [invalidateSnapshotIfClean])
+  }, [invalidateSnapshotIfClean, saveAs])
 
   const closeTab = useCallback(
     (target: { id: string; path: string | null; isDirty: boolean }) => {
@@ -315,7 +367,7 @@ export function App() {
 
   useEffect(() => {
     setEditorReady(false)
-  }, [activeDoc, reloadToken])
+  }, [activeDocId, reloadToken])
 
   useEffect(() => {
     void ipc
@@ -410,6 +462,18 @@ export function App() {
     })
     return unsubscribe
   }, [openFile])
+
+  useEffect(() => {
+    // 原生菜单命令通道：new-note / save-as 本任务接线；open / export-pdf 由后续任务消费。
+    const unsubscribe = ipc.onMenuCommand((cmd) => {
+      if (cmd === 'new-note') {
+        newNote()
+      } else if (cmd === 'save-as') {
+        void saveAs()
+      }
+    })
+    return unsubscribe
+  }, [newNote, saveAs])
 
   useEffect(() => {
     const unsubscribe = ipc.onExternalModified((path) => {

@@ -64,6 +64,7 @@ export interface MdEditorBridge {
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
   toggleFullscreen(): Promise<void>
+  showSaveDialog(defaultName: string): Promise<string | null>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
 }
 

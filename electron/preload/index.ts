@@ -66,6 +66,7 @@ export interface MdEditorBridge {
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
   toggleFullscreen(): Promise<void>
+  showSaveDialog(defaultName: string): Promise<string | null>
   onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
 }
 
@@ -129,6 +130,8 @@ const bridge: MdEditorBridge = {
     }
   },
   toggleFullscreen: () => ipcRenderer.invoke(CHANNELS.toggleFullscreen) as Promise<void>,
+  showSaveDialog: (defaultName) =>
+    ipcRenderer.invoke(CHANNELS.saveDialog, defaultName) as Promise<string | null>,
   onMenuCommand: (handler) => {
     const listener = (_event: unknown, cmd: MenuCommand): void => handler(cmd)
     ipcRenderer.on(CHANNELS.menuCommand, listener)
