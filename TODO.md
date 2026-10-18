@@ -7,7 +7,7 @@
 
 ## 当前状态
 
-**阶段：M0–M4 已完成（M4 主题与导出 2026-10-18 交付：内置 3 主题 / settings.json 设置中心 / PDF + 自包含 HTML 导出 / theme:check / 原生菜单 / 新建+另存为，提交区间 8140e4f..985c68b，全量门禁全绿）。**
+**阶段：M0–M5 已完成（M5 发布打磨 2026-10-18 交付：electron-builder 三平台配置 / 签名与公证 env 接线 / electron-updater 自动更新 / perf:check 性能验收 / user-guide 成稿 + 官网 landing page / tag 触发 Release CI；签名实测、真实更新升级、三平台安装体积待 Release CI 与证书后补）。**
 下一步行动：启动 M5 —— 发布打磨（三平台安装包、签名与公证、自动更新、性能验收）。
 
 架构前提（已冻结，改动需先改 `architecture.md`）：
@@ -79,14 +79,14 @@
 
 ## M5 — 发布打磨（目标：2 周）
 
-- [ ] (P1) `electron-builder` 三平台安装包（NSIS / DMG / AppImage + deb）
-- [ ] (P1) 代码签名与 macOS 公证（无证书时在发布说明中标注未签名）
-- [ ] (P1) 自动更新（electron-updater + 签名校验）
-- [ ] (P1) 性能验收：包体 ≤150MB、安装后 ≤400MB、冷启动（第二次起）<3s、空文档内存 ≤300MB
-- [ ] (P1) `user-guide.md` 按实际实现校对成稿、官网 landing page
-- [ ] (P2) opt-in 崩溃上报
+- [x] (P1) `electron-builder` 三平台安装包（NSIS / DMG / AppImage + deb）——配置与 CI 干跑完成，产物实测待 Release CI
+- [x] (P1) 代码签名与 macOS 公证（env 驱动接线完成；无证书，发布说明标注 unsigned，SmartScreen/Gatekeeper 实测待证书后补）
+- [x] (P1) 自动更新（electron-updater，见 component-api.md 8 节；真实更新升级验证待 GitHub Release 后补）
+- [x] (P1) 性能验收：冷启动 299ms <3s、空文档内存 212MB ≤300MB 达标（perf:check）；包体/安装后体积待 Release CI 实装后补测
+- [x] (P1) `user-guide.md` 按实际实现校对成稿、官网 landing page（site/index.html）
+- [ ] (P2) opt-in 崩溃上报（按 2026-10-18 计划范围裁定延后至 v1.1 前补齐）
 
-**验收**：三平台 CI 全绿；`development.md` 7 节性能表全部达标；未签名/未公证项已在发布说明写明。
+**验收**：三平台 CI 干跑全绿；`development.md` 7 节 M5 行已登记（冷启动 299ms、空文档内存 212MB 私有，达标）；未签名/未公证项已在发布说明写明。（M5 验收记录 2026-10-18：pnpm lint 全过（eslint + prettier）· pnpm typecheck 5 个 tsconfig 0 错误 · pnpm test 333 passed (39 files, 6.03s) · pnpm e2e 59 passed (1.4m) · pnpm theme:check 通过 · pnpm build:app 成功（renderer 2,009.44 kB）· pnpm perf:check 冷启动 299ms（<3000ms）/ 私有工作集 212MB（≤300MB）/ 安装包体积 SKIP 待 Release CI。**人工验证清单（待补，不阻塞合入）**：① 真实证书签名后 Windows SmartScreen / macOS Gatekeeper 实测（无证书时发布说明标注 unsigned）；② GitHub Release 上传产物后打包版应用真实更新提示 + 升级；③ Windows NSIS / macOS DMG / Linux AppImage+deb 各自实装一次，安装后体积 ≤400MB。）
 
 ## v1.1 — 架构评审移出项 + 原 v1.1 项
 

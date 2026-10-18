@@ -1,10 +1,12 @@
 import { app, BrowserWindow, Menu, session } from 'electron'
+import { autoUpdater as realAutoUpdater } from 'electron-updater'
 import { writeFileSync } from 'node:fs'
 import { registerIpc, type IpcRegistry } from './ipc'
 import { buildCsp } from './security'
 import { buildTemplate, toggleFullscreen } from './menu'
 import { confirmWindowClose, createMainWindow, markQuitting } from './window'
 import { CHANNELS } from '../shared/channels'
+import { initUpdater } from './updater'
 
 const STARTED_AT = Date.now()
 
@@ -73,6 +75,11 @@ if (!app.requestSingleInstanceLock()) {
         writeFileSync(probePath, JSON.stringify(app.getAppMetrics(), null, 2))
         app.quit()
       }
+    })
+
+    initUpdater(() => mainWindow, {
+      autoUpdater: realAutoUpdater,
+      logger: (msg: string) => console.log('[updater] ' + msg),
     })
 
     const cliPath = openPathFromCli()

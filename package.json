@@ -13,6 +13,7 @@
     "build:app": "electron-vite build",
     "measure": "node scripts/measure-startup.mjs",
     "build": "pnpm build:app && electron-builder",
+    "dist": "pnpm build:app && electron-builder",
     "test": "vitest run --exclude \"e2e/**\"",
     "test:watch": "vitest --exclude \"e2e/**\"",
     "test:coverage": "vitest run --exclude \"e2e/**\" --coverage",
@@ -21,7 +22,8 @@
     "format": "prettier --write .",
     "e2e": "pnpm build:app && playwright test",
     "e2e:install": "playwright install chromium",
-    "theme:check": "node scripts/theme-check.mjs"
+    "theme:check": "node scripts/theme-check.mjs",
+    "perf:check": "node scripts/perf-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -44,6 +46,7 @@
     "vitest": "5.0.4"
   },
   "dependencies": {
-    "chokidar": "^5.0.0"
+    "chokidar": "^5.0.0",
+    "electron-updater": "^6.8.9"
   }
 }
