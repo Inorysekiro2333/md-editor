@@ -69,4 +69,39 @@ describe('runFormatCommand insertTable', () => {
       await editor.destroy()
     }
   })
+
+  it('insertTable puts the caret in the new table when the doc already has one', async () => {
+    await setup('| a | b |\n| --- | --- |\n| 1 | 2 |\n\nhello')
+    try {
+      const view = editor.getView()
+      // Move the caret into the trailing paragraph; a fresh selection would
+      // otherwise start inside the existing table and be rejected.
+      view.dispatch(
+        view.state.tr.setSelection(
+          TextSelection.near(view.state.doc.resolve(view.state.doc.content.size), -1),
+        ),
+      )
+      expect(runFormatCommand(view, 'insertTable')).toBe(true)
+      const { state } = view
+      const tables: PMNode[] = []
+      let selTable: PMNode | null = null
+      state.doc.descendants((node) => {
+        if (node.type.name === 'table') tables.push(node)
+      })
+      const head = state.selection.$head
+      for (let d = head.depth; d > 0; d -= 1) {
+        if (head.node(d).type.name === 'table') selTable = head.node(d)
+      }
+      expect(tables.length).toBe(2)
+      expect(selTable?.type.name).toBe('table')
+      expect(selTable).toBe(tables[1])
+      let inHeader = false
+      for (let d = head.depth; d > 0; d -= 1) {
+        if (head.node(d).type.name === 'table_header') inHeader = true
+      }
+      expect(inHeader).toBe(true)
+    } finally {
+      await editor.destroy()
+    }
+  })
 })

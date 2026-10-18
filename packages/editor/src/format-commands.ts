@@ -87,15 +87,43 @@ export function runFormatCommand(
     case 'insertTable': {
       const tableType = schema.nodes.table
       if (!tableType || insideTable(state.selection.$from)) return false
+      // Record the selection before replacing so the caret can be located via
+      // the transaction's own mapping — never by scanning for the first table
+      // in the document (an existing earlier table would steal the caret).
+      const before = state.selection.from
       const tr = state.tr.replaceSelectionWith(buildTable(schema)).scrollIntoView()
-      let tablePos = -1
-      tr.doc.descendants((node, pos) => {
-        if (tablePos < 0 && node.type.name === 'table') {
-          tablePos = pos
-          return false
+      const mapped = tr.mapping.map(before, -1)
+      const resolved = tr.doc.resolve(mapped)
+      const tableAt = (pos: number): number =>
+        pos >= 0 && pos <= tr.doc.content.size && tr.doc.nodeAt(pos)?.type.name === 'table'
+          ? pos
+          : -1
+      let tablePos = tableAt(mapped)
+      if (tablePos < 0 && resolved.nodeBefore?.type.name === 'table') {
+        tablePos = mapped - resolved.nodeBefore.nodeSize
+      }
+      if (tablePos < 0) {
+        // The mapped position may sit inside a text block adjacent to the
+        // inserted table; walk outward to find the sibling table node.
+        for (let d = resolved.depth; d >= 0 && tablePos < 0; d -= 1) {
+          // resolved.after/before throw at the top level when nothing follows.
+          try {
+            tablePos = tableAt(resolved.after(d))
+          } catch {
+            /* nothing after this level */
+          }
+          if (tablePos < 0) {
+            try {
+              const edge = tr.doc.resolve(resolved.before(d))
+              if (edge.nodeBefore?.type.name === 'table') {
+                tablePos = edge.pos - edge.nodeBefore.nodeSize
+              }
+            } catch {
+              /* nothing before this level */
+            }
+          }
         }
-        return true
-      })
+      }
       if (tablePos < 0) return false
       // Resolve the first header cell's start; TextSelection.near lands on
       // its inner paragraph so the caret is visible and typable.

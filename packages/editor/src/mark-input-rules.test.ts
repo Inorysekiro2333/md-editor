@@ -70,4 +70,10 @@ describe('mark input rules (typed, not pasted)', () => {
     const md = await typeAfter('`code', '***xx***')
     expect(md).toBe(String.fromCharCode(92) + '`code***xx***\n')
   })
+
+  it('triple-star after a complete inline-code span does not trigger', async () => {
+    // Type a full ``code`` span first so the caret sits after a real inlineCode mark.
+    const md = await typeAfter('', '``code``***x***')
+    expect(md).toBe('`code`***x***\n')
+  })
 })
