@@ -4,7 +4,7 @@ import { LanguageDescription } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { nodeViewCtx, prosePluginsCtx, SchemaReady } from '@milkdown/kit/core'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import { Plugin, TextSelection } from '@milkdown/prose/state'
+import { Plugin, TextSelection, type Selection } from '@milkdown/prose/state'
 import type { Node as PMNode } from '@milkdown/prose/model'
 import type { EditorView as PMView, NodeView, NodeViewConstructor } from '@milkdown/prose/view'
 
@@ -39,6 +39,12 @@ export class CodeBlockNodeView implements NodeView {
     if (pos === undefined) return
     const { from, to } = this.outerView.state.selection
     if (from <= pos || from >= pos + this.node.nodeSize) return
+    // 浏览器 DOM 选区已在代码块之外（例如用户刚点击了块外段落）：此时 PM state
+    // 可能尚未同步——本监听器注册在 ProseMirror 的 selectionchange 读取之前，
+    // 一旦这里抢走焦点，PM 的 flush 会因失焦直接放弃，用户后续所有键盘/鼠标
+    // 操作都会被吞掉（人工验证「无法移出代码块」bug 的第二轮死锁）。
+    const domSel = document.getSelection()
+    if (!domSel || domSel.rangeCount === 0 || !this.dom.contains(domSel.anchorNode)) return
     const cmFrom = Math.min(Math.max(from - pos - 1, 0), this.cmView.state.doc.length)
     const cmTo = Math.min(Math.max(to - pos - 1, 0), this.cmView.state.doc.length)
     this.cmView.focus()
@@ -252,8 +258,25 @@ export class CodeBlockNodeView implements NodeView {
     if (pos === undefined) return false
     // Escape direction: selection at start exits up, otherwise exits down.
     const exitDir: -1 | 1 = edge === 'any' ? (from === 0 ? -1 : 1) : dir
-    const boundary = exitDir < 0 ? pos : pos + this.node.nodeSize
-    const target = TextSelection.near(this.outerView.state.doc.resolve(boundary), exitDir)
+    const doc = this.outerView.state.doc
+    const insideBlock = (sel: Selection): boolean =>
+      sel.from > pos && sel.from < pos + this.node.nodeSize
+    // 从块的指定侧找块外文本落点；文档边界处 near() 会回退到块内（如末代码块
+    // 下方没有文本块时落到块内容末尾），此时返回 null。
+    const tryDir = (d: -1 | 1): Selection | null => {
+      const boundary = d < 0 ? pos : pos + this.node.nodeSize
+      const sel = TextSelection.near(doc.resolve(boundary), d)
+      return insideBlock(sel) ? null : sel
+    }
+    let target = tryDir(exitDir)
+    if (target === null) {
+      // 强行落点会让 PM 选区困在代码块内，焦点路由随即将焦点拉回 CM，用户
+      // 键盘/鼠标都无法移出（人工验证 bug）。方向性按键直接放弃退出；
+      // Escape（edge === 'any'）允许从另一侧退出。
+      if (edge !== 'any') return false
+      target = tryDir(-exitDir as 1 | -1)
+      if (target === null) return false
+    }
     this.outerView.dispatch(this.outerView.state.tr.setSelection(target))
     this.outerView.focus()
     return true
