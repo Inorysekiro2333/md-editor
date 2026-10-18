@@ -15,6 +15,8 @@ import { FileTree, insertIntoTree } from './ui/FileTree'
 import { OutlinePanel } from './ui/OutlinePanel'
 import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
+import { SettingsPanel } from './ui/SettingsPanel'
+import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
 
 const ASSET_EXT_BY_MIME: Record<string, string> = {
@@ -68,6 +70,8 @@ export function App() {
     () => new Set<string>(),
   )
   const [findOpen, setFindOpen] = useState(false)
+  const [settings, setSettingsState] = useState<AppSettings | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
@@ -383,11 +387,15 @@ export function App() {
     void ipc
       .getSettings()
       .then((settings) => {
-        if (!cancelled) applyTheme(settings.themeId)
+        if (!cancelled) {
+          applyTheme(settings.themeId)
+          setSettingsState(settings)
+        }
       })
       .catch(() => undefined)
     const unsubscribe = ipc.onSettingsChanged((settings) => {
       applyTheme(settings.themeId)
+      setSettingsState(settings)
     })
     return () => {
       cancelled = true
@@ -609,6 +617,14 @@ export function App() {
     }
   }, [])
 
+  const changeTheme = useCallback((themeId: ThemeId) => {
+    setSettingsState((prev) => {
+      if (prev === null) return prev
+      void ipc.setSettings({ ...prev, themeId }).then((next) => setSettingsState(next))
+      return { ...prev, themeId }
+    })
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
@@ -654,6 +670,9 @@ export function App() {
         </span>
         <button type="button" data-testid="mode-toggle" onClick={toggleMode}>
           编辑模式：{mode === 'wysiwyg' ? '所见即所得' : '源码'}
+        </button>
+        <button type="button" data-testid="open-settings" onClick={() => setSettingsOpen(true)}>
+          设置
         </button>
       </header>
       <nav className="tabbar">
@@ -776,6 +795,14 @@ export function App() {
           cancelLabel="保留我的修改"
           onConfirm={confirmExternalReload}
           onCancel={cancelExternalKeep}
+        />
+      ) : null}
+      {settingsOpen && settings !== null ? (
+        <SettingsPanel
+          initialTheme={settings.themeId}
+          printBackground={settings.export.pdf.printBackground}
+          onChangeTheme={changeTheme}
+          onClose={() => setSettingsOpen(false)}
         />
       ) : null}
     </main>

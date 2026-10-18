@@ -291,6 +291,20 @@ body {
   background: rgba(31, 35, 40, 0.06);
 }
 
+.settings-panel .settings-group {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--md-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.settings-panel .settings-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
 .outline-sidebar {
   width: 200px;
   border-left: 1px solid var(--md-border, #d0d7de);
