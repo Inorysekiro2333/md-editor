@@ -42,5 +42,22 @@ export function themeCss(id: ThemeId): string {
     'img {',
     '  max-width: 100%;',
     '}',
+    // gap cursor：代码块旁无文本落点时的可见光标（prosemirror-gapcursor 约定类名）
+    '.ProseMirror-gapcursor {',
+    '  display: none;',
+    '  pointer-events: none;',
+    '  position: absolute;',
+    '}',
+    '.ProseMirror-gapcursor:after {',
+    '  content: "";',
+    '  display: block;',
+    '  position: absolute;',
+    '  top: -2px;',
+    '  width: 20px;',
+    '  border-top: 1px solid var(--md-fg, currentColor);',
+    '}',
+    '.ProseMirror-focused .ProseMirror-gapcursor {',
+    '  display: block;',
+    '}',
   ].join('\n')
 }

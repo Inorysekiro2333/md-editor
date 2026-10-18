@@ -24,6 +24,9 @@ function clickMenuItem(
   }, id)
 }
 
+const PNG_1PX =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
 test('pasting an image into an untitled note embeds a data uri, saves and exports', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'md-editor-e2e-'))
   const dir = mkdtempSync(join(tmpdir(), 'md-editor-paste-unnamed-'))
@@ -42,21 +45,33 @@ test('pasting an image into an untitled note embeds a data uri, saves and export
 
   // 未命名文档粘贴图片：不允许出现「请先保存」，必须直接插入内嵌 data URI。
   await window.locator('.ProseMirror').click()
-  await window.evaluate(() => {
+  await window.evaluate((pngB64: string) => {
     const dt = new DataTransfer()
-    dt.items.add(
-      new File([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], 'pic.png', { type: 'image/png' }),
-    )
+    const bytes = Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))
+    dt.items.add(new File([bytes], 'pic.png', { type: 'image/png' }))
     const targetEl = document.querySelector('.ProseMirror') as HTMLElement
     targetEl.focus()
     targetEl.dispatchEvent(
       new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
     )
-  })
+  }, PNG_1PX)
 
   const img = window.locator('.ProseMirror img:not(.ProseMirror-separator)')
   await expect(img).toHaveCount(1, { timeout: 10_000 })
   await expect(img).toHaveAttribute('src', /^data:image\/png;base64,/)
+  // 编辑器内真实可见：图片必须成功解码（修复前只断言了属性，肉眼不可见）
+  await expect
+    .poll(
+      async () =>
+        window.evaluate(() => {
+          const el = document.querySelector(
+            '.ProseMirror img:not(.ProseMirror-separator)',
+          ) as HTMLImageElement | null
+          return el === null ? -1 : el.naturalWidth
+        }),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0)
   await expect(window.locator('[data-testid="status"]')).toContainText('已插入内嵌图片')
   expect(existsSync(join(dir, 'assets'))).toBe(false)
 

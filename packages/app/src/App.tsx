@@ -72,6 +72,25 @@ function exportTitle(path: string | null): string {
   return tabTitle(path).replace(/\.(md|markdown)$/i, '')
 }
 
+/**
+ * 文档相对路径图片 -> data URI（缺失/越权/非图片返回 null）。
+ * 导出 HTML 内联与 WYSIWYG 编辑器显示共用同一实现。
+ */
+async function resolveDocImage(path: string | null, src: string): Promise<string | null> {
+  if (path === null) return null
+  const clean = src.split(/[?#]/)[0] ?? ''
+  const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
+  if (!isAssetExt(ext)) return null
+  try {
+    const { base64 } = await ipc.readAssetFile(path, clean)
+    const mime = ext === 'jpg' ? 'jpeg' : ext
+    return `data:image/${mime};base64,${base64}`
+  } catch {
+    // 文件缺失/非图片：保留相对链接，不阻塞导出。
+    return null
+  }
+}
+
 /** PDF 与 HTML 共用 buildStandaloneHtml 产出（主题 CSS / 图片内联 / CSP）。 */
 async function buildExportHtml(
   text: string,
@@ -82,20 +101,7 @@ async function buildExportHtml(
     themeCss: themeCss(themeId),
     inlineImages: true,
     title: exportTitle(path),
-    inlineImage: async (src) => {
-      if (path === null) return null
-      const clean = src.split(/[?#]/)[0] ?? ''
-      const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
-      if (!isAssetExt(ext)) return null
-      try {
-        const { base64 } = await ipc.readAssetFile(path, clean)
-        const mime = ext === 'jpg' ? 'jpeg' : ext
-        return `data:image/${mime};base64,${base64}`
-      } catch {
-        // 文件缺失/非图片：保留相对链接，不阻塞导出。
-        return null
-      }
-    },
+    inlineImage: (src) => resolveDocImage(path, src),
   })
 }
 
@@ -887,6 +893,7 @@ export function App() {
                 setEditorReady(true)
               }}
               onPasteAsset={onPasteAsset}
+              resolveImageSrc={(src) => resolveDocImage(activeDoc.path, src)}
               getBufferText={() => activeDoc.text}
               onCursorChange={onCursorChange}
             />

@@ -90,14 +90,25 @@ test('Escape leaves the code block and typing lands outside', async () => {
   await app.close()
 })
 
-test('ArrowDown never strands the PM selection inside the block; mouse click works', async () => {
+test('ArrowDown from doc-end block exits to gap cursor below; mouse click works', async () => {
   const { app, window, editor, cm } = await openDoc(CONTENT)
   await typeAtCmEnd(cm, window, 'xyz')
 
-  // 文档末块下方没有可去位置：ArrowDown 不应把 PM 选区留在块内
-  //（修复前 anchor=19 困在块内容末尾并触发焦点拉回）。
+  // 文档末块下方没有文本块：ArrowDown 落到块下方 gap cursor（anchor=20=文档末尾），
+  // 不再把 PM 选区困在块内（修复前 anchor=19 困在块内容末尾并触发焦点拉回）。
   await window.keyboard.press('ArrowDown')
-  await waitForAnchor(window, { max: HEADING_END })
+  await waitForAnchor(window, { min: 20 })
+
+  // gap cursor 处可直接续写（创建块后新段落）
+  await window.keyboard.type('k')
+  await window.waitForTimeout(600)
+  expect(
+    await window.evaluate(() =>
+      (
+        window as unknown as { __mdEditorDebug: { getMarkdown(): string } }
+      ).__mdEditorDebug.getMarkdown(),
+    ),
+  ).toBe('# 标题\n\n```js\nconst a = 1xyz\n```\n\nk\n')
 
   // 鼠标点击标题必须能移出代码块（修复前被 selectionchange 焦点路由吞掉）
   await editor.locator('h1').click()
@@ -116,5 +127,95 @@ test('code block with trailing paragraph: ArrowDown exits to next paragraph', as
   // 鼠标点击前一段落同样可移出
   await editor.locator('p', { hasText: 'before' }).click()
   await waitForAnchor(window, { max: 7 })
+  await app.close()
+})
+
+test('block-last: ArrowDown exits to gap cursor below; typing creates a paragraph after the block', async () => {
+  const { app, window, cm } = await openDoc('before\n\n```js\nconst a = 1\n```\n')
+  await cm.click()
+  await expect(cm).toBeFocused()
+  await window.keyboard.press('Control+End')
+  await window.keyboard.press('ArrowDown')
+  // 块旁无文本落点：PM 选区应为 gap cursor（anchor == 文档末尾 21）
+  await window.waitForFunction(
+    () => {
+      const debug = (
+        window as unknown as {
+          __mdEditorDebug?: { pmSelection(): { anchor: number; head: number } }
+        }
+      ).__mdEditorDebug
+      return debug !== undefined && debug.pmSelection().anchor === 21
+    },
+    undefined,
+    { timeout: 3_000 },
+  )
+  // 在块下方续写：输入/回车创建新段落
+  await window.keyboard.type('next')
+  await window.waitForTimeout(600)
+  expect(
+    await window.evaluate(() =>
+      (
+        window as unknown as {
+          __mdEditorDebug: { getMarkdown(): string }
+        }
+      ).__mdEditorDebug.getMarkdown(),
+    ),
+  ).toBe('before\n\n```js\nconst a = 1\n```\n\nnext\n')
+  await app.close()
+})
+
+test('block-last: clicking empty area below the block lands gap cursor and typing appends below', async () => {
+  const { app, window, editor } = await openDoc('before\n\n```js\nconst a = 1\n```\n')
+  const box = (await editor.boundingBox())!
+  // 点击块下方 ProseMirror 空白区（60vh min-height 内）
+  await window.mouse.click(box.x + 150, box.y + box.height - 12)
+  await window.waitForFunction(
+    () => {
+      const debug = (
+        window as unknown as {
+          __mdEditorDebug?: { pmSelection(): { anchor: number; head: number } }
+        }
+      ).__mdEditorDebug
+      return debug !== undefined && debug.pmSelection().anchor === 21
+    },
+    undefined,
+    { timeout: 3_000 },
+  )
+  await window.keyboard.type('more')
+  await window.waitForTimeout(600)
+  expect(
+    await window.evaluate(() =>
+      (
+        window as unknown as {
+          __mdEditorDebug: { getMarkdown(): string }
+        }
+      ).__mdEditorDebug.getMarkdown(),
+    ),
+  ).toBe('before\n\n```js\nconst a = 1\n```\n\nmore\n')
+  await app.close()
+})
+
+test('Ctrl+End inside code block stays inside CM (no native jump to PM doc end)', async () => {
+  const { app, window, cm } = await openDoc('before\n\n```js\nconst a = 1\n```\n\nafter\n')
+  await cm.click()
+  await expect(cm).toBeFocused()
+  await window.keyboard.press('Control+End')
+  // CM 选区真值：anchor == CM 文档末尾 11，焦点仍在 CM
+  await window.waitForFunction(
+    () => {
+      const debug = (
+        window as unknown as {
+          __mdEditorDebug?: { codeBlocks?: () => Array<{ anchor: number; hasFocus: boolean }> }
+        }
+      ).__mdEditorDebug
+      const blocks = debug?.codeBlocks?.() ?? []
+      return blocks.some((b) => b.anchor === 11 && b.hasFocus)
+    },
+    undefined,
+    { timeout: 3_000 },
+  )
+  // 继续输入必须落在块内
+  await window.keyboard.type('Z')
+  await expect(cm).toContainText('const a = 1Z')
   await app.close()
 })
