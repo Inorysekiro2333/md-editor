@@ -58,8 +58,6 @@ pnpm theme:check    # 主题规范校验
 - **v1.1**：数学公式（KaTeX）、Mermaid 图表、导出长图 / docx
 - **v2**：插件 API、Wiki 双链、Web 版
 
-完整任务与进度见 [TODO.md](TODO.md)。
-
 ## License
 
 [MIT](LICENSE)

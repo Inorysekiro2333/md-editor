@@ -61,7 +61,7 @@ md-editor 是一个开源、跨平台的所见即所得 Markdown 编辑器：像
 
 ## 路线图
 
-见 `TODO.md`（M0–M5，约 11–14 周到 v1.0；公式与图表在 v1.1）。
+任务与进度记录在内部工作文件（local/TODO.md，不入库）。
 
 ## 许可与合规
 
@@ -79,4 +79,3 @@ md-editor 是一个开源、跨平台的所见即所得 Markdown 编辑器：像
 - `user-guide.md` — 使用者手册
 - `development.md` — 开发方式与回归清单
 - `component-api.md` — 组件与模块 API
-- `TODO.md` — 任务与进度
