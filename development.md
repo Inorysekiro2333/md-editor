@@ -43,7 +43,7 @@ packages/
   export/             导出管线（PDF 走 printToPDF、HTML 自包含）
   theming/            主题
 e2e/                  Playwright 用例
-docs/                 补充文档（当前 8 份核心文档位于仓库根目录；AGENTS/DESIGN/TODO 按约定必须留在根目录）
+docs/                 补充文档（核心文档位于仓库根目录；本地 AI 协作文档在 local/，不入库）
 ```
 
 依赖方向只允许向下：`app → editor / export / theming`；`editor`、`export`、`theming` 之间互不依赖，且都不得依赖 `app`。

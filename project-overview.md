@@ -73,7 +73,7 @@ md-editor 是一个开源、跨平台的所见即所得 Markdown 编辑器：像
 
 ## 相关文档
 
-- `AGENTS.md` — AI 协作须知（必读）
+- `local/AGENTS.md` — AI 协作须知（本地，不入库）
 - `DESIGN.md` — 视觉规范
 - `architecture.md` — 架构与数据流
 - `user-guide.md` — 使用者手册

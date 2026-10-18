@@ -15,3 +15,12 @@ Thumbs.db
 .vscode/
 *.local
 .vitest/
+
+# local agent context (not published)
+AGENTS.md
+local/
+.vitest/
+ms.err
+ms.out
+pc.err
+pc.out
