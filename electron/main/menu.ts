@@ -35,6 +35,12 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
           accelerator: 'CmdOrCtrl+O',
           click: clickFor(deps, 'open'),
         },
+        {
+          id: 'menu-open-dir',
+          label: '打开文件夹...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: clickFor(deps, 'open-dir'),
+        },
         { type: 'separator' },
         {
           id: 'menu-save-as',

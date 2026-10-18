@@ -18,6 +18,7 @@ export const CHANNELS = {
   menuCommand: 'app:menu-command',
   saveDialog: 'app:save-dialog',
   openDialog: 'app:open-dialog',
+  openDirDialog: 'app:open-dir-dialog',
   toggleFullscreen: 'window:toggle-fullscreen',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
@@ -29,4 +30,5 @@ export const CHANNELS = {
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]
 
-export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'
+export type MenuCommand =
+  'new-note' | 'open' | 'open-dir' | 'save-as' | 'export-pdf' | 'export-html'

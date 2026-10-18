@@ -12,7 +12,7 @@ vi.mock('electron', () => ({
   dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog },
 }))
 
-import { showOpenDialog, showSaveDialog, UNTITLED_NOTE_NAME } from './dialogs'
+import { showOpenDialog, showOpenDirDialog, showSaveDialog, UNTITLED_NOTE_NAME } from './dialogs'
 
 describe('showSaveDialog', () => {
   beforeEach(() => {
@@ -95,5 +95,25 @@ describe('showOpenDialog', () => {
   it('returns null when the user cancels', async () => {
     mocks.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
     await expect(showOpenDialog()).resolves.toBeNull()
+  })
+})
+
+describe('showOpenDirDialog', () => {
+  beforeEach(() => {
+    mocks.showOpenDialog.mockReset()
+  })
+
+  it('uses openDirectory and returns the chosen dir', async () => {
+    mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [join('C:', 'docs')] })
+    await expect(showOpenDirDialog()).resolves.toBe(join('C:', 'docs'))
+    expect(mocks.showOpenDialog).toHaveBeenCalledWith({
+      title: '打开文件夹',
+      properties: ['openDirectory'],
+    })
+  })
+
+  it('returns null when canceled', async () => {
+    mocks.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
+    await expect(showOpenDirDialog()).resolves.toBeNull()
   })
 })

@@ -867,7 +867,18 @@ export function App() {
       <div className="main-row">
         <aside className="sidebar">
           {workspaceNodes === null ? (
-            <p className="sidebar-empty">打开文件夹以浏览 Markdown 文件</p>
+            <button
+              type="button"
+              className="sidebar-empty"
+              data-testid="sidebar-empty"
+              onClick={() => {
+                void ipc.showOpenDirDialog().then((dir) => {
+                  if (dir !== null) return ipc.openWorkspace(dir)
+                })
+              }}
+            >
+              打开文件夹以浏览 Markdown 文件
+            </button>
           ) : (
             <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
           )}

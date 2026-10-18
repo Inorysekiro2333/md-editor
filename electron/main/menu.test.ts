@@ -40,6 +40,7 @@ describe('menu template', () => {
     const cases: Array<[string, string]> = [
       ['menu-new-note', 'new-note'],
       ['menu-open', 'open'],
+      ['menu-open-dir', 'open-dir'],
       ['menu-save-as', 'save-as'],
       ['menu-export-pdf', 'export-pdf'],
       ['menu-export-html', 'export-html'],
