@@ -50,3 +50,36 @@ test('workspace file tree: structure, click opens tab, incremental add and remov
     await app.close()
   }
 })
+
+test('menu open-dir command loads the workspace file tree', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'md-editor-ws-menu-'))
+  writeFileSync(join(dir, 'menu-a.md'), '# Menu Doc\n')
+  const app = await electron.launch({
+    args: [resolve(process.cwd()), '--open', join(dir, 'menu-a.md')],
+    env: {
+      ...process.env,
+      MD_EDITOR_USER_DATA: mkdtempSync(join(tmpdir(), 'md-editor-ws-menu-ud-')),
+    },
+  })
+  try {
+    const window = await app.firstWindow()
+    await expect(window.locator('[data-editor-ready="true"]')).toHaveCount(1)
+    await app.evaluate(({ dialog }, targetDir) => {
+      const stub = dialog as unknown as {
+        showOpenDialog: (options?: unknown) => Promise<{ canceled: boolean; filePaths: string[] }>
+      }
+      stub.showOpenDialog = async () => ({ canceled: false, filePaths: [targetDir] })
+    }, dir)
+    await app.evaluate(({ Menu, BrowserWindow }) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById('menu-open-dir')
+      const win = BrowserWindow.getAllWindows()[0]
+      if (item === undefined || win === undefined) throw new Error('menu item missing')
+      item.click(item, win, {})
+    })
+    const tree = window.locator('[data-testid="file-tree"]')
+    await expect(tree).toBeVisible()
+    await expect(tree).toContainText('menu-a.md')
+  } finally {
+    await app.close()
+  }
+})

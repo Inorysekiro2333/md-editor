@@ -196,3 +196,27 @@ test('keeps source-mode edits when switching back to wysiwyg', async () => {
     await app.close()
   })
 })
+
+test('format toolbar bold writes ** markers into source buffer', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'md-editor-format-toolbar-'))
+  const file = join(dir, 'bold.md')
+  writeFileSync(file, 'hello\n')
+  const app = await launchApp(file)
+  const window = await app.firstWindow()
+  const editor = window.locator('.ProseMirror')
+  await expect(editor).toContainText('hello')
+  await window.waitForSelector('[data-editor-ready="true"]')
+
+  await editor.click()
+  // 选中整行文本，再加粗；随后切源码断言 Buffer 含 ** 标记
+  await window.keyboard.press('Home')
+  await window.keyboard.press('Shift+End')
+  await window.getByTestId('format-toolbar').locator('button').first().click()
+
+  await window.keyboard.type('x')
+  // 等 300ms 防抖窗口把 WYSIWYG 事务收敛回 Buffer，再切源码断言
+  await window.waitForTimeout(400)
+  await window.getByTestId('mode-toggle').click()
+  await window.waitForSelector('.md-source-editor')
+  await expect(window.locator('.md-source-editor')).toContainText('**')
+})

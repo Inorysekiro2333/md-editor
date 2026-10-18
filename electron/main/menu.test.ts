@@ -40,9 +40,11 @@ describe('menu template', () => {
     const cases: Array<[string, string]> = [
       ['menu-new-note', 'new-note'],
       ['menu-open', 'open'],
+      ['menu-open-dir', 'open-dir'],
       ['menu-save-as', 'save-as'],
       ['menu-export-pdf', 'export-pdf'],
       ['menu-export-html', 'export-html'],
+      ['menu-about', 'about'],
     ]
     for (const [id, cmd] of cases) {
       const item = findItem(template, id)
@@ -80,6 +82,32 @@ describe('menu template', () => {
     const item = findItem(buildTemplate(deps), 'menu-exit')
     item?.click?.(undefined as never, undefined as never, undefined as never)
     expect(deps.onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('edit menu labels', () => {
+  it('expands editMenu into explicit zh-CN submenu while keeping roles', () => {
+    const template = buildTemplate(createDeps())
+    const edit = template.find((item) => item.label === '编辑')
+    const submenu = edit?.submenu as MenuItemConstructorOptions[]
+    expect(submenu.map((item) => [item.label, item.role])).toEqual([
+      ['撤销', 'undo'],
+      ['重做', 'redo'],
+      [undefined, undefined],
+      ['剪切', 'cut'],
+      ['复制', 'copy'],
+      ['粘贴', 'paste'],
+      [undefined, undefined],
+      ['全选', 'selectAll'],
+    ])
+  })
+
+  it('keeps zh-CN labels for top-level and view/help items', () => {
+    const template = buildTemplate(createDeps())
+    expect(template.map((item) => item.label)).toEqual(['文件', '编辑', '视图', '帮助'])
+    expect(findItem(template, 'menu-toggle-fullscreen')?.label).toBe('全屏')
+    expect(findItem(template, 'menu-about')?.label).toBe('关于 md-editor')
+    expect(findItem(template, 'menu-exit')?.label).toBe('退出')
   })
 })
 

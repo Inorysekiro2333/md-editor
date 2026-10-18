@@ -9,7 +9,7 @@ test('installs the native menu and F11 toggles fullscreen', async () => {
     env: { ...process.env, MD_EDITOR_USER_DATA: mkdtempSync(join(tmpdir(), 'md-editor-e2e-')) },
   })
   const window = await app.firstWindow()
-  await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+  await expect(window.locator('[data-testid="status"]')).toBeVisible()
 
   const menuState = await app.evaluate(({ Menu }) => {
     const menu = Menu.getApplicationMenu()
@@ -73,7 +73,7 @@ test('menu open command opens a file via the native open dialog', async () => {
     env: { ...process.env, MD_EDITOR_USER_DATA: userData },
   })
   const window = await app.firstWindow()
-  await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+  await expect(window.locator('[data-testid="status"]')).toBeVisible()
 
   // 主进程内 stub 原生打开对话框。
   await app.evaluate(({ dialog }, filePath) => {

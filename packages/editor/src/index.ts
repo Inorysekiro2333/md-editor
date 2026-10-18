@@ -16,6 +16,13 @@ export { createMarkdownSync, type MarkdownSync, type MarkdownSyncOptions } from 
 export { editorInputRules } from './input-rules'
 export { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
 export {
+  formattingKeymap,
+  runFormatCommand,
+  type FormatCommandArgs,
+  type FormatCommandName,
+} from './format-commands'
+export { runSourceFormatCommand } from './source-format-commands'
+export {
   createPastePlugin,
   createPasteRule,
   getHtmlToMarkdown,

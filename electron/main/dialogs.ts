@@ -3,6 +3,15 @@ import { join } from 'node:path'
 
 export const UNTITLED_NOTE_NAME = '未命名.md'
 
+export async function showOpenDirDialog(): Promise<string | null> {
+  const result = await dialog.showOpenDialog({
+    title: '打开文件夹',
+    properties: ['openDirectory'],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0] ?? null
+}
+
 export const MARKDOWN_SAVE_FILTERS = [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
 
 /** 打开文件对话框：Markdown 过滤，用户取消返回 null。 */

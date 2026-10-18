@@ -6,6 +6,8 @@ import { EditorSelection, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { useEffect, useMemo, useRef } from 'react'
 import { createMarkdownSync } from './sync'
+import { runSourceFormatCommand } from './source-format-commands'
+import type { FormatCommandArgs, FormatCommandName } from './format-commands'
 
 export interface SourceEditorHandle {
   getText(): string
@@ -14,6 +16,7 @@ export interface SourceEditorHandle {
   setSelectionOffsets(anchor: number, head: number): void
   focus(): void
   getScrollRatio(): number
+  runCommand(name: FormatCommandName, args?: FormatCommandArgs): void
 }
 
 export interface SourceEditorProps {
@@ -103,6 +106,10 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         })
       },
       focus: () => view.focus(),
+      runCommand: (name, args) => {
+        const v = viewRef.current
+        if (v) runSourceFormatCommand(v, name, args)
+      },
       getScrollRatio: () => {
         const scrollHeight = view.scrollDOM.scrollHeight
         if (scrollHeight === 0) return 0

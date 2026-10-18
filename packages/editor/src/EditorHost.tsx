@@ -19,7 +19,7 @@ import { TextSelection, type Transaction } from '@milkdown/prose/state'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { footnoteInputRules, footnoteUndefinedRefPlugin } from './footnotes'
-import { editorInputRules } from './input-rules'
+import { editorInputRules, editorMarkInputRules, editorTripleStarGuard } from './input-rules'
 import { createCursorNotifyPlugin } from './cursor-notify'
 import { createPastePlugin, createPasteRule, type OnPasteAsset } from './paste'
 import {
@@ -33,6 +33,12 @@ import { codeBlockView, getCodeBlockCmSelections } from './code-block-view'
 import { createImageView, type ResolveImageSrc } from './image-view'
 import { createMarkdownSync } from './sync'
 import { tableToolbar } from './table-toolbar'
+import {
+  formattingKeymap,
+  runFormatCommand,
+  type FormatCommandArgs,
+  type FormatCommandName,
+} from './format-commands'
 
 export interface EditorHandle {
   getMarkdown(): string
@@ -41,6 +47,8 @@ export interface EditorHandle {
   setSelectionOffsets(anchor: number, head: number): void
   focus(): void
   getScrollRatio(): number
+  /** 格式工具栏 / 快捷键统一命令入口（作用于 Buffer 的 sync 事务）。 */
+  runCommand(name: FormatCommandName, args?: FormatCommandArgs): void
 }
 
 export function selectionOffsetsFromView(
@@ -170,6 +178,7 @@ function EditorHostInner(props: EditorHostProps) {
           ctx.update(prosePluginsCtx, (ps) => [
             ...ps,
             sessionRecorderPlugin,
+            editorTripleStarGuard,
             pastePlugin,
             cursorNotifyPlugin,
           ])
@@ -195,9 +204,11 @@ function EditorHostInner(props: EditorHostProps) {
         .use(codeBlockView)
         .use(imageViewPlugin)
         .use(editorInputRules)
+        .use(editorMarkInputRules)
         .use(gfm)
         .use(columnResizingPlugin)
         .use(tableToolbar)
+        .use(formattingKeymap)
         .use(footnoteUndefinedRefPlugin)
         .use(footnoteInputRules)
         .use(history)
@@ -288,6 +299,15 @@ function EditorHostInner(props: EditorHostProps) {
         editor.action((ctx) => {
           const view = ctx.get(editorViewCtx)
           applySelectionOffsets(view, getMarkdown()(ctx), anchor, head)
+        })
+      },
+      runCommand: (name: FormatCommandName, args?: FormatCommandArgs) => {
+        const editor = get()
+        if (!editor) return
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          runFormatCommand(view, name, args)
+          ;(view as unknown as { focus(): void } | undefined)?.focus()
         })
       },
       focus: () => {

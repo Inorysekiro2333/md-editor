@@ -7,6 +7,7 @@ import { buildTemplate, toggleFullscreen } from './menu'
 import { confirmWindowClose, createMainWindow, markQuitting } from './window'
 import { CHANNELS } from '../shared/channels'
 import { initUpdater } from './updater'
+import { showOpenDirDialog } from './dialogs'
 
 const STARTED_AT = Date.now()
 
@@ -62,7 +63,15 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(
       Menu.buildFromTemplate(
         buildTemplate({
-          onCommand: (cmd) => mainWindow?.webContents.send(CHANNELS.menuCommand, cmd),
+          onCommand: (cmd) => {
+            if (cmd !== 'open-dir') {
+              mainWindow?.webContents.send(CHANNELS.menuCommand, cmd)
+              return
+            }
+            void showOpenDirDialog().then((dir) => {
+              if (dir !== null) mainWindow?.webContents.send(CHANNELS.openWorkspace, dir)
+            })
+          },
           onClose: () => mainWindow?.close(),
           toggleFullscreen,
         }),

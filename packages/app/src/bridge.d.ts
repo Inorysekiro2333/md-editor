@@ -4,6 +4,7 @@ import type { AppSettings } from '../../../electron/shared/settings'
 export interface AppInfo {
   version: string
   electron: string
+  chromium: string
   hasCliOpen: boolean
 }
 
@@ -71,6 +72,7 @@ export interface MdEditorBridge {
     title?: string,
   ): Promise<string | null>
   showOpenDialog(): Promise<string | null>
+  showOpenDirDialog(): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
   exportHtml(targetPath: string, html: string): Promise<string>
   readAssetFile(docPath: string, src: string): Promise<FileContent>
@@ -80,7 +82,7 @@ export interface MdEditorBridge {
   onSettingsChanged(handler: (settings: AppSettings) => void): () => void
 }
 
-export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html' | 'about'
 
 declare global {
   interface Window {

@@ -6,6 +6,7 @@ import type { AppSettings } from '../shared/settings'
 export interface AppInfo {
   version: string
   electron: string
+  chromium: string
   hasCliOpen: boolean
 }
 
@@ -73,6 +74,7 @@ export interface MdEditorBridge {
     title?: string,
   ): Promise<string | null>
   showOpenDialog(): Promise<string | null>
+  showOpenDirDialog(): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
   exportHtml(targetPath: string, html: string): Promise<string>
   readAssetFile(docPath: string, src: string): Promise<FileContent>
@@ -145,6 +147,7 @@ const bridge: MdEditorBridge = {
   showSaveDialog: (defaultName, filters, title) =>
     ipcRenderer.invoke(CHANNELS.saveDialog, defaultName, filters, title) as Promise<string | null>,
   showOpenDialog: () => ipcRenderer.invoke(CHANNELS.openDialog) as Promise<string | null>,
+  showOpenDirDialog: () => ipcRenderer.invoke(CHANNELS.openDirDialog) as Promise<string | null>,
   exportPdf: (targetPath, html) =>
     ipcRenderer.invoke(CHANNELS.exportPdf, targetPath, html) as Promise<string>,
   exportHtml: (targetPath, html) =>

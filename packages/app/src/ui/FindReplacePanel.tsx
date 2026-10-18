@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { t } from '../i18n'
 import {
   buildReplacedText,
   compileFindRegex,
@@ -67,11 +68,11 @@ export function FindReplacePanel({
 
   const replaceOne = (): void => {
     if (invalidRegex) {
-      setMessage('无效的正则表达式')
+      setMessage(t('invalidRegex'))
       return
     }
     if (matches.length === 0) {
-      setMessage('无匹配')
+      setMessage(t('noMatches'))
       return
     }
     const match = matches[currentIndex % matches.length]
@@ -87,11 +88,11 @@ export function FindReplacePanel({
 
   const replaceAll = (): void => {
     if (invalidRegex) {
-      setMessage('无效的正则表达式')
+      setMessage(t('invalidRegex'))
       return
     }
     if (matches.length === 0) {
-      setMessage('无匹配')
+      setMessage(t('noMatches'))
       return
     }
     const nextText = buildReplacedText(text, matches, query, options, replacement)
@@ -116,7 +117,7 @@ export function FindReplacePanel({
         ref={inputRef}
         data-testid="find-input"
         value={query}
-        placeholder="查找"
+        placeholder={t('findPlaceholder')}
         onChange={(event) => {
           setQuery(event.target.value)
           setMessage('')
@@ -132,10 +133,10 @@ export function FindReplacePanel({
         data-testid="find-count"
         className={matches.length === 0 ? 'find-count empty' : 'find-count'}
       >
-        {matches.length === 0 ? '0 个结果' : `${matches.length} 个结果`}
+        {matches.length === 0 ? t('noResults') : `${matches.length} ${t('resultsCountSuffix')}`}
       </span>
       {toggle('Aa', caseSensitive, () => setCaseSensitive((v) => !v), 'find-case')}
-      {toggle('词', wholeWord, () => setWholeWord((v) => !v), 'find-word')}
+      {toggle(t('findWordToggle'), wholeWord, () => setWholeWord((v) => !v), 'find-word')}
       {toggle('.*', regex, () => setRegex((v) => !v), 'find-regex')}
       <button type="button" data-testid="find-prev" onClick={goPrev}>
         ↑
@@ -143,26 +144,31 @@ export function FindReplacePanel({
       <button type="button" data-testid="find-next" onClick={goNext}>
         ↓
       </button>
-      <button type="button" data-testid="find-close" aria-label="关闭查找替换" onClick={onClose}>
+      <button
+        type="button"
+        data-testid="find-close"
+        aria-label={t('closeFindReplace')}
+        onClick={onClose}
+      >
         ×
       </button>
       <input
         data-testid="find-replace-input"
         value={replacement}
-        placeholder="替换为"
+        placeholder={t('replacePlaceholder')}
         onChange={(event) => {
           setReplacement(event.target.value)
           setMessage('')
         }}
       />
       <button type="button" data-testid="find-replace" onClick={replaceOne}>
-        替换
+        {t('replace')}
       </button>
       <button type="button" data-testid="find-replace-all" onClick={replaceAll}>
-        全部替换
+        {t('replaceAll')}
       </button>
       {message !== '' ? <span className="find-msg">{message}</span> : null}
-      {invalidRegex ? <span className="find-msg">无效的正则表达式</span> : null}
+      {invalidRegex ? <span className="find-msg">{t('invalidRegex')}</span> : null}
     </div>
   )
 }

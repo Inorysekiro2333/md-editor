@@ -19,6 +19,12 @@ import { Modal } from './ui/Modal'
 import { FindReplacePanel } from './ui/FindReplacePanel'
 import { useCaptureKeydown } from './ui/useCaptureKeydown'
 import { SettingsPanel } from './ui/SettingsPanel'
+import { AboutDialog } from './ui/AboutDialog'
+import { FormatToolbar } from './ui/FormatToolbar'
+import { SidebarToggle } from './ui/SidebarToggle'
+import { StatusBar } from './ui/StatusBar'
+import { t } from './i18n'
+import type { FormatCommandArgs, FormatCommandName } from '@md-editor/editor'
 import { isAssetExt } from '../../../electron/shared/asset'
 import type { AppSettings, ThemeId } from '../../../electron/shared/settings'
 import type { WorkspaceNode } from './bridge'
@@ -51,7 +57,7 @@ function removePathFromSet(paths: ReadonlySet<string>, path: string): ReadonlySe
 }
 
 function tabTitle(path: string | null): string {
-  if (path === null) return '未命名.md'
+  if (path === null) return t('unnamed')
   const segments = path.split(/[\\/]/)
   return segments[segments.length - 1] ?? path
 }
@@ -114,7 +120,7 @@ export function App() {
   const externalNotice = useAppStore((state) => state.externalNotice)
   const mode = useAppStore((state) => state.mode)
   const setMode = useAppStore((state) => state.setMode)
-  const [status, setStatus] = useState('未打开文件')
+  const [status, setStatus] = useState(t('statusNoFile'))
   const [editorReady, setEditorReady] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
   const [cursorOffset, setCursorOffset] = useState<number | null>(null)
@@ -125,6 +131,8 @@ export function App() {
   const [findOpen, setFindOpen] = useState(false)
   const [settings, setSettingsState] = useState<AppSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   // Ruling-7：上次快照时是否存在 dirty doc；全库转干净后需删快照。
   const hadDirtyRef = useRef(false)
   // MdDocument 是可变对象，脏变化不会触发 zustand；靠 tick 重渲染读取 isDirty。
@@ -132,6 +140,7 @@ export function App() {
   const [info, setInfo] = useState<{
     version: string
     electron: string
+    chromium: string
     hasCliOpen: boolean
   } | null>(null)
   const [workspaceNodes, setWorkspaceNodes] = useState<WorkspaceNode[] | null>(null)
@@ -253,13 +262,13 @@ export function App() {
     if (path === null) {
       // 裁定问题④：未命名文档粘贴图片直接内嵌 data URI，不强制先保存；
       // Buffer 走 onMarkdownChange 标脏，保存时不自动改写（R1 铁律）。
-      setStatus('已插入内嵌图片')
+      setStatus(t('statusImageInserted'))
       return toInlineDataUri(mime, base64)
     }
     const ext = ASSET_EXT_BY_MIME[mime]
     if (ext === undefined) {
-      setStatus('不支持的图片格式')
-      throw new Error('不支持的图片格式')
+      setStatus(t('statusUnsupportedImage'))
+      throw new Error(t('statusUnsupportedImage'))
     }
     try {
       const rel = await ipc.saveAsset(path, base64, ext)
@@ -319,11 +328,11 @@ export function App() {
       chosen = await ipc.showOpenDialog()
     } catch (error) {
       console.error('[app] open dialog failed', error)
-      setStatus('打开失败，请重试')
+      setStatus(t('statusOpenFailed'))
       return
     }
     if (chosen === null) {
-      setStatus('已取消打开')
+      setStatus(t('statusOpenCancelled'))
       return
     }
     await openFile(chosen)
@@ -340,7 +349,7 @@ export function App() {
     })
     useAppStore.getState().openDoc(doc)
     setExternalNotice(null)
-    setStatus('已新建未命名笔记')
+    setStatus(t('statusNewNote'))
   }, [setExternalNotice])
 
   const saveAs = useCallback(async () => {
@@ -354,11 +363,11 @@ export function App() {
       chosen = await ipc.showSaveDialog(tabTitle(current.path))
     } catch (error) {
       console.error('[app] save dialog failed', error)
-      setStatus('另存为失败，请重试')
+      setStatus(t('statusSaveAsFailed'))
       return
     }
     if (chosen === null) {
-      setStatus('已取消另存为')
+      setStatus(t('statusSaveAsCancelled'))
       return
     }
     // 另存为是显式落盘意图：即使零编辑（新建未命名笔记）也要写出文件。
@@ -377,7 +386,7 @@ export function App() {
       void invalidateSnapshotIfClean()
     } catch (error) {
       console.error('[app] saveAs failed', error)
-      setStatus('保存失败，请重试')
+      setStatus(t('statusSaveFailed'))
     }
   }, [invalidateSnapshotIfClean])
 
@@ -389,14 +398,18 @@ export function App() {
     sourceHandle.current?.flushNow()
     let chosen: string | null
     try {
-      chosen = await ipc.showSaveDialog(pdfExportName(current.path), PDF_SAVE_FILTERS, '导出 PDF')
+      chosen = await ipc.showSaveDialog(
+        pdfExportName(current.path),
+        PDF_SAVE_FILTERS,
+        t('exportPdfTitle'),
+      )
     } catch (error) {
       console.error('[app] export pdf dialog failed', error)
-      setStatus('导出 PDF 失败，请重试')
+      setStatus(t('statusExportPdfFailed'))
       return
     }
     if (chosen === null) {
-      setStatus('已取消导出 PDF')
+      setStatus(t('statusExportPdfCancelled'))
       return
     }
     try {
@@ -424,15 +437,15 @@ export function App() {
       chosen = await ipc.showSaveDialog(
         htmlExportName(current.path),
         HTML_SAVE_FILTERS,
-        '导出 HTML',
+        t('exportHtmlTitle'),
       )
     } catch (error) {
       console.error('[app] export html dialog failed', error)
-      setStatus('导出 HTML 失败，请重试')
+      setStatus(t('statusExportHtmlFailed'))
       return
     }
     if (chosen === null) {
-      setStatus('已取消导出 HTML')
+      setStatus(t('statusExportHtmlCancelled'))
       return
     }
     try {
@@ -461,18 +474,18 @@ export function App() {
     editorHandle.current?.flushNow()
     const bytes = current.bytesForSave()
     if (bytes === null) {
-      setStatus('无改动，已跳过写盘')
+      setStatus(t('statusNoChangesSkipped'))
       return
     }
     try {
       const credential = await ipc.writeFile(current.path, bytes)
       current.markSaved(credential)
       bumpDirtyTick((tick) => tick + 1)
-      setStatus('已保存')
+      setStatus(t('statusSaved'))
       void invalidateSnapshotIfClean()
     } catch (error) {
       console.error('[app] save failed', error)
-      setStatus('保存失败，请重试')
+      setStatus(t('statusSaveFailed'))
     }
   }, [invalidateSnapshotIfClean, saveAs])
 
@@ -535,6 +548,7 @@ export function App() {
         if (!cancelled) {
           applyTheme(settings.themeId)
           setSettingsState(settings)
+          setSidebarCollapsed(settings.sidebarCollapsed)
         }
       })
       .catch(() => undefined)
@@ -587,7 +601,7 @@ export function App() {
           const target = useAppStore.getState().docs.find((doc) => doc.path === snapshot.activePath)
           if (target !== undefined) useAppStore.getState().setActiveDoc(target.id)
         }
-        setStatus('已恢复未保存的会话')
+        setStatus(t('statusSessionRestored'))
       } catch (error) {
         console.error('[app] session restore failed', error)
       }
@@ -648,6 +662,8 @@ export function App() {
         void exportPdfFromMenu()
       } else if (cmd === 'export-html') {
         void exportHtmlFromMenu()
+      } else if (cmd === 'about') {
+        setAboutOpen(true)
       }
     })
     return unsubscribe
@@ -676,7 +692,7 @@ export function App() {
           if (isActive) {
             setReloadToken((token) => token + 1)
             setExternalNotice(null)
-            setStatus('已自动重载外部修改')
+            setStatus(t('statusAutoReloaded'))
           }
           void invalidateSnapshotIfClean()
         } catch (error) {
@@ -702,7 +718,7 @@ export function App() {
         current.setExternalText(content.text, content.base64)
         setReloadToken((token) => token + 1)
         setExternalNotice(null)
-        setStatus('已自动重载外部修改')
+        setStatus(t('statusAutoReloaded'))
         void invalidateSnapshotIfClean()
       } catch (error) {
         console.error('[app] reload external change failed', error)
@@ -720,8 +736,8 @@ export function App() {
     const path = activePendingExternalPath
     if (path === null) return
     removePendingExternalPath(path)
-    setExternalNotice('已保留我的修改；请尽快另存或关闭该文件')
-    setStatus('已保留我的修改；请尽快另存或关闭该文件')
+    setExternalNotice(t('statusKeptMyChanges'))
+    setStatus(t('statusKeptMyChanges'))
   }, [activePendingExternalPath, removePendingExternalPath, setExternalNotice])
 
   useEffect(() => {
@@ -768,6 +784,17 @@ export function App() {
     }
   }, [])
 
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      void ipc
+        .getSettings()
+        .then((current) => ipc.setSettings({ ...current, sidebarCollapsed: next }))
+        .catch(() => undefined)
+      return next
+    })
+  }, [])
+
   const changeTheme = useCallback((themeId: ThemeId) => {
     setSettingsState((prev) => {
       if (prev === null) return prev
@@ -794,6 +821,13 @@ export function App() {
     }
     if (!(event.ctrlKey || event.metaKey)) return
     const key = event.key.toLowerCase()
+    if (key === '\\') {
+      // Ctrl+\：折叠/展开侧栏（window capture 层统一快捷键语义）
+      event.preventDefault()
+      event.stopPropagation()
+      toggleSidebar()
+      return
+    }
     if (key === 'f') {
       // capture 阶段拦截 Ctrl+F：浏览器/编辑器默认查找不生效，统一开工作台面板
       event.preventDefault()
@@ -815,18 +849,17 @@ export function App() {
 
   return (
     <main className="workspace">
-      <header className="chrome">
-        <span data-testid="status">
-          {activeDoc?.isDirty === true ? '未保存 · ' : ''}
-          {status}
-        </span>
-        <button type="button" data-testid="mode-toggle" onClick={toggleMode}>
-          编辑模式：{mode === 'wysiwyg' ? '所见即所得' : '源码'}
-        </button>
-        <button type="button" data-testid="open-settings" onClick={() => setSettingsOpen(true)}>
-          设置
-        </button>
-      </header>
+      {activeDoc !== null ? (
+        <FormatToolbar
+          disabled={!editorReady}
+          onCommand={(name: FormatCommandName, args?: FormatCommandArgs) => {
+            const handle =
+              mode === 'wysiwyg' ? editorHandle.current : (sourceHandle.current ?? undefined)
+            handle?.runCommand(name, args)
+          }}
+        />
+      ) : null}
+
       <nav className="tabbar">
         {docs.map((doc) => (
           <div
@@ -860,21 +893,37 @@ export function App() {
           onReplaceAll={replaceRange}
         />
       ) : null}
-      <p data-testid="app-info">
-        {info === null ? '加载中…' : `md-editor ${info.version} · Electron ${info.electron}`}
-      </p>
       {externalNotice !== null ? <p className="notice">{externalNotice}</p> : null}
       <div className="main-row">
-        <aside className="sidebar">
-          {workspaceNodes === null ? (
-            <p className="sidebar-empty">打开文件夹以浏览 Markdown 文件</p>
-          ) : (
-            <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
-          )}
+        <aside
+          data-testid="file-sidebar"
+          className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
+        >
+          <div className="sidebar-header">
+            <SidebarToggle collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+          </div>
+          {!sidebarCollapsed ? (
+            workspaceNodes === null ? (
+              <button
+                type="button"
+                className="sidebar-empty"
+                data-testid="sidebar-empty"
+                onClick={() => {
+                  void ipc.showOpenDirDialog().then((dir) => {
+                    if (dir !== null) return ipc.openWorkspace(dir)
+                  })
+                }}
+              >
+                {t('sidebarEmpty')}
+              </button>
+            ) : (
+              <FileTree nodes={workspaceNodes} onOpenFile={(path) => void openFile(path)} />
+            )
+          ) : null}
         </aside>
         <section className="editor-host" data-editor-ready={editorReady ? 'true' : undefined}>
           {activeDoc === null ? (
-            <p className="placeholder">正在等待文件…</p>
+            <p className="placeholder">{t('editorEmpty')}</p>
           ) : mode === 'wysiwyg' ? (
             <EditorHost
               key={`${activeDoc.id}-${reloadToken}`}
@@ -931,23 +980,27 @@ export function App() {
       </div>
       {pendingClose !== null ? (
         <Modal
-          message={
-            pendingClose.kind === 'window'
-              ? '有未保存的更改，确定放弃更改并关闭窗口吗？'
-              : '该文档有未保存的更改，确定放弃更改并关闭吗？'
-          }
-          confirmLabel="放弃更改并关闭"
-          cancelLabel="取消"
+          message={pendingClose.kind === 'window' ? t('modalDiscardWindow') : t('modalDiscardTab')}
+          confirmLabel={t('discardAndClose')}
+          cancelLabel={t('cancel')}
           onConfirm={confirmPendingClose}
           onCancel={() => setPendingClose(null)}
         />
       ) : activePendingExternalPath !== null ? (
         <Modal
-          message="文件已被外部修改，请选择重载外部内容或保留我的修改"
-          confirmLabel="重载外部内容"
-          cancelLabel="保留我的修改"
+          message={t('modalExternalModified')}
+          confirmLabel={t('reloadExternal')}
+          cancelLabel={t('keepMyChanges')}
           onConfirm={confirmExternalReload}
           onCancel={cancelExternalKeep}
+        />
+      ) : null}
+      {aboutOpen && info !== null ? (
+        <AboutDialog
+          version={info.version}
+          electron={info.electron}
+          chromium={info.chromium}
+          onClose={() => setAboutOpen(false)}
         />
       ) : null}
       {settingsOpen && settings !== null ? (
@@ -959,6 +1012,13 @@ export function App() {
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
+      <StatusBar
+        status={status}
+        dirty={activeDoc?.isDirty === true}
+        mode={mode}
+        onToggleMode={toggleMode}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
     </main>
   )
 }

@@ -35,6 +35,12 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
           accelerator: 'CmdOrCtrl+O',
           click: clickFor(deps, 'open'),
         },
+        {
+          id: 'menu-open-dir',
+          label: '打开文件夹...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: clickFor(deps, 'open-dir'),
+        },
         { type: 'separator' },
         {
           id: 'menu-save-as',
@@ -59,7 +65,21 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
         { id: 'menu-exit', label: '退出', click: () => deps.onClose() },
       ],
     },
-    { label: '编辑', role: 'editMenu' },
+    {
+      // TODO(M5.x): 菜单 i18n 依赖主进程语言设置；当前按产品定位硬编码 zh-CN，
+      // 后续由设置项驱动 buildTemplate(locale) 统一替换 label。
+      label: '编辑',
+      submenu: [
+        { label: '撤销', role: 'undo' },
+        { label: '重做', role: 'redo' },
+        { type: 'separator' },
+        { label: '剪切', role: 'cut' },
+        { label: '复制', role: 'copy' },
+        { label: '粘贴', role: 'paste' },
+        { type: 'separator' },
+        { label: '全选', role: 'selectAll' },
+      ],
+    },
     {
       label: '视图',
       submenu: [
@@ -71,6 +91,15 @@ export function buildTemplate(deps: MenuDeps): MenuItemConstructorOptions[] {
         },
       ],
     },
-    { label: '帮助', submenu: [{ role: 'about' }] },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          id: 'menu-about',
+          label: '关于 md-editor',
+          click: clickFor(deps, 'about'),
+        },
+      ],
+    },
   ]
 }

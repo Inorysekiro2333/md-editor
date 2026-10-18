@@ -13,7 +13,7 @@ test('new untitled note tab appears and Ctrl+S saves it via save-as', async () =
     env: { ...process.env, MD_EDITOR_USER_DATA: userData },
   })
   const window = await app.firstWindow()
-  await expect(window.locator('[data-testid="app-info"]')).toBeVisible()
+  await expect(window.locator('[data-testid="status"]')).toBeVisible()
 
   // 主进程内 stub 原生保存对话框：dialog 是共享单例对象，替换属性即可拦截。
   // 同时计数：回归（bug#3）单次 Ctrl+S 只允许弹一次保存对话框。

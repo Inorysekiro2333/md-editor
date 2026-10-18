@@ -10,7 +10,12 @@ import type {
 } from './bridge'
 
 export interface Ipc {
-  getAppInfo(): Promise<{ version: string; electron: string; hasCliOpen: boolean }>
+  getAppInfo(): Promise<{
+    version: string
+    electron: string
+    chromium: string
+    hasCliOpen: boolean
+  }>
   saveSession(payload: string): Promise<void>
   loadSession(): Promise<SessionSnapshot | null>
   removeSession(): Promise<void>
@@ -34,6 +39,7 @@ export interface Ipc {
     title?: string,
   ): Promise<string | null>
   showOpenDialog(): Promise<string | null>
+  showOpenDirDialog(): Promise<string | null>
   exportPdf(targetPath: string, html?: string): Promise<string>
   exportHtml(targetPath: string, html: string): Promise<string>
   readAssetFile(docPath: string, src: string): Promise<FileContent>
@@ -66,6 +72,7 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     showSaveDialog: (defaultName, filters, title) =>
       bridge.showSaveDialog(defaultName, filters, title),
     showOpenDialog: () => bridge.showOpenDialog(),
+    showOpenDirDialog: () => bridge.showOpenDirDialog(),
     exportPdf: (targetPath, html) => bridge.exportPdf(targetPath, html),
     exportHtml: (targetPath, html) => bridge.exportHtml(targetPath, html),
     readAssetFile: (docPath, src) => bridge.readAssetFile(docPath, src),

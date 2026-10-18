@@ -19,7 +19,7 @@ import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
 import { toggleFullscreen } from './menu'
-import { showOpenDialog, showSaveDialog, type SaveDialogFilter } from './dialogs'
+import { showOpenDialog, showOpenDirDialog, showSaveDialog, type SaveDialogFilter } from './dialogs'
 import { loadSettings, saveSettings } from './settings'
 import { exportPdfTo } from './exporter'
 import { mergeSettings } from '../shared/settings'
@@ -50,6 +50,7 @@ export function registerIpc(
   ipcMain.handle(CHANNELS.appInfo, () => ({
     version: app.getVersion(),
     electron: process.versions.electron ?? '',
+    chromium: process.versions.chrome ?? '',
     hasCliOpen,
   }))
 
@@ -142,6 +143,7 @@ export function registerIpc(
   )
 
   ipcMain.handle(CHANNELS.openDialog, () => showOpenDialog())
+  ipcMain.handle(CHANNELS.openDirDialog, () => showOpenDirDialog())
 
   ipcMain.handle(CHANNELS.toggleFullscreen, () => {
     toggleFullscreen(getWindow())
@@ -202,6 +204,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.toggleFullscreen)
       ipcMain.removeHandler(CHANNELS.saveDialog)
       ipcMain.removeHandler(CHANNELS.openDialog)
+      ipcMain.removeHandler(CHANNELS.openDirDialog)
       ipcMain.removeHandler(CHANNELS.settingsGet)
       ipcMain.removeHandler(CHANNELS.settingsSet)
       ipcMain.removeHandler(CHANNELS.exportPdf)

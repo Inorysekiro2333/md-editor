@@ -43,7 +43,7 @@ packages/
   export/             导出管线（PDF 走 printToPDF、HTML 自包含）
   theming/            主题
 e2e/                  Playwright 用例
-docs/                 补充文档（当前 8 份核心文档位于仓库根目录；AGENTS/DESIGN/TODO 按约定必须留在根目录）
+docs/                 补充文档（核心文档位于仓库根目录；本地 AI 协作文档在 local/，不入库）
 ```
 
 依赖方向只允许向下：`app → editor / export / theming`；`editor`、`export`、`theming` 之间互不依赖，且都不得依赖 `app`。
@@ -91,6 +91,7 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [ ] 编辑后的序列化差异逐条登记在 `roundtrip.test.ts`；未登记的差异视为回归。
 - [x] 表格行列增删 / 列宽拖拽的序列化差异登记（M2b，2026-10-17）：单测在 `packages/editor/src/table-commands.test.ts`（单元格 padding、空行单元格 `|    |    |`、新行继承列对齐、新列复制相邻列对齐 `:-`），e2e 在 `e2e/table.spec.ts`（colwidth 不序列化、列宽拖拽不改 Buffer / 不标脏，零净变更保存跳过写盘）。
 - [x] 查找替换偏离 ADR-6 的登记位置 = component-api.md §4.0 + finder 单测（`packages/app/src/find/finder.test.ts`）；契约另在 component-api.md 4.2 节指引（M3，2026-10-17）。
+- [x] 源码格式命令规范化登记（M5，2026-10-18）：空行转标题产出裸 ATX 标记（`#`，无尾随空格）；bold/italic/strikethrough wrap 前剥离选区内既有同款定界符（部分选区不复制 `**`）。用例：`packages/editor/src/source-format-commands.test.ts`。
 
 ### R2 — 中文 IME（手测）
 
@@ -99,6 +100,7 @@ docs/                 补充文档（当前 8 份核心文档位于仓库根目�
 - [x] 标题 / 列表项内拼音连打、选字、撤销。——自动化覆盖：compositionstart → 连续 compositionupdate（连打）→ 文本提交 → Ctrl+Z 撤销，标题/列表项均通过（e2e/ime.spec.ts 6 例全绿）。「选字」为模拟提交最终候选文本，未经过真实候选窗。
 - [x] 表格单元格内 IME + 回车确认候选。——自动化覆盖：单元格内组合 + 提交通过。「回车确认候选」无法由 CDP 等价模拟（真实 IME 会吞掉 Enter，不产生按键事件），故以文本提交代替。
 - [x] IME 组合中不允许触发输入规则（如拼音中含 `#` 不应建标题）。——自动化覆盖：组合文本含 `#`、`-`、`1.` 提交后仍为段落文本，未触发标题/列表输入规则。
+- [ ] mark input rules IME 组合场景（如加粗/删除线规则在组合中的行为）：待后续批次用 e2e/ime.spec.ts 现有 CDP composition 机制补自动化用例。
 - [ ] （公式块 IME 属 v1.1，v1 不检查。）
 - [x] 代码块 IME（M2 结论 2026-10-16）：自动化覆盖 e2e/ime.spec.ts「code block: pinyin burst + commit stays inside fence」全绿——CDP composition 连打 + 提交停留在 fence 内，未溢出到块外；修复代码块 NodeView 焦点路由（PM 选区进入代码块时把 DOM 焦点交给 CM，否则 IME 文本丢失）。
 - [x] （2026-10-18 人工补测通过）真人微软拼音实测：真实候选窗交互、候选确认按键、组合中 Ctrl+Z 回退到拼音等 IME 内部行为（含代码块内，M2 起）。—— pnpm dev 环境用户真人验证通过，M1 R2 遗留清零。

@@ -68,6 +68,24 @@ describe('ipc open dialog channel', () => {
   })
 })
 
+describe('ipc app info channel', () => {
+  it('returns app version plus electron/chromium versions', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.appInfo) as IpcHandler
+    expect(handler).toBeDefined()
+    const info = (await handler(null)) as {
+      version: string
+      electron: string
+      chromium: string
+      hasCliOpen: boolean
+    }
+    expect(info).toMatchObject({ version: '0.0.0' })
+    expect(typeof info.electron).toBe('string')
+    expect(typeof info.chromium).toBe('string')
+    expect(info.hasCliOpen).toBe(false)
+  })
+})
+
 describe('ipc watcher registry', () => {
   beforeEach(() => {
     registered.clear()
@@ -167,7 +185,11 @@ describe('ipc settings channels', () => {
     const handler = registered.get(CHANNELS.settingsGet) as IpcHandler
     expect(handler).toBeDefined()
 
-    const stored = { themeId: 'github-dark', export: { pdf: { printBackground: true } } }
+    const stored = {
+      themeId: 'github-dark',
+      sidebarCollapsed: false,
+      export: { pdf: { printBackground: true } },
+    }
     settingsMocks.loadSettings.mockReturnValue(stored)
     expect(handler(null)).toEqual(stored)
     expect(settingsMocks.loadSettings).toHaveBeenCalledWith(join('C:/userData', 'settings.json'))
@@ -178,7 +200,11 @@ describe('ipc settings channels', () => {
     const handler = registered.get(CHANNELS.settingsSet) as IpcHandler
     expect(handler).toBeDefined()
 
-    const effective = { themeId: 'paper-serif', export: { pdf: { printBackground: true } } }
+    const effective = {
+      themeId: 'paper-serif',
+      sidebarCollapsed: false,
+      export: { pdf: { printBackground: true } },
+    }
     settingsMocks.saveSettings.mockImplementation(() => {})
     const result = await handler(null, { themeId: 'paper-serif', rogue: 1 })
     expect(result).toEqual(effective)
