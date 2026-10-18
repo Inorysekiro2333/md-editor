@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { isAssetExt } from '../shared/asset'
-import { CHANNELS } from '../shared/channels'
+import { CHANNELS, type MenuCommand } from '../shared/channels'
 
 export interface AppInfo {
   version: string
@@ -65,6 +65,8 @@ export interface MdEditorBridge {
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
+  toggleFullscreen(): Promise<void>
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
 }
 
 const bridge: MdEditorBridge = {
@@ -124,6 +126,14 @@ const bridge: MdEditorBridge = {
     ipcRenderer.on(CHANNELS.openFile, listener)
     return () => {
       ipcRenderer.removeListener(CHANNELS.openFile, listener)
+    }
+  },
+  toggleFullscreen: () => ipcRenderer.invoke(CHANNELS.toggleFullscreen) as Promise<void>,
+  onMenuCommand: (handler) => {
+    const listener = (_event: unknown, cmd: MenuCommand): void => handler(cmd)
+    ipcRenderer.on(CHANNELS.menuCommand, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.menuCommand, listener)
     }
   },
   onCloseGuardRequest: (handler) => {

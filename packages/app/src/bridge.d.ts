@@ -63,7 +63,11 @@ export interface MdEditorBridge {
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
+  toggleFullscreen(): Promise<void>
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
 }
+
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf'
 
 declare global {
   interface Window {

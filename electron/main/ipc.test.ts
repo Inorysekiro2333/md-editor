@@ -90,3 +90,25 @@ describe('ipc watcher registry', () => {
     expect(onConfirmClose).toHaveBeenCalledTimes(1)
   })
 })
+describe('ipc fullscreen channel', () => {
+  it('toggleFullscreen delegates to the focused window', async () => {
+    await register()
+    const handler = registered.get(CHANNELS.toggleFullscreen) as IpcHandler
+    expect(handler).toBeDefined()
+
+    let full = false
+    Object.assign(windowStub, {
+      isDestroyed: () => false,
+      isFullScreen: () => full,
+      setFullScreen: (flag: boolean) => {
+        full = flag
+      },
+    })
+
+    handler(null)
+    expect(full).toBe(true)
+    handler(null)
+    expect(full).toBe(false)
+    expect(windowStub.webContents.send).not.toHaveBeenCalledWith(CHANNELS.toggleFullscreen)
+  })
+})

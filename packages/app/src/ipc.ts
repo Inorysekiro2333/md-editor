@@ -1,3 +1,4 @@
+import type { MenuCommand } from './bridge'
 import type {
   FileContent,
   MdEditorBridge,
@@ -25,6 +26,8 @@ export interface Ipc {
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void
   onCloseGuardRequest(handler: () => void): () => void
+  toggleFullscreen(): Promise<void>
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void
 }
 
 export function createIpc(bridge: MdEditorBridge): Ipc {
@@ -46,6 +49,8 @@ export function createIpc(bridge: MdEditorBridge): Ipc {
     onExternalModified: (handler) => bridge.onExternalModified(handler),
     onOpenFile: (handler) => bridge.onOpenFile(handler),
     onCloseGuardRequest: (handler) => bridge.onCloseGuardRequest(handler),
+    toggleFullscreen: () => bridge.toggleFullscreen(),
+    onMenuCommand: (handler) => bridge.onMenuCommand(handler),
   }
 }
 

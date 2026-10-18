@@ -15,6 +15,10 @@ export const CHANNELS = {
   sessionSave: 'session:save',
   sessionLoad: 'session:load',
   sessionRemove: 'session:remove',
+  menuCommand: 'app:menu-command',
+  toggleFullscreen: 'window:toggle-fullscreen',
 } as const
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS]
+
+export type MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf'

@@ -532,6 +532,12 @@ export function App() {
         setFindOpen(false)
         return
       }
+      if (event.key === 'F11') {
+        // F11 双通道之一：菜单 accelerator 被主进程消费时不会到达这里，二者幂等。
+        event.preventDefault()
+        void ipc.toggleFullscreen()
+        return
+      }
       if (!(event.ctrlKey || event.metaKey)) return
       const key = event.key.toLowerCase()
       if (key === 'f') {

@@ -6,6 +6,7 @@ import { isAssetExt, readFile, saveAssetFile, writeAtomic, type WriteCredential 
 import { createFileWatcher, createWatcherRegistry } from './watcher'
 import { createWorkspaceWatcher, walkWorkspace } from './workspace'
 import { loadSession, removeSession, saveSession } from './session'
+import { toggleFullscreen } from './menu'
 import { join } from 'node:path'
 
 export interface IpcRegistry {
@@ -118,6 +119,10 @@ export function registerIpc(
     confirmClose()
   })
 
+  ipcMain.handle(CHANNELS.toggleFullscreen, () => {
+    toggleFullscreen(getWindow())
+  })
+
   return {
     async dispose() {
       await fileWatchers.enqueue(async () => {
@@ -137,6 +142,7 @@ export function registerIpc(
       ipcMain.removeHandler(CHANNELS.sessionSave)
       ipcMain.removeHandler(CHANNELS.sessionLoad)
       ipcMain.removeHandler(CHANNELS.sessionRemove)
+      ipcMain.removeHandler(CHANNELS.toggleFullscreen)
     },
   }
 }
