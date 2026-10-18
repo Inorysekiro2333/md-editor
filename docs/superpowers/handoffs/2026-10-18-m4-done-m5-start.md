@@ -40,15 +40,15 @@ M0–M4 全部完成并合入 main（HEAD `1995cb5`，PR #3）；**M5（发布�
 
 ## 3. 已知偏离 / 悬置（M5 输入）
 
-| # | 主题 | 状态 |
-|---|------|------|
-| 1 | 全局快捷键注册表统一（Ctrl+/ 仍走 renderer capture） | 持续性任务，M5 顺手项 |
-| 2 | theme-check 9 条硬编码豁免迁移 | 待 `--md-fg-muted` 别名变量 |
-| 3 | asset:save magic bytes 校验（M1 登记的 M4 项） | **未做**，M5 必做 |
-| 4 | packages/app 运行时导入 electron/shared 的 isAssetExt（无 Node 依赖） | M5 复核依赖方向 |
-| 5 | R5 性能：M3 复测冷启动/内存（≤300MB 口径）从未补测 | M5 验收必须 |
-| 6 | renderer 1.99MB（M4 后 build:app），未做分包优化 | 视 M5 性能结果决定 |
-| 7 | Ctrl+End 已修；M4 e2e 曾暴露 HMR 中间态假错（`imageViewPlugin is not defined`） | 已消除，无遗留 |
+| #   | 主题                                                                            | 状态                        |
+| --- | ------------------------------------------------------------------------------- | --------------------------- |
+| 1   | 全局快捷键注册表统一（Ctrl+/ 仍走 renderer capture）                            | 持续性任务，M5 顺手项       |
+| 2   | theme-check 9 条硬编码豁免迁移                                                  | 待 `--md-fg-muted` 别名变量 |
+| 3   | asset:save magic bytes 校验（M1 登记的 M4 项）                                  | **未做**，M5 必做           |
+| 4   | packages/app 运行时导入 electron/shared 的 isAssetExt（无 Node 依赖）           | M5 复核依赖方向             |
+| 5   | R5 性能：M3 复测冷启动/内存（≤300MB 口径）从未补测                              | M5 验收必须                 |
+| 6   | renderer 1.99MB（M4 后 build:app），未做分包优化                                | 视 M5 性能结果决定          |
+| 7   | Ctrl+End 已修；M4 e2e 曾暴露 HMR 中间态假错（`imageViewPlugin is not defined`） | 已消除，无遗留              |
 
 ## 4. M5 范围（TODO.md M5 节为权威）
 
