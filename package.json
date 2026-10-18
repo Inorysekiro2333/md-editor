@@ -2,6 +2,7 @@
   "name": "md-editor",
   "version": "0.1.0",
   "private": true,
+  "author": "md-editor contributors <md-editor@users.noreply.github.com>",
   "description": "Open-source cross-platform WYSIWYG Markdown editor",
   "main": "./out/main/index.js",
   "packageManager": "pnpm@11.25.0",
