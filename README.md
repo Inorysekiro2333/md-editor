@@ -20,11 +20,11 @@
 
 前往 [Releases](https://github.com/Inorysekiro2333/md-editor/releases) 下载对应平台安装包：
 
-| 平台    | 格式                  |
-| ------- | --------------------- |
-| Windows | NSIS 安装包（`.exe`） |
-| macOS   | DMG                   |
-| Linux   | AppImage / deb        |
+| 平台    | 格式                                |
+| ------- | ----------------------------------- |
+| Windows | NSIS 安装包（`.exe`）               |
+| macOS   | DMG                                 |
+| Linux   | 暂未发布（可自行构建 AppImage/deb） |
 
 > 当前版本为未签名构建（macOS 首次打开需右键 → 打开；Windows SmartScreen 选择「仍要运行」）。
 
