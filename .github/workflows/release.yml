@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -35,7 +35,7 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ env.HAS_APPLE == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ env.HAS_APPLE == 'true' && secrets.APPLE_TEAM_ID || '' }}
       - name: Annotate unsigned release
-        if: ${{ matrix.os == 'ubuntu-latest' && env.HAS_CSC == 'false' }}
+        if: ${{ env.HAS_CSC == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
