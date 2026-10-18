@@ -84,8 +84,21 @@ export interface MdEditorBridge {
   saveAsset(docPath: string, bytesBase64: string, ext: string): Promise<string> // M1 粘贴图片存盘（asset:save）
   onExternalModified(handler: (path: string) => void): () => void
   onOpenFile(handler: (path: string) => void): () => void // app:open-file（--open CLI 触发）
-  exportPdf(html: string, target: string): Promise<void> // 目标形态（M4）
-  exportHtml(content: string, target: string): Promise<void> // 目标形态（M4）
+  // —— 以下为 M4 新增（2026-10-18；AppSettings / ThemeId 见 electron/shared/settings.ts，
+  // MenuCommand = 'new-note' | 'open' | 'save-as' | 'export-pdf' | 'export-html'，见 electron/shared/channels.ts）——
+  toggleFullscreen(): Promise<void> // window:toggle-fullscreen；幂等取反当前全屏状态
+  showSaveDialog(
+    defaultName: string,
+    filters?: Array<{ name: string; extensions: string[] }>,
+    title?: string,
+  ): Promise<string | null> // app:save-dialog；用户取消 → null
+  exportPdf(targetPath: string, html?: string): Promise<string> // app:export-pdf；返回 targetPath；html 缺省 = 空白 fallback 文档
+  exportHtml(targetPath: string, html: string): Promise<string> // app:export-html；返回 targetPath
+  readAssetFile(docPath: string, src: string): Promise<FileContent> // asset:read；HTML 导出内联相对路径图片用，越权路径拒绝
+  onMenuCommand(handler: (cmd: MenuCommand) => void): () => void // app:menu-command；原生菜单/快捷键转发
+  getSettings(): Promise<AppSettings> // settings:get；损坏 JSON 回退默认值
+  setSettings(next: AppSettings): Promise<AppSettings> // settings:set；主进程白名单 merge → 原子写 → 返回生效值并广播
+  onSettingsChanged(handler: (settings: AppSettings) => void): () => void // settings:changed
 }
 
 declare global {
@@ -102,8 +115,8 @@ declare global {
 
 ### 2.2 通道与事件命名
 
-- invoke 通道：`域:动作`。M0 已实现：`app:info` / `doc:read` / `doc:write` / `watch:file`；`export:pdf` / `export:html` 为目标形态（M4）。
-- 主进程 → 渲染进程事件。M0 已实现：`app:open-file`（`path: string`，`--open` CLI 触发）、`fs:external-modified`；`menu:command` 为目标形态（M3）。
+- invoke 通道：`域:动作`。M0 已实现：`app:info` / `doc:read` / `doc:write` / `watch:file`；M3：`watch:unwatch` / `workspace:*` / `session:*` / `app:confirm-close`；M4：`app:save-dialog` / `window:toggle-fullscreen` / `settings:get|set` / `app:export-pdf` / `app:export-html` / `asset:read`。
+- 主进程 → 渲染进程事件。已实现：`app:open-file`（`path: string`，`--open` CLI 触发）、`fs:external-modified`（M0）；`app:close-guard` / `workspace:tree` / `workspace:update`（M3）；`app:menu-command` / `settings:changed`（M4）。
 
 ## 3. `packages/editor`
 
@@ -484,63 +497,92 @@ function visibleRange(
 
 ## 5. 导出管线（`packages/export`）
 
+（M4 已实现，2026-10-18；提交 43dd618 / 44796e3）
+
 ```ts
-export interface ExportInput {
-  markdown: string
-  themeCss?: string // 内联主题
-  assetResolver?: (src: string) => Promise<Uint8Array | null>
+// packages/export/src/html.ts
+export interface StandaloneHtmlOptions {
+  /** 主题 CSS 完整文本（packages/theming 的 themeCss(id) 产出），内联进 <style>。 */
+  themeCss: string
+  inlineImages: boolean
+  title: string
+  /** 相对路径图片读取回调：返回 data URL；null = 保留原 src（缺失/越权/读取失败）。 */
+  inlineImage?: (src: string) => Promise<string | null>
 }
 
-export type ExportFormat = 'pdf' | 'html' | 'image' | 'docx'
+/** Markdown → 自包含 HTML：remark-parse + gfm + rehype-stringify（与大纲/索引同栈，
+ * 不是新编辑内核）；<style> 内联主题、CSP meta 禁脚本、<title>。PDF 与 HTML 导出共用。 */
+export async function buildStandaloneHtml(
+  buffer: string,
+  opts: StandaloneHtmlOptions,
+): Promise<string>
 
-export interface ExportPipeline {
-  readonly format: ExportFormat
-  run(input: ExportInput, target: string): Promise<void>
-}
-
-export const exporters = new Map<ExportFormat, ExportPipeline>()
+// packages/export/src/markdown.ts
+export async function markdownToHtml(buffer: string): Promise<string> // 纯 Markdown→HTML（无 <style>/CSP 包裹）
 ```
 
-- `pdf`（v1）：渲染进程拼出自包含 HTML → `window.mdEditor.exportPdf()` → 主进程 `webContents.printToPDF()`，**静默导出，无需 headless Chromium**。
-- `html`（v1）：渲染进程直接产出单文件内容 → `window.mdEditor.exportHtml()`。
-- `image` / `docx`：v1.1（长图走 `capturePage`；docx 依赖本机 pandoc）。
+- `inlineImages=true` 时仅处理文件系统相对路径图片（协议 / `//` / `#` 开头一律不内联），经 `inlineImage` 回调（App 侧走 `asset:read`）转 base64 data URL。
+- `pdf`（v1）：`buildStandaloneHtml` → `exportPdf(targetPath, html)` → 主进程写临时 `.html` 到 `userData/tmp`（data: URL 有 ~2MB 截断风险，不用）→ 隐藏窗口（sandbox:true）`printToPDF({ printBackground: settings.export.pdf.printBackground, margins: 0.4×4 })` → `writeAtomic` 落盘，临时文件用完即删。
+- `html`（v1）：`buildStandaloneHtml` → `exportHtml(targetPath, html)` → 主进程 `writeAtomic`（≤ `EXPORT_HTML_MAX_BYTES` 守卫）。
+- 导出不改 Buffer、不标脏；`image` / `docx`：v1.1（长图走 `capturePage`；docx 依赖本机 pandoc）。
 
 ## 6. 主题（`packages/theming`）
 
-```ts
-export interface ThemeMeta {
-  id: string // 'github-light'
-  name: string
-  appearance: 'light' | 'dark'
-}
+（M4 已实现，2026-10-18；提交 36651dd）
 
-export function listThemes(): ThemeMeta[] // 内置 + 用户目录扫描
-export function loadThemeCss(id: string): string // 返回 CSS 文本，由 app 注入
-export function validateTheme(css: string): ThemeIssue[] // theme:check 与运行时共用
+```ts
+export const THEME_IDS = ['github-light', 'github-dark', 'paper-serif'] as const
+export type ThemeId = (typeof THEME_IDS)[number]
+
+export const THEME_VARIABLES = [
+  '--md-bg',
+  '--md-fg',
+  '--md-accent',
+  '--md-border',
+  '--md-code-bg',
+  '--md-font-serif',
+] as const
+export const THEMES: Record<ThemeId, ThemeVars> // 三主题变量值表（键集合一致，theme:check 校验）
+export function isThemeId(value: unknown): value is ThemeId
+
+export function applyTheme(id: ThemeId): void
+// 变量写 document.documentElement.style + data-theme 属性；未知 id 回退 github-light
+
+export function themeCss(id: ThemeId): string
+// 导出 HTML/PDF 用完整主题 CSS：变量块 + body/标题/链接/代码/引用/表格基础排版
 ```
+
+- 主题 CSS 源文件：`packages/theming/src/themes/{github-light,github-dark,paper-serif}.css`。
+- `scripts/theme-check.mjs` 校验三主题键集合一致 + 核心 CSS（app.css）无未豁免硬编码颜色；豁免 9 条待主题别名变量（如 --md-fg-muted）落地后迁移。
 
 ## 7. IPC 通道与事件表
 
-| 通道 / 事件            | 方向      | payload                         | 说明                                                                                               |
-| ---------------------- | --------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `app:info`             | 渲染 → 主 | —                               | 返回 `{ version, electron, hasCliOpen }`（M3 加 hasCliOpen）                                       |
-| `doc:read`             | 渲染 → 主 | `{ path }`                      | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息）                                          |
-| `doc:write`            | 渲染 → 主 | `{ path, bytesBase64 }`         | 原子写；返回 `WriteCredential`                                                                     |
-| `asset:save`           | 渲染 → 主 | `{ docPath, bytesBase64, ext }` | 写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>`；返回 `assets/xxx.ext` 相对路径（M1 已实现） |
-| `watch:file`           | 渲染 → 主 | `{ path }`                      | 监听单文件（幂等；M3 起多文件并存，配对 `watch:unwatch`）                                          |
-| `app:open-file`        | 主 → 渲染 | `path: string`                  | `--open` CLI 触发（M0 已实现）                                                                     |
-| `fs:external-modified` | 主 → 渲染 | `path: string`                  | 非自身写入的变更                                                                                   |
-| `watch:unwatch`        | 渲染 → 主 | `{ path }`                      | 关闭单文件监听（幂等；M3 已实现）                                                                  |
-| `workspace:open`       | 渲染 → 主 | `{ dir }`                       | 打开工作区：walk 全量 + chokidar 增量（M3 已实现）                                                 |
-| `workspace:tree`       | 主 → 渲染 | `WorkspaceNode[]`               | 工作区全量树（M3 已实现）                                                                          |
-| `workspace:update`     | 主 → 渲染 | `{ added, removed }`            | 100ms 批量增量（M3 已实现）                                                                        |
-| `app:close-guard`      | 主 → 渲染 | —                               | 关窗守卫请求；确认走 `app:confirm-close`（M3 已实现）                                              |
-| `app:confirm-close`    | 渲染 → 主 | —                               | 放弃更改确认 → 放行关窗（M3 已实现）                                                               |
-| `session:save`         | 渲染 → 主 | `string`（JSON ≤ 5MB）          | 原子写 `userData/session.json`（ADR-7，M3 已实现）                                                 |
-| `session:load`         | 渲染 → 主 | —                               | 读快照；缺失/损坏 → `null`（ADR-7，M3 已实现）                                                     |
-| `session:remove`       | 渲染 → 主 | —                               | 删快照；不存在时 no-op（ADR-7，M3 已实现）                                                         |
-| `export:pdf`           | 渲染 → 主 | `{ html, target }`              | `webContents.printToPDF()`（M4 计划）                                                              |
-| `export:html`          | 渲染 → 主 | `{ content, target }`           | 写自包含 HTML（M4 计划）                                                                           |
-| `menu:command`         | 主 → 渲染 | `{ id: string }`                | 原生菜单/快捷键转发（计划项，M3 未实现）                                                           |
+| 通道 / 事件                | 方向      | payload                                                              | 说明                                                                                                |
+| -------------------------- | --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `app:info`                 | 渲染 → 主 | —                                                                    | 返回 `{ version, electron, hasCliOpen }`（M3 加 hasCliOpen）                                        |
+| `doc:read`                 | 渲染 → 主 | `{ path }`                                                           | 返回 `FileContent`（含原始 base64 字节与 EOL/BOM 元信息）                                           |
+| `doc:write`                | 渲染 → 主 | `{ path, bytesBase64 }`                                              | 原子写；返回 `WriteCredential`                                                                      |
+| `asset:save`               | 渲染 → 主 | `{ docPath, bytesBase64, ext }`                                      | 写 `<docDir>/assets/<yyyy-MM-dd-HHmmss>-<rand>.<ext>`；返回 `assets/xxx.ext` 相对路径（M1 已实现）  |
+| `watch:file`               | 渲染 → 主 | `{ path }`                                                           | 监听单文件（幂等；M3 起多文件并存，配对 `watch:unwatch`）                                           |
+| `app:open-file`            | 主 → 渲染 | `path: string`                                                       | `--open` CLI 触发（M0 已实现）                                                                      |
+| `fs:external-modified`     | 主 → 渲染 | `path: string`                                                       | 非自身写入的变更                                                                                    |
+| `watch:unwatch`            | 渲染 → 主 | `{ path }`                                                           | 关闭单文件监听（幂等；M3 已实现）                                                                   |
+| `workspace:open`           | 渲染 → 主 | `{ dir }`                                                            | 打开工作区：walk 全量 + chokidar 增量（M3 已实现）                                                  |
+| `workspace:tree`           | 主 → 渲染 | `WorkspaceNode[]`                                                    | 工作区全量树（M3 已实现）                                                                           |
+| `workspace:update`         | 主 → 渲染 | `{ added, removed }`                                                 | 100ms 批量增量（M3 已实现）                                                                         |
+| `app:close-guard`          | 主 → 渲染 | —                                                                    | 关窗守卫请求；确认走 `app:confirm-close`（M3 已实现）                                               |
+| `app:confirm-close`        | 渲染 → 主 | —                                                                    | 放弃更改确认 → 放行关窗（M3 已实现）                                                                |
+| `session:save`             | 渲染 → 主 | `string`（JSON ≤ 5MB）                                               | 原子写 `userData/session.json`（ADR-7，M3 已实现）                                                  |
+| `session:load`             | 渲染 → 主 | —                                                                    | 读快照；缺失/损坏 → `null`（ADR-7，M3 已实现）                                                      |
+| `session:remove`           | 渲染 → 主 | —                                                                    | 删快照；不存在时 no-op（ADR-7，M3 已实现）                                                          |
+| `app:save-dialog`          | 渲染 → 主 | `defaultName, filters?, title?`                                      | 原生另存为对话框；用户取消 → `null`（M4 已实现）                                                    |
+| `window:toggle-fullscreen` | 渲染 → 主 | —                                                                    | 幂等取反当前全屏状态（M4 已实现）                                                                   |
+| `settings:get`             | 渲染 → 主 | —                                                                    | 读 `userData/settings.json`；损坏 JSON 回退默认值（M4 已实现）                                      |
+| `settings:set`             | 渲染 → 主 | `next: AppSettings`（原始值）                                        | 白名单 merge → 原子写 → 返回生效值并广播 `settings:changed`（M4 已实现）                            |
+| `app:export-pdf`           | 渲染 → 主 | `targetPath, html?`                                                  | 隐藏窗口 printToPDF（printBackground 取自 settings）→ `writeAtomic`；返回 `targetPath`（M4 已实现） |
+| `app:export-html`          | 渲染 → 主 | `targetPath, html`                                                   | `EXPORT_HTML_MAX_BYTES` 守卫 → `writeAtomic`；返回 `targetPath`（M4 已实现）                        |
+| `asset:read`               | 渲染 → 主 | `docPath, src`                                                       | 读文档旁相对路径文件返回 `FileContent`（HTML 导出内联图片；越权拒绝；M4 已实现）                    |
+| `app:menu-command`         | 主 → 渲染 | `'new-note' \| 'open' \| 'save-as' \| 'export-pdf' \| 'export-html'` | 原生菜单/快捷键转发（M4 已实现）                                                                    |
+| `settings:changed`         | 主 → 渲染 | `AppSettings`                                                        | `settings:set` 生效后广播（M4 已实现）                                                              |
 
 命名约定：invoke 通道用 `域:动作`，事件同名规则；通道字符串集中定义在 `electron/shared/channels.ts`，函数名用 camelCase，避免拼写漂移。
