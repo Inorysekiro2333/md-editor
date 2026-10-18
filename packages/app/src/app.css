@@ -60,9 +60,14 @@ body {
 }
 
 .sidebar-empty {
+  border: none;
+  background: none;
   padding: 8px 12px;
-  color: #57606a;
+  font: inherit;
   font-size: 0.8125rem;
+  color: var(--fg-muted, #57606a);
+  text-align: inherit;
+  cursor: pointer;
 }
 
 .file-tree {
