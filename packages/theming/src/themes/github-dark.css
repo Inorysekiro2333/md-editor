@@ -1,4 +1,5 @@
 /* github-dark */
+/* chrome 层（--ui-*）：外壳专用，与 --md-* 文档层并存 */
 [data-theme='github-dark'] {
   --md-bg: #0d1117;
   --md-fg: #e6edf3;
@@ -6,4 +7,13 @@
   --md-border: #30363d;
   --md-code-bg: #161b22;
   --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  --ui-bg: #0d1117;
+  --ui-surface: #161b22;
+  --ui-surface-hover: #21262d;
+  --ui-fg: #e6edf3;
+  --ui-fg-muted: #8b949e;
+  --ui-border: #30363d;
+  --ui-accent: #4493f8;
+  --ui-accent-fg: #0d1117;
+  --ui-danger: #f85149;
 }

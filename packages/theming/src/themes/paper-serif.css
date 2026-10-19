@@ -1,4 +1,5 @@
 /* paper-serif：衬线阅读主题，正文消费 --md-font-serif */
+/* chrome 层（--ui-*）：外壳专用，与 --md-* 文档层并存 */
 [data-theme='paper-serif'] {
   --md-bg: #faf7f2;
   --md-fg: #3b2f2a;
@@ -6,6 +7,15 @@
   --md-border: #e2d8c8;
   --md-code-bg: #f1eade;
   --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif SC', serif;
+  --ui-bg: #fffbec;
+  --ui-surface: #ffffff;
+  --ui-surface-hover: #f6f0dc;
+  --ui-fg: #0f172a;
+  --ui-fg-muted: #475569;
+  --ui-border: #e8e0c9;
+  --ui-accent: #d97706;
+  --ui-accent-fg: #000000;
+  --ui-danger: #dc2626;
 }
 
 [data-theme='paper-serif'] body {
