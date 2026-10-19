@@ -1,6 +1,6 @@
 {
   "name": "md-editor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "author": "md-editor contributors <md-editor@users.noreply.github.com>",
   "description": "Open-source cross-platform WYSIWYG Markdown editor",

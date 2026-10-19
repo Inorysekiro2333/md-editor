@@ -1,4 +1,5 @@
 /* github-light：默认主题 */
+/* chrome 层（--ui-*）：外壳专用，与 --md-* 文档层并存 */
 [data-theme='github-light'] {
   --md-bg: #ffffff;
   --md-fg: #24292f;
@@ -6,4 +7,13 @@
   --md-border: #d0d7de;
   --md-code-bg: #f6f8fa;
   --md-font-serif: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  --ui-bg: #f6f8fa;
+  --ui-surface: #ffffff;
+  --ui-surface-hover: #eff2f5;
+  --ui-fg: #1f2328;
+  --ui-fg-muted: #57606a;
+  --ui-border: #d0d7de;
+  --ui-accent: #0969da;
+  --ui-accent-fg: #ffffff;
+  --ui-danger: #cf222e;
 }

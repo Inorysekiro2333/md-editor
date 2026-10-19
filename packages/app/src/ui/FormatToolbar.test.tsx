@@ -77,4 +77,20 @@ describe('FormatToolbar', () => {
     const bold = container.querySelector<HTMLButtonElement>('.format-toolbar-btn')!
     expect(bold.disabled).toBe(true)
   })
+
+  it('renders inline SVG icons instead of text glyphs', () => {
+    render(vi.fn())
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('.format-toolbar-btn'))
+    expect(buttons.length).toBeGreaterThanOrEqual(8)
+    for (const button of buttons) {
+      const svg = button.querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(svg?.getAttribute('aria-hidden')).toBe('true')
+      expect(svg?.getAttribute('stroke')).toBe('currentColor')
+      expect(svg?.getAttribute('fill')).toBe('none')
+      expect(svg?.getAttribute('stroke-width')).toBe('2')
+      // 不再使用文本字形（B / I / S / ❝ / ▦ 等）
+      expect(button.textContent?.trim()).toBe('')
+    }
+  })
 })

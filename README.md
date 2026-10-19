@@ -1,5 +1,16 @@
 # md-editor
 
+> ## ⚠️ 项目已停止维护（End of Life）
+>
+> 本项目于 **2026-10-19** 发布最终版本 **v1.0.0** 后正式停止维护：
+>
+> - 不再接受功能请求、Bug 修复与安全补丁，不再审查或合并新的 PR；
+> - Issues 将保持开放仅供历史检索，维护者不再回应；
+> - 本项目为纯 vibe coding 练习项目，从未承诺稳定性与安全性，请勿将最终版本用于处理敏感或重要数据；
+> - 如需继续演进，欢迎自行 fork（MIT License）。
+>
+> **This project has reached End of Life. No further maintenance, fixes, or releases are planned.**
+
 开源、跨平台、所见即所得（WYSIWYG）的 Markdown 编辑器，体验对标 Typora：单栏实时渲染、无分栏预览、主题系统、源码模式一键切换。
 
 ![platform](https://img.shields.io/badge/platform-Windows-blue) ![license](https://img.shields.io/badge/license-MIT-green)
@@ -55,10 +66,12 @@ pnpm theme:check    # 主题规范校验
 技术栈：Electron 44 + React 18 + TypeScript + Milkdown 7（ProseMirror/remark）+ CodeMirror 6。
 架构与设计决策、开发规范见仓库内部文档（不入库）。
 
-## 路线图
+## 路线图（已冻结）
 
-- **v1.1**：数学公式（KaTeX）、Mermaid 图表、导出长图 / docx
-- **v2**：插件 API、Wiki 双链、Web 版
+项目已停止维护，以下规划不再实施，仅作历史记录：
+
+- ~~v1.1：数学公式（KaTeX）、Mermaid 图表、导出长图 / docx~~
+- ~~v2：插件 API、Wiki 双链、Web 版~~
 
 ## License
 

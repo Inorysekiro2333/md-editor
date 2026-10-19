@@ -2,12 +2,64 @@ import type { FormatCommandArgs, FormatCommandName } from '@md-editor/editor'
 import { useState } from 'react'
 import { t } from '../i18n'
 
+/**
+ * 工具栏图标（Lucide 风格）：24×24 viewBox 的 stroke path 集合，
+ * 统一渲染为 16px、strokeWidth=2、currentColor 的内联 SVG，禁止文本字形。
+ */
+const ICON_PATHS = {
+  bold: ['M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8'],
+  italic: ['M19 4h-9', 'M14 20H5', 'M15 4 9 20'],
+  strikethrough: ['M16 4H9a3 3 0 0 0-2.83 4', 'M14 12a4 4 0 0 1 0 8H6', 'M4 12h16'],
+  inlineCode: ['m16 18 6-6-6-6', 'm8 6-6 6 6 6'],
+  orderedList: [
+    'M10 6h11',
+    'M10 12h11',
+    'M10 18h11',
+    'M4 6h1v4',
+    'M4 10h2',
+    'M6 18H4c0-1 2-2 2-3s-1-1.5-2-1',
+  ],
+  bulletList: ['M8 6h13', 'M8 12h13', 'M8 18h13', 'M3 6h.01', 'M3 12h.01', 'M3 18h.01'],
+  blockquote: [
+    'M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z',
+    'M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z',
+  ],
+  table: [
+    'M12 3v18',
+    'M3 9h18',
+    'M3 15h18',
+    'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  ],
+} as const
+
+type IconName = keyof typeof ICON_PATHS
+
+function FormatIcon({ name }: { name: IconName }): JSX.Element {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {ICON_PATHS[name].map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  )
+}
+
 interface FormatButton {
   name: FormatCommandName
   label: string
   shortcut?: string
-  glyph: string
-  glyphClass?: string
+  icon: IconName
 }
 
 const BUTTONS: FormatButton[][] = [
@@ -16,36 +68,32 @@ const BUTTONS: FormatButton[][] = [
       name: 'bold',
       label: t('formatBold'),
       shortcut: 'Ctrl+B',
-      glyph: 'B',
-      glyphClass: 'glyph-bold',
+      icon: 'bold',
     },
     {
       name: 'italic',
       label: t('formatItalic'),
       shortcut: 'Ctrl+I',
-      glyph: 'I',
-      glyphClass: 'glyph-italic',
+      icon: 'italic',
     },
     {
       name: 'strikethrough',
       label: t('formatStrike'),
       shortcut: 'Ctrl+Shift+X',
-      glyph: 'S',
-      glyphClass: 'glyph-strike',
+      icon: 'strikethrough',
     },
     {
       name: 'inlineCode',
       label: t('formatInlineCode'),
       shortcut: 'Ctrl+E',
-      glyph: '<>',
-      glyphClass: 'glyph-mono',
+      icon: 'inlineCode',
     },
   ],
   [
-    { name: 'orderedList', label: t('formatOrderedList'), glyph: '1.' },
-    { name: 'bulletList', label: t('formatBulletList'), glyph: '•' },
-    { name: 'blockquote', label: t('formatBlockquote'), glyph: '❝' },
-    { name: 'insertTable', label: t('formatInsertTable'), glyph: '▦' },
+    { name: 'orderedList', label: t('formatOrderedList'), icon: 'orderedList' },
+    { name: 'bulletList', label: t('formatBulletList'), icon: 'bulletList' },
+    { name: 'blockquote', label: t('formatBlockquote'), icon: 'blockquote' },
+    { name: 'insertTable', label: t('formatInsertTable'), icon: 'table' },
   ],
 ]
 
@@ -91,7 +139,7 @@ export function FormatToolbar(props: {
                     isTable ? setTablePickerOpen((open) => !open) : onCommand(button.name)
                   }
                 >
-                  <span className={button.glyphClass ?? ''}>{button.glyph}</span>
+                  <FormatIcon name={button.icon} />
                 </button>
                 {isTable && tablePickerOpen ? (
                   <div
